@@ -1,0 +1,234 @@
+### File test API bằng REST Client (VS Code Extension)
+### Cài đặt extension "REST Client" trong VS Code để sử dụng
+
+### Biến môi trường
+@baseUrl = http://localhost:3000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsInVzZXJuYW1lIjoidGVzdF91c2VyIiwiaWF0IjoxNzA0MDY3MjAwLCJleHAiOjE3MDQxNTM2MDAsImlzcyI6Ik9FTS1FVi1XYXJyYW50eS1TeXN0ZW0iLCJhdWQiOiJ3YXJyYW50eS1hcGkifQ.example
+
+### ===========================================
+### 1. HEALTH CHECK
+### ===========================================
+
+### Kiểm tra trạng thái API Gateway
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+### ===========================================
+### 2. AUTHENTICATION ROUTES (Không cần token)
+### ===========================================
+
+### Đăng ký tài khoản mới
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "password123",
+  "username": "newuser",
+  "fullName": "New User"
+}
+
+### Đăng nhập
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### Làm mới token
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{token}}"
+}
+
+### Đăng xuất
+POST {{baseUrl}}/api/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### ===========================================
+### 3. USER ROUTES (Cần token)
+### ===========================================
+
+### Lấy danh sách users
+GET {{baseUrl}}/api/users
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Lấy thông tin user theo ID
+GET {{baseUrl}}/api/users/123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Cập nhật user
+PUT {{baseUrl}}/api/users/123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "username": "updated_user",
+  "fullName": "Updated User Name"
+}
+
+### Xóa user (chỉ admin)
+DELETE {{baseUrl}}/api/users/123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### ===========================================
+### 4. WARRANTY ROUTES (Cần token)
+### ===========================================
+
+### Lấy danh sách bảo hành
+GET {{baseUrl}}/api/warranties
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Tạo bảo hành mới
+POST {{baseUrl}}/api/warranties
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "vehicleId": "VEH123",
+  "warrantyType": "standard",
+  "startDate": "2024-01-01",
+  "endDate": "2027-01-01",
+  "coverageDetails": "Full coverage"
+}
+
+### Lấy chi tiết bảo hành
+GET {{baseUrl}}/api/warranties/WAR123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Cập nhật bảo hành
+PUT {{baseUrl}}/api/warranties/WAR123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "status": "active",
+  "notes": "Updated warranty information"
+}
+
+### Xóa bảo hành
+DELETE {{baseUrl}}/api/warranties/WAR123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### ===========================================
+### 5. VEHICLE ROUTES (Cần token)
+### ===========================================
+
+### Lấy danh sách xe
+GET {{baseUrl}}/api/vehicles
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Thêm xe mới
+POST {{baseUrl}}/api/vehicles
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "vin": "VIN1234567890",
+  "model": "EV Model X",
+  "year": 2024,
+  "color": "White",
+  "batteryCapacity": "75kWh"
+}
+
+### Lấy thông tin xe
+GET {{baseUrl}}/api/vehicles/VEH123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Cập nhật xe
+PUT {{baseUrl}}/api/vehicles/VEH123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "mileage": 15000,
+  "lastServiceDate": "2024-01-15"
+}
+
+### ===========================================
+### 6. CLAIM ROUTES (Cần token)
+### ===========================================
+
+### Lấy danh sách yêu cầu bảo hành
+GET {{baseUrl}}/api/claims
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Tạo yêu cầu bảo hành mới
+POST {{baseUrl}}/api/claims
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "warrantyId": "WAR123",
+  "vehicleId": "VEH123",
+  "issueDescription": "Battery not charging properly",
+  "claimType": "repair",
+  "urgency": "high"
+}
+
+### Lấy chi tiết yêu cầu
+GET {{baseUrl}}/api/claims/CLM123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Cập nhật yêu cầu
+PUT {{baseUrl}}/api/claims/CLM123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "status": "in_progress",
+  "assignedTo": "technician@example.com",
+  "notes": "Checking battery system"
+}
+
+### ===========================================
+### 7. NOTIFICATION ROUTES (Cần token)
+### ===========================================
+
+### Lấy danh sách thông báo
+GET {{baseUrl}}/api/notifications
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Đánh dấu thông báo đã đọc
+PUT {{baseUrl}}/api/notifications/NOT123
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "read": true
+}
+
+### ===========================================
+### 8. TEST ERROR CASES
+### ===========================================
+
+### Test không có token
+GET {{baseUrl}}/api/users
+Content-Type: application/json
+
+### Test token không hợp lệ
+GET {{baseUrl}}/api/users
+Content-Type: application/json
+Authorization: Bearer invalid.token.here
+
+### Test route không tồn tại
+GET {{baseUrl}}/api/notfound
+Content-Type: application/json
+Authorization: Bearer {{token}}
+

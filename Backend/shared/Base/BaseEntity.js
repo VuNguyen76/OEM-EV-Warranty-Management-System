@@ -1,5 +1,5 @@
-export class BaseEntity {
-    constructor() {
+class BaseEntity {
+    constructor(id, createdAt, updatedAt, note, status) {
         this.id = id;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -37,3 +37,5 @@ export class BaseEntity {
         this.status = status;
     }
 }
+
+module.exports = BaseEntity;

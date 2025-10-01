@@ -2,15 +2,6 @@ const mongoose = require("mongoose");
 const BaseEntity = require("../Base/BaseEntity");
 const Enum = require("../Enum/Enum");
 const validator = require("validator");
-class User extends BaseEntity {
-    constructor() {
-        BaseEntity.constructor(id, createdAt, updatedAt, note, status);
-        this.username = username;
-        this.password = password;
-        this.email = email;
-        this.role = role;
-    }
-}
 const UserSchema = new mongoose.Schema({
     username: {
         type: String,
