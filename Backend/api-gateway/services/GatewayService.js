@@ -97,7 +97,6 @@ class GatewayService {
     setupUserRoutes() {
         this.app.use(
             '/api/users',
-            this.authService.authenticate.bind(this.authService),
             createProxyMiddleware({
                 target: this.services.user,
                 changeOrigin: true,
@@ -107,11 +106,9 @@ class GatewayService {
                     '^/api/users': '/users',
                 },
                 onProxyReq: (proxyReq, req, res) => {
-                    // Add user info to headers
-                    if (req.user) {
-                        proxyReq.setHeader('X-User-Id', req.user.userId);
-                        proxyReq.setHeader('X-User-Role', req.user.role);
-                        proxyReq.setHeader('X-User-Email', req.user.email);
+                    // Forward Authorization header to User Service
+                    if (req.headers.authorization) {
+                        proxyReq.setHeader('Authorization', req.headers.authorization);
                     }
 
                     // Fix body forwarding for POST/PUT requests
