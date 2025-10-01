@@ -11,6 +11,7 @@ class GatewayService {
         // Cấu hình URL của các microservice
         this.services = {
             user: process.env.USER_SERVICE_URL,
+            vehicle: process.env.VEHICLE_SERVICE_URL,
         };
     }
 
@@ -28,6 +29,9 @@ class GatewayService {
 
         // User routes (cần token)
         this.setupUserRoutes();
+
+        // Vehicle routes (cần token)
+        this.setupVehicleRoutes();
 
         // 404 handler
         this.setup404Handler();
@@ -132,6 +136,51 @@ class GatewayService {
             })
         );
         console.log('  ✓ User routes: /api/users/* → User Service (Auth required)');
+    }
+
+    /**
+     * Vehicle routes (cần token)
+     */
+    setupVehicleRoutes() {
+        this.app.use(
+            '/api/vehicles',
+            createProxyMiddleware({
+                target: this.services.vehicle,
+                changeOrigin: true,
+                timeout: 30000,
+                proxyTimeout: 30000,
+                pathRewrite: {
+                    '^/api/vehicles': '/vehicles',
+                },
+                onProxyReq: (proxyReq, req, res) => {
+                    // Forward Authorization header to Vehicle Service
+                    if (req.headers.authorization) {
+                        proxyReq.setHeader('Authorization', req.headers.authorization);
+                    }
+
+                    // Fix body forwarding for POST/PUT requests
+                    if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
+                        const bodyData = JSON.stringify(req.body);
+                        proxyReq.setHeader('Content-Type', 'application/json');
+                        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                        proxyReq.write(bodyData);
+                    }
+
+                    console.log(`→ Proxy: ${req.method} ${req.originalUrl} → ${this.services.vehicle}`);
+                },
+                onError: (err, req, res) => {
+                    console.error('✗ Proxy error:', err.message);
+                    if (!res.headersSent) {
+                        res.status(500).json({
+                            success: false,
+                            message: 'Lỗi kết nối đến vehicle service',
+                            error: err.message
+                        });
+                    }
+                }
+            })
+        );
+        console.log('  ✓ Vehicle routes: /api/vehicles/* → Vehicle Service (Auth required)');
     }
 
     /**

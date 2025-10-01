@@ -31,6 +31,20 @@ services:
     networks:
       - warranty_network
 
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: warranty_redis_web
+    environment:
+      - REDIS_HOSTS=local:warranty_redis:6379:0:warranty123
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=admin123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - warranty_network
+
   # User Service
   user-service:
     build:
@@ -56,6 +70,32 @@ services:
       - ./shared:/app/shared
       - ./node_modules:/app/node_modules
 
+  # Vehicle Service
+  vehicle-service:
+    build:
+      context: .
+      dockerfile: Vehicle/Dockerfile
+    container_name: warranty_vehicle_service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      VEHICLE_SERVICE_PORT: 3002
+      MONGODB_URI: mongodb://admin:warranty123@mongodb:27017/warranty_db?authSource=admin
+      REDIS_URL: redis://:warranty123@redis:6379
+      JWT_SECRET: 17c1f23b1afa99f9577811d98b1a7e6ae546933790e5b8aac76aa6cd22a46908
+    ports:
+      - "3002:3002"
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - warranty_network
+    volumes:
+      - ./Vehicle:/app/Vehicle
+      - ./shared:/app/shared
+      - ./node_modules:/app/node_modules
+
   # API Gateway
   api-gateway:
     build:
@@ -68,12 +108,14 @@ services:
       PORT: 3000
       GATEWAY_PORT: 3000
       USER_SERVICE_URL: http://user-service:3001
+      VEHICLE_SERVICE_URL: http://vehicle-service:3002
       ALLOWED_ORIGINS: "*"
       JWT_SECRET: 17c1f23b1afa99f9577811d98b1a7e6ae546933790e5b8aac76aa6cd22a46908
     ports:
       - "3000:3000"
     depends_on:
       - user-service
+      - vehicle-service
     networks:
       - warranty_network
     volumes:
