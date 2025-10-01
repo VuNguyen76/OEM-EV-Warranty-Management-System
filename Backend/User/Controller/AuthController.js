@@ -1,42 +1,52 @@
 const express = require("express");
 const User = require("../Model/User");
+const RefreshToken = require("../Model/RefreshToken");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { authenticateToken } = require("../Middleware/AuthMiddleware");
-const redisService = require("../../shared/services/RedisService");
+const { authenticateToken } = require("../../shared/middleware/AuthMiddleware");
+const { loginRateLimit, registerRateLimit, strictRateLimit } = require("../../shared/middleware/RateLimitMiddleware");
+const { validate, validationRules } = require("../../shared/middleware/ValidationMiddleware");
 
 const router = express.Router();
 
+// JWT configuration
+const JWT_SECRET = process.env.JWT_SECRET;
+const ACCESS_TOKEN_EXPIRY = '30m'; // 30 minutes
+
+// Helper functions
+const generateAccessToken = (user) => {
+    return jwt.sign(
+        {
+            sub: user._id || user.id,
+            email: user.email,
+            role: user.role,
+            username: user.username
+        },
+        JWT_SECRET,
+        {
+            expiresIn: ACCESS_TOKEN_EXPIRY,
+            issuer: 'warranty-system',
+            audience: 'warranty-users'
+        }
+    );
+};
+
+const generateTokenPair = async (user) => {
+    const accessToken = generateAccessToken(user);
+    const refreshTokenDoc = await RefreshToken.createRefreshToken(user._id || user.id);
+
+    return {
+        accessToken,
+        refreshToken: refreshTokenDoc.token,
+        expiresIn: 30 * 60, // 30 minutes in seconds
+        tokenType: 'Bearer'
+    };
+};
+
 // Đăng ký tài khoản mới
-router.post("/register", async (req, res) => {
+router.post("/register", registerRateLimit, validate(validationRules.register), async (req, res) => {
     try {
         const { username, email, password, role } = req.body;
-
-        // Validate input
-        if (!username || !email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: "Username, email và password là bắt buộc"
-            });
-        }
-
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({
-                success: false,
-                message: "Email không hợp lệ"
-            });
-        }
-
-        // Validate password strength
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        if (!passwordRegex.test(password)) {
-            return res.status(400).json({
-                success: false,
-                message: "Password phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt"
-            });
-        }
 
         // Check if user already exists
         const existingUser = await User.findOne({
@@ -68,16 +78,8 @@ router.post("/register", async (req, res) => {
 
         await newUser.save();
 
-        // Generate JWT token
-        const token = jwt.sign(
-            {
-                userId: newUser._id,
-                email: newUser.email,
-                role: newUser.role
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "24h" }
-        );
+        // Generate token pair (access + refresh)
+        const tokens = await generateTokenPair(newUser);
 
         // Return success response (don't send password)
         const userResponse = {
@@ -89,10 +91,20 @@ router.post("/register", async (req, res) => {
             createdAt: newUser.createdAt
         };
 
+        // Set refresh token as httpOnly cookie
+        res.cookie('refreshToken', tokens.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
         res.status(201).json({
             success: true,
             message: "Đăng ký thành công",
-            token,
+            accessToken: tokens.accessToken,
+            expiresIn: tokens.expiresIn,
+            tokenType: tokens.tokenType,
             user: userResponse
         });
 
@@ -107,17 +119,9 @@ router.post("/register", async (req, res) => {
 });
 
 // Đăng nhập
-router.post("/login", async (req, res) => {
+router.post("/login", loginRateLimit, validate(validationRules.login), async (req, res) => {
     try {
         const { email, password } = req.body;
-
-        // Validate input
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: "Email và password là bắt buộc"
-            });
-        }
 
         // Find user by email
         const user = await User.findOne({ email: email.toLowerCase() });
@@ -170,16 +174,8 @@ router.post("/login", async (req, res) => {
         user.updatedAt = new Date();
         await user.save();
 
-        // Generate JWT token
-        const token = jwt.sign(
-            {
-                userId: user._id,
-                email: user.email,
-                role: user.role
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "24h" }
-        );
+        // Generate token pair (access + refresh)
+        const tokens = await generateTokenPair(user);
 
         // Return success response
         const userResponse = {
@@ -190,10 +186,20 @@ router.post("/login", async (req, res) => {
             status: user.status
         };
 
+        // Set refresh token as httpOnly cookie
+        res.cookie('refreshToken', tokens.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
         res.json({
             success: true,
             message: "Đăng nhập thành công",
-            token,
+            accessToken: tokens.accessToken,
+            expiresIn: tokens.expiresIn,
+            tokenType: tokens.tokenType,
             user: userResponse
         });
 
@@ -207,23 +213,71 @@ router.post("/login", async (req, res) => {
     }
 });
 
-// Đăng xuất - Thực sự blacklist token
+// Refresh access token
+router.post("/refresh", async (req, res) => {
+    try {
+        const refreshTokenString = req.cookies.refreshToken;
+
+        if (!refreshTokenString) {
+            return res.status(401).json({
+                success: false,
+                message: "Refresh token không tồn tại"
+            });
+        }
+
+        // Find and validate refresh token
+        const refreshTokenDoc = await RefreshToken.findValidToken(refreshTokenString);
+
+        if (!refreshTokenDoc) {
+            res.clearCookie('refreshToken');
+            return res.status(401).json({
+                success: false,
+                message: "Refresh token không hợp lệ hoặc đã hết hạn"
+            });
+        }
+
+        // Generate new access token
+        const accessToken = generateAccessToken(refreshTokenDoc.userId);
+
+        res.json({
+            success: true,
+            message: "Token đã được làm mới",
+            accessToken,
+            expiresIn: 30 * 60, // 30 minutes
+            tokenType: 'Bearer'
+        });
+
+    } catch (err) {
+        console.error("Refresh token error:", err);
+
+        // Clear invalid refresh token cookie
+        res.clearCookie('refreshToken');
+
+        res.status(401).json({
+            success: false,
+            message: "Refresh token không hợp lệ hoặc đã hết hạn",
+            error: err.message
+        });
+    }
+});
+
+// Đăng xuất - Chỉ revoke refresh token
 router.post("/logout", async (req, res) => {
     try {
-        const authHeader = req.headers['authorization'];
-        const token = authHeader && authHeader.split(' ')[1];
+        const refreshToken = req.cookies.refreshToken;
 
-        if (token) {
-            // Blacklist token với TTL = thời gian còn lại của token
-            const decoded = jwt.decode(token);
-            const currentTime = Math.floor(Date.now() / 1000);
-            const remainingTime = decoded.exp - currentTime;
-
-            if (remainingTime > 0) {
-                await redisService.blacklistToken(token, remainingTime);
-                console.log(`🚫 User ${decoded.email} logged out, token blacklisted`);
+        if (refreshToken) {
+            try {
+                // Revoke refresh token
+                await RefreshToken.revokeToken(refreshToken);
+                console.log(`🚫 Refresh token revoked during logout`);
+            } catch (err) {
+                console.log(`⚠️ Failed to revoke refresh token: ${err.message}`);
             }
         }
+
+        // Clear refresh token cookie
+        res.clearCookie('refreshToken');
 
         res.json({
             success: true,
@@ -273,7 +327,7 @@ router.get("/me", authenticateToken, async (req, res) => {
 });
 
 // Force logout user (Admin only)
-router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
+router.post("/force-logout/:userId", strictRateLimit, authenticateToken, async (req, res) => {
     try {
         // Check if user is admin
         if (req.user.role !== 'admin') {

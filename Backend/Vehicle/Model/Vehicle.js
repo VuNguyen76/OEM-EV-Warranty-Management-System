@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { BaseEntity } = require("../../shared/Base/BaseEntity");
+const { getVehicleConnection } = require("../../shared/database/vehicleConnection");
 
 // VIN validation function
 const validateVIN = (vin) => {
@@ -310,6 +311,15 @@ VehicleSchema.statics.findByServiceCenter = function (serviceCenterName) {
 VehicleSchema.set('toJSON', { virtuals: true });
 VehicleSchema.set('toObject', { virtuals: true });
 
-const Vehicle = mongoose.model("Vehicle", VehicleSchema);
+// Use separate connection for Vehicle model
+let Vehicle;
+try {
+    const vehicleConnection = getVehicleConnection();
+    Vehicle = vehicleConnection.model("Vehicle", VehicleSchema);
+} catch (error) {
+    // Fallback to default connection if vehicle connection not available
+    console.warn("Vehicle connection not available, using default connection");
+    Vehicle = mongoose.model("Vehicle", VehicleSchema);
+}
 
 module.exports = Vehicle;

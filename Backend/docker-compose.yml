@@ -37,7 +37,7 @@ services:
     environment:
       - REDIS_HOSTS=local:warranty_redis:6379:0:warranty123
       - HTTP_USER=admin
-      - HTTP_PASSWORD=admin123
+      - HTTP_PASSWORD=${HTTP_PASSWORD:-admin123}
     ports:
       - "8081:8081"
     depends_on:
@@ -55,9 +55,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      MONGODB_URI: mongodb://admin:warranty123@mongodb:27017/warranty_db?authSource=admin
-      REDIS_URL: redis://:warranty123@redis:6379
-      JWT_SECRET: 17c1f23b1afa99f9577811d98b1a7e6ae546933790e5b8aac76aa6cd22a46908
+      USER_MONGODB_URI: ${USER_MONGODB_URI}
+      REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3001:3001"
     depends_on:
@@ -81,9 +81,9 @@ services:
       NODE_ENV: production
       PORT: 3002
       VEHICLE_SERVICE_PORT: 3002
-      MONGODB_URI: mongodb://admin:warranty123@mongodb:27017/warranty_db?authSource=admin
-      REDIS_URL: redis://:warranty123@redis:6379
-      JWT_SECRET: 17c1f23b1afa99f9577811d98b1a7e6ae546933790e5b8aac76aa6cd22a46908
+      VEHICLE_MONGODB_URI: ${VEHICLE_MONGODB_URI}
+      REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3002:3002"
     depends_on:
@@ -110,7 +110,7 @@ services:
       USER_SERVICE_URL: http://user-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3002
       ALLOWED_ORIGINS: "*"
-      JWT_SECRET: 17c1f23b1afa99f9577811d98b1a7e6ae546933790e5b8aac76aa6cd22a46908
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3000:3000"
     depends_on:

@@ -1,7 +1,6 @@
 const jwt = require("jsonwebtoken");
-const redisService = require("../services/RedisService");
 
-// Middleware xác thực JWT token với Redis cache
+// Middleware xác thực JWT access token (đơn giản)
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -14,42 +13,15 @@ const authenticateToken = async (req, res, next) => {
     }
 
     try {
-        // Check if token is blacklisted first
-        const isBlacklisted = await redisService.isTokenBlacklisted(token);
-        if (isBlacklisted) {
-            return res.status(401).json({
-                success: false,
-                message: "Token đã bị thu hồi, vui lòng đăng nhập lại"
-            });
-        }
-
-        // Check Redis cache
-        const cachedUser = await redisService.getJWT(token);
-        if (cachedUser) {
-            req.user = cachedUser;
-            return next();
-        }
-
-        // If not in cache, verify JWT
-        jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-            if (err) {
-                return res.status(403).json({
-                    success: false,
-                    message: "Token không hợp lệ hoặc đã hết hạn"
-                });
-            }
-
-            // Cache the decoded token for 30 minutes
-            await redisService.cacheJWT(token, decoded, 1800);
-
-            req.user = decoded;
-            next();
-        });
+        // Verify access token directly
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
     } catch (error) {
         console.error('Auth middleware error:', error);
-        return res.status(500).json({
+        return res.status(401).json({
             success: false,
-            message: "Lỗi xác thực token"
+            message: error.message || "Token không hợp lệ"
         });
     }
 };
@@ -117,7 +89,7 @@ const authorizeUserModification = (req, res, next) => {
     }
 
     const targetUserId = req.params.id || req.params.userId;
-    
+
     // Admin có thể sửa đổi tất cả user
     if (req.user.role === 'admin') {
         return next();
@@ -134,9 +106,50 @@ const authorizeUserModification = (req, res, next) => {
     });
 };
 
+// Middleware kiểm tra user còn active không
+const checkUserStatus = async (req, res, next) => {
+    try {
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Token không hợp lệ"
+            });
+        }
+
+        // Import User model dynamically to avoid circular dependency
+        const User = require("../../User/Model/User");
+
+        const user = await User.findById(req.user.userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User không tồn tại"
+            });
+        }
+
+        if (user.status !== "active") {
+            return res.status(403).json({
+                success: false,
+                message: "Tài khoản đã bị vô hiệu hóa"
+            });
+        }
+
+        req.currentUser = user;
+        next();
+    } catch (err) {
+        console.error("Check user status error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi kiểm tra trạng thái user",
+            error: err.message
+        });
+    }
+};
+
 module.exports = {
     authenticateToken,
     authorizeRole,
     authorizeServiceCenter,
-    authorizeUserModification
+    authorizeUserModification,
+    checkUserStatus
 };

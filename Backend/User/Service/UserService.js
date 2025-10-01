@@ -1,6 +1,6 @@
 const express = require("express");
 const User = require("../Model/User");
-const { authenticateToken, authorizeRole, checkUserStatus } = require("../Middleware/AuthMiddleware");
+const { authenticateToken, authorizeRole, checkUserStatus } = require("../../shared/middleware/AuthMiddleware");
 const redisService = require("../../shared/services/RedisService");
 
 const router = express.Router();

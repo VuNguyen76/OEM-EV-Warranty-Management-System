@@ -6,7 +6,7 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require("express");
 const VehicleService = require("./Service/VehicleService");
 const { setupCommonMiddleware } = require("../shared/middleware/common");
-const connectToDatabase = require("../shared/database/connection");
+const { connectToVehicleDatabase } = require("../shared/database/vehicleConnection");
 const redisService = require("../shared/services/RedisService");
 
 const app = express();
@@ -114,7 +114,7 @@ app.use((req, res) => {
 const startServer = async () => {
     try {
         // Kết nối database trước
-        await connectToDatabase();
+        await connectToVehicleDatabase();
 
         // Kết nối Redis
         await redisService.connect();

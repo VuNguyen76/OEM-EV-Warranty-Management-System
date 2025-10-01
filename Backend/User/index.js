@@ -10,7 +10,7 @@ const express = require("express");
 const UserService = require("./Service/UserService");
 const AuthController = require("./Controller/AuthController");
 const { setupCommonMiddleware } = require("../shared/middleware/common");
-const connectToDatabase = require("../shared/database/connection");
+const connectToUserDatabase = require("../shared/database/userConnection");
 const redisService = require("../shared/services/RedisService");
 
 const app = express();
@@ -38,7 +38,7 @@ app.get('/health', (req, res) => {
 const startServer = async () => {
     try {
         // Kết nối database trước
-        await connectToDatabase();
+        await connectToUserDatabase();
 
         // Kết nối Redis
         await redisService.connect();

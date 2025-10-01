@@ -114,43 +114,101 @@ class RedisService {
         }
     }
 
-    // Cache JWT verification
-    async cacheJWT(token, userData, ttl = 3600) {
+    // Cache vehicle model data (for UC1: Vehicle Registration by VIN)
+    async cacheVehicleModel(model, modelData, ttl = 3600) {
         if (!this.isConnected) return false;
 
         try {
-            const key = `jwt:${token}`;
-            await this.client.setEx(key, ttl, JSON.stringify(userData));
+            const key = `vehicle:model:${model}`;
+            await this.client.setEx(key, ttl, JSON.stringify(modelData));
+            console.log(`📦 Cached vehicle model: ${model}`);
             return true;
         } catch (error) {
-            console.error('Cache JWT error:', error);
+            console.error('Cache vehicle model error:', error);
             return false;
         }
     }
 
-    async getJWT(token) {
+    async getVehicleModel(model) {
         if (!this.isConnected) return null;
 
         try {
-            const key = `jwt:${token}`;
+            const key = `vehicle:model:${model}`;
             const data = await this.client.get(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Get cached JWT error:', error);
+            console.error('Get cached vehicle model error:', error);
             return null;
         }
     }
 
-    // Invalidate user cache
+    // Cache vehicle data by VIN
+    async cacheVehicleByVin(vin, vehicleData, ttl = 3600) {
+        if (!this.isConnected) return false;
+
+        try {
+            const key = `vehicle:vin:${vin}`;
+            await this.client.setEx(key, ttl, JSON.stringify(vehicleData));
+            console.log(`🚗 Cached vehicle: ${vin}`);
+            return true;
+        } catch (error) {
+            console.error('Cache vehicle by VIN error:', error);
+            return false;
+        }
+    }
+
+    async getVehicleByVin(vin) {
+        if (!this.isConnected) return null;
+
+        try {
+            const key = `vehicle:vin:${vin}`;
+            const data = await this.client.get(key);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            console.error('Get cached vehicle by VIN error:', error);
+            return null;
+        }
+    }
+
+    // Cache invalidation methods
     async invalidateUser(userId) {
         if (!this.isConnected) return false;
 
         try {
             const key = `user:${userId}`;
             await this.client.del(key);
+            console.log(`🗑️ Invalidated user cache: ${userId}`);
             return true;
         } catch (error) {
             console.error('Invalidate user cache error:', error);
+            return false;
+        }
+    }
+
+    async invalidateVehicle(vin) {
+        if (!this.isConnected) return false;
+
+        try {
+            const key = `vehicle:vin:${vin}`;
+            await this.client.del(key);
+            console.log(`🗑️ Invalidated vehicle cache: ${vin}`);
+            return true;
+        } catch (error) {
+            console.error('Invalidate vehicle cache error:', error);
+            return false;
+        }
+    }
+
+    async invalidateVehicleParts(vehicleId) {
+        if (!this.isConnected) return false;
+
+        try {
+            const key = `parts:${vehicleId}`;
+            await this.client.del(key);
+            console.log(`🗑️ Invalidated vehicle parts cache: ${vehicleId}`);
+            return true;
+        } catch (error) {
+            console.error('Invalidate vehicle parts cache error:', error);
             return false;
         }
     }
@@ -160,9 +218,27 @@ class RedisService {
         if (!this.isConnected) return false;
 
         try {
-            const keys = await this.client.keys('technicians:*');
-            if (keys.length > 0) {
-                await this.client.del(keys);
+            let deletedCount = 0;
+            let cursor = '0';
+
+            // Use SCAN instead of KEYS to avoid blocking Redis
+            do {
+                const result = await this.client.scan(cursor, {
+                    MATCH: 'technicians:*',
+                    COUNT: 100
+                });
+
+                cursor = result.cursor;
+                const keys = result.keys;
+
+                if (keys.length > 0) {
+                    await this.client.del(keys);
+                    deletedCount += keys.length;
+                }
+            } while (cursor !== '0');
+
+            if (deletedCount > 0) {
+                console.log(`🗑️ Invalidated ${deletedCount} technician cache entries`);
             }
             return true;
         } catch (error) {
@@ -208,85 +284,59 @@ class RedisService {
         }
     }
 
-    // Token Blacklist Methods
-    async blacklistToken(token, ttl = 86400) {
+    // Cache service center data
+    async cacheServiceCenter(centerId, centerData, ttl = 3600) {
         if (!this.isConnected) return false;
 
         try {
-            const key = `blacklist:${token}`;
-            await this.client.setEx(key, ttl, 'blacklisted');
-            console.log(`🚫 Token blacklisted: ${token.substring(0, 20)}...`);
+            const key = `servicecenter:${centerId}`;
+            await this.client.setEx(key, ttl, JSON.stringify(centerData));
+            console.log(`🏢 Cached service center: ${centerId}`);
             return true;
         } catch (error) {
-            console.error('Blacklist token error:', error);
+            console.error('Cache service center error:', error);
             return false;
         }
     }
 
-    async isTokenBlacklisted(token) {
+    async getServiceCenter(centerId) {
+        if (!this.isConnected) return null;
+
+        try {
+            const key = `servicecenter:${centerId}`;
+            const data = await this.client.get(key);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            console.error('Get cached service center error:', error);
+            return null;
+        }
+    }
+
+    // Cache warranty policy data (for UC20)
+    async cacheWarrantyPolicy(policyId, policyData, ttl = 86400) {
         if (!this.isConnected) return false;
 
         try {
-            const key = `blacklist:${token}`;
-            const result = await this.client.get(key);
-            return result === 'blacklisted';
+            const key = `policy:warranty:${policyId}`;
+            await this.client.setEx(key, ttl, JSON.stringify(policyData));
+            console.log(`📋 Cached warranty policy: ${policyId}`);
+            return true;
         } catch (error) {
-            console.error('Check blacklist error:', error);
+            console.error('Cache warranty policy error:', error);
             return false;
         }
     }
 
-    async blacklistUserTokens(userId, ttl = 86400) {
-        if (!this.isConnected) return false;
+    async getWarrantyPolicy(policyId) {
+        if (!this.isConnected) return null;
 
         try {
-            // Blacklist all JWT cache entries for this user
-            const jwtKeys = await this.client.keys('jwt:*');
-            let blacklistedCount = 0;
-
-            for (const jwtKey of jwtKeys) {
-                const tokenData = await this.client.get(jwtKey);
-                if (tokenData) {
-                    const parsed = JSON.parse(tokenData);
-                    if (parsed.userId === userId) {
-                        const token = jwtKey.replace('jwt:', '');
-                        await this.blacklistToken(token, ttl);
-                        await this.client.del(jwtKey); // Remove from cache
-                        blacklistedCount++;
-                    }
-                }
-            }
-
-            console.log(`🚫 Blacklisted ${blacklistedCount} tokens for user ${userId}`);
-            return blacklistedCount;
+            const key = `policy:warranty:${policyId}`;
+            const data = await this.client.get(key);
+            return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Blacklist user tokens error:', error);
-            return 0;
-        }
-    }
-
-    async cleanupExpiredBlacklist() {
-        if (!this.isConnected) return false;
-
-        try {
-            const blacklistKeys = await this.client.keys('blacklist:*');
-            let cleanedCount = 0;
-
-            for (const key of blacklistKeys) {
-                const ttl = await this.client.ttl(key);
-                if (ttl === -1) { // No expiry set
-                    await this.client.del(key);
-                    cleanedCount++;
-                }
-            }
-
-            if (cleanedCount > 0) {
-                console.log(`🧹 Cleaned up ${cleanedCount} expired blacklist entries`);
-            }
-            return cleanedCount;
-        } catch (error) {
-            console.error('Cleanup blacklist error:', error);
-            return 0;
+            console.error('Get cached warranty policy error:', error);
+            return null;
         }
     }
 
