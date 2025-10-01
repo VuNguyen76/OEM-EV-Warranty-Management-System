@@ -1,8 +1,10 @@
 // api-gateway/server.js
 // File khởi động API Gateway server
 
-// Load biến môi trường từ file .env ở thư mục Backend (root)
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+// Load biến môi trường từ file .env ở thư mục Backend (root) - chỉ khi không chạy trong Docker
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+}
 
 const App = require('./app');
 

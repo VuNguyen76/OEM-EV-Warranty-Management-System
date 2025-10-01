@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
 const User = require("../Model/User");
+const redisService = require("../../shared/services/RedisService");
 
-// Middleware xác thực JWT token
-const authenticateToken = (req, res, next) => {
+// Middleware xác thực JWT token với Redis cache
+const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -13,19 +14,55 @@ const authenticateToken = (req, res, next) => {
         });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-        if (err) {
-            return res.status(403).json({
+    try {
+        // Check if token is blacklisted first
+        const isBlacklisted = await redisService.isTokenBlacklisted(token);
+        if (isBlacklisted) {
+            return res.status(401).json({
                 success: false,
-                message: "Token không hợp lệ hoặc đã hết hạn"
+                message: "Token đã bị thu hồi, vui lòng đăng nhập lại"
             });
         }
-        req.user = decoded;
-        next();
-    });
+
+        // Check Redis cache
+        const cachedUser = await redisService.getJWT(token);
+        if (cachedUser) {
+            req.user = cachedUser;
+            return next();
+        }
+
+        // If not in cache, verify JWT
+        jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+            if (err) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Token không hợp lệ hoặc đã hết hạn"
+                });
+            }
+
+            // Cache the decoded token for 30 minutes
+            await redisService.cacheJWT(token, decoded, 1800);
+
+            req.user = decoded;
+            next();
+        });
+    } catch (error) {
+        console.error('Auth middleware error:', error);
+        // Fallback to normal JWT verification
+        jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+            if (err) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Token không hợp lệ hoặc đã hết hạn"
+                });
+            }
+            req.user = decoded;
+            next();
+        });
+    }
 };
 
-// Middleware kiểm tra role
+// Middleware kiểm tra role (hỗ trợ multiple roles)
 const authorizeRole = (...roles) => {
     return (req, res, next) => {
         if (!req.user) {
@@ -35,7 +72,10 @@ const authorizeRole = (...roles) => {
             });
         }
 
-        if (!roles.includes(req.user.role)) {
+        // Flatten array in case roles are passed as array
+        const allowedRoles = roles.flat();
+
+        if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
                 message: "Không có quyền truy cập"

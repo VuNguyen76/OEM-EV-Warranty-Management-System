@@ -3,6 +3,7 @@ const User = require("../Model/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("../Middleware/AuthMiddleware");
+const redisService = require("../../shared/services/RedisService");
 
 const router = express.Router();
 
@@ -28,11 +29,12 @@ router.post("/register", async (req, res) => {
             });
         }
 
-        // Validate password length
-        if (password.length < 6) {
+        // Validate password strength
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!passwordRegex.test(password)) {
             return res.status(400).json({
                 success: false,
-                message: "Password phải có ít nhất 6 ký tự"
+                message: "Password phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt"
             });
         }
 
@@ -57,8 +59,11 @@ router.post("/register", async (req, res) => {
             username,
             email: email.toLowerCase(),
             password: hashedPassword,
-            role: role || "staff",
-            status: "active"
+            role: role || "customer",
+            status: "active",
+            loginAttempts: 0,
+            availability: role === "technician" ? true : undefined,
+            workload: role === "technician" ? 0 : undefined,
         });
 
         await newUser.save();
@@ -123,6 +128,14 @@ router.post("/login", async (req, res) => {
             });
         }
 
+        // Check if account is locked
+        if (user.lockedUntil && user.lockedUntil > Date.now()) {
+            return res.status(401).json({
+                success: false,
+                message: "Tài khoản đã bị khóa tạm thời. Vui lòng thử lại sau."
+            });
+        }
+
         // Check if user is active
         if (user.status !== "active") {
             return res.status(401).json({
@@ -134,13 +147,26 @@ router.post("/login", async (req, res) => {
         // Compare password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
+            // Increment login attempts
+            user.loginAttempts = (user.loginAttempts || 0) + 1;
+
+            // Lock account after 5 failed attempts for 15 minutes
+            if (user.loginAttempts >= 5) {
+                user.lockedUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+            }
+
+            await user.save();
+
             return res.status(401).json({
                 success: false,
                 message: "Email hoặc password không đúng"
             });
         }
 
-        // Update last login time
+        // Reset login attempts and update last login
+        user.loginAttempts = 0;
+        user.lockedUntil = undefined;
+        user.lastLoginAt = new Date();
         user.updatedAt = new Date();
         await user.save();
 
@@ -181,11 +207,24 @@ router.post("/login", async (req, res) => {
     }
 });
 
-// Đăng xuất
-router.post("/logout", (req, res) => {
+// Đăng xuất - Thực sự blacklist token
+router.post("/logout", async (req, res) => {
     try {
-        // Với JWT, logout chỉ cần client xóa token
-        // Server có thể implement blacklist nếu cần
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+
+        if (token) {
+            // Blacklist token với TTL = thời gian còn lại của token
+            const decoded = jwt.decode(token);
+            const currentTime = Math.floor(Date.now() / 1000);
+            const remainingTime = decoded.exp - currentTime;
+
+            if (remainingTime > 0) {
+                await redisService.blacklistToken(token, remainingTime);
+                console.log(`🚫 User ${decoded.email} logged out, token blacklisted`);
+            }
+        }
+
         res.json({
             success: true,
             message: "Đăng xuất thành công"
@@ -233,7 +272,52 @@ router.get("/me", authenticateToken, async (req, res) => {
     }
 });
 
+// Force logout user (Admin only)
+router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: "Chỉ admin mới có quyền force logout user"
+            });
+        }
 
+        const { userId } = req.params;
+
+        // Check if target user exists
+        const targetUser = await User.findById(userId);
+        if (!targetUser) {
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy user"
+            });
+        }
+
+        // Blacklist all tokens for this user
+        const blacklistedCount = await redisService.blacklistUserTokens(userId);
+
+        console.log(`👮 Admin ${req.user.email} force logged out user ${targetUser.email}`);
+
+        res.json({
+            success: true,
+            message: `Force logout thành công cho user ${targetUser.username}`,
+            data: {
+                userId: targetUser._id,
+                username: targetUser.username,
+                email: targetUser.email,
+                blacklistedTokens: blacklistedCount
+            }
+        });
+    } catch (err) {
+        console.error("Force logout error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi force logout",
+            error: err.message
+        });
+    }
+});
 
 // Export router
 module.exports = router;
