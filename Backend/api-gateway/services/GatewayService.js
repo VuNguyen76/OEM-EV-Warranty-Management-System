@@ -61,18 +61,30 @@ class GatewayService {
             createProxyMiddleware({
                 target: this.services.user,
                 changeOrigin: true,
+                timeout: 30000,
+                proxyTimeout: 30000,
                 pathRewrite: {
                     '^/api/auth': '/auth',
                 },
                 onProxyReq: (proxyReq, req, res) => {
+                    // Fix body forwarding for POST requests
+                    if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
+                        const bodyData = JSON.stringify(req.body);
+                        proxyReq.setHeader('Content-Type', 'application/json');
+                        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                        proxyReq.write(bodyData);
+                    }
                     console.log(`→ Proxy: ${req.method} ${req.originalUrl} → ${this.services.user}`);
                 },
                 onError: (err, req, res) => {
                     console.error('✗ Proxy error:', err.message);
-                    res.status(500).json({
-                        success: false,
-                        message: 'Lỗi kết nối đến service'
-                    });
+                    if (!res.headersSent) {
+                        res.status(500).json({
+                            success: false,
+                            message: 'Lỗi kết nối đến service',
+                            error: err.message
+                        });
+                    }
                 }
             })
         );
@@ -89,23 +101,38 @@ class GatewayService {
             createProxyMiddleware({
                 target: this.services.user,
                 changeOrigin: true,
+                timeout: 30000,
+                proxyTimeout: 30000,
                 pathRewrite: {
                     '^/api/users': '/users',
                 },
                 onProxyReq: (proxyReq, req, res) => {
+                    // Add user info to headers
                     if (req.user) {
                         proxyReq.setHeader('X-User-Id', req.user.userId);
                         proxyReq.setHeader('X-User-Role', req.user.role);
                         proxyReq.setHeader('X-User-Email', req.user.email);
                     }
+
+                    // Fix body forwarding for POST/PUT requests
+                    if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
+                        const bodyData = JSON.stringify(req.body);
+                        proxyReq.setHeader('Content-Type', 'application/json');
+                        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                        proxyReq.write(bodyData);
+                    }
+
                     console.log(`→ Proxy: ${req.method} ${req.originalUrl} → ${this.services.user}`);
                 },
                 onError: (err, req, res) => {
                     console.error('✗ Proxy error:', err.message);
-                    res.status(500).json({
-                        success: false,
-                        message: 'Lỗi kết nối đến user service'
-                    });
+                    if (!res.headersSent) {
+                        res.status(500).json({
+                            success: false,
+                            message: 'Lỗi kết nối đến user service',
+                            error: err.message
+                        });
+                    }
                 }
             })
         );

@@ -6,6 +6,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
 const express = require("express");
 const UserService = require("./Service/UserService");
+const AuthController = require("./Controller/AuthController");
 const { setupCommonMiddleware } = require("../shared/middleware/common");
 const connectToDatabase = require("../shared/database/connection");
 
@@ -19,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use("/users", UserService);
-app.use("/auth", UserService); // Auth routes
+app.use("/auth", AuthController); // Auth routes
 
 // Health check
 app.get('/health', (req, res) => {

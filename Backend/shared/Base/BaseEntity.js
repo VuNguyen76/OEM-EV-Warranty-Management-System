@@ -1,41 +1,22 @@
-class BaseEntity {
-    constructor(id, createdAt, updatedAt, note, status) {
-        this.id = id;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-        this.note = note;
-        this.status = status;
+// BaseEntity.js
+const BaseEntitySchema = {
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    },
+    note: {
+        type: String,
+        default: ""
+    },
+    status: {
+        type: String,
+        enum: ["active", "inactive", "deleted"],
+        default: "active"
     }
-    getId() {
-        return this.id;
-    }
-    getCreatedAt() {
-        return this.createdAt;
-    }
-    getUpdatedAt() {
-        return this.updatedAt;
-    }
-    getNote() {
-        return this.note;
-    }
-    getStatus() {
-        return this.status;
-    }
-    setId(id) {
-        this.id = id;
-    }
-    setCreatedAt(createdAt) {
-        this.createdAt = createdAt;
-    }
-    setUpdatedAt(updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-    setNote(note) {
-        this.note = note;
-    }
-    setStatus(status) {
-        this.status = status;
-    }
-}
+};
 
-module.exports = BaseEntity;
+module.exports = BaseEntitySchema;

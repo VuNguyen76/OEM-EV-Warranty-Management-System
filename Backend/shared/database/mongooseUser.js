@@ -3,6 +3,8 @@ const BaseEntity = require("../Base/BaseEntity");
 const Enum = require("../Enum/Enum");
 const validator = require("validator");
 const UserSchema = new mongoose.Schema({
+
+    ...BaseEntity,
     username: {
         type: String,
         required: true,
@@ -12,8 +14,7 @@ const UserSchema = new mongoose.Schema({
     {
         type: String,
         required: true,
-        minlength: 6,
-        maxlength: 20,
+        // No length validation here since password will be hashed
     },
     email: {
         type: String,
