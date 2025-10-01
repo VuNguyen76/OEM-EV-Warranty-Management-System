@@ -5,10 +5,8 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
  * Service quản lý API Gateway
  */
 class GatewayService {
-    constructor(app, authService, authorizationService) {
+    constructor(app) {
         this.app = app;
-        this.authService = authService;
-        this.authorizationService = authorizationService;
 
         // Cấu hình URL của các microservice
         this.services = {

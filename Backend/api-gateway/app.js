@@ -3,8 +3,6 @@
 
 const express = require("express");
 const { setupCommonMiddleware } = require("../shared/middleware/common");
-const AuthService = require("./services/AuthService");
-const AuthorizationService = require("./services/AuthorizationService");
 const GatewayService = require("./services/GatewayService");
 
 /**
@@ -22,16 +20,8 @@ class App {
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
 
-        // Khởi tạo service
-        this.authService = new AuthService();
-        this.authorizationService = new AuthorizationService();
-
         // Gateway
-        this.gatewayService = new GatewayService(
-            this.app,
-            this.authService,
-            this.authorizationService
-        );
+        this.gatewayService = new GatewayService(this.app);
     }
 
     start(port) {
