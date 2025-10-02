@@ -1,0 +1,57 @@
+{
+  "name": "oem-ev-warranty-backend",
+  "version": "1.0.0",
+  "description": "Backend cho hệ thống quản lý bảo hành xe điện OEM - Monorepo",
+  "main": "api-gateway/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start:gateway": "node api-gateway/server.js",
+    "start:user": "node User/index.js",
+    "dev:gateway": "nodemon api-gateway/server.js",
+    "dev:user": "nodemon User/index.js",
+    "dev": "concurrently \"npm run dev:gateway\" \"npm run dev:user\"",
+    "install:all": "npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VuNguyen76/OEM-EV-Warranty-Management-System.git"
+  },
+  "keywords": [
+    "warranty",
+    "ev",
+    "microservices",
+    "jwt",
+    "api-gateway",
+    "monorepo"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/VuNguyen76/OEM-EV-Warranty-Management-System/issues"
+  },
+  "homepage": "https://github.com/VuNguyen76/OEM-EV-Warranty-Management-System#readme",
+  "dependencies": {
+    "axios": "^1.12.2",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-jwt": "^8.5.1",
+    "express-rate-limit": "^8.1.0",
+    "express-slow-down": "^3.0.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.1.0",
+    "http-proxy-middleware": "^2.0.6",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.0",
+    "morgan": "^1.10.1",
+    "redis": "^5.8.2",
+    "validator": "^13.15.15",
+    "winston": "^3.18.3"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.10"
+  }
+}
