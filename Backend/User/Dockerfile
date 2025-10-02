@@ -1,33 +1,29 @@
-# User Service Dockerfile
+# User Service Dockerfile (fix)
 FROM node:18-alpine
 
-# Set working directory
-WORKDIR /app
+# Làm việc trực tiếp trong thư mục service để tránh lạc đường
+WORKDIR /app/User
 
-# Copy package files
-COPY package*.json ./
+# 1) Cài deps đúng thư mục service
+COPY User/package*.json ./
+RUN npm ci --only=production && npm cache clean --force
 
-# Install dependencies
-RUN npm ci --only=production
+# 2) Copy source và shared (nếu code import từ ../shared)
+COPY --chown=nodejs:nodejs User/ ./
+COPY --chown=nodejs:nodejs shared/ ../shared/
 
-# Copy source code
-COPY User/ ./User/
-COPY shared/ ./shared/
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Change ownership
-RUN chown -R nodejs:nodejs /app
+# 3) Non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs
 USER nodejs
 
-# Expose port
+# 4) Env & cổng
+ENV NODE_ENV=production
+ENV PORT=3001
 EXPOSE 3001
 
-# Health check
+# 5) Healthcheck (sửa --start-period và xử lý lỗi mạng)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+  CMD node -e "require('http').get('http://localhost:'+(process.env.PORT||3001)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
-# Start the service
-CMD ["node", "User/index.js"]
+# 6) Start
+CMD ["node", "index.js"]

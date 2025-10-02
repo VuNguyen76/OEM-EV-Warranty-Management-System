@@ -1,54 +1,36 @@
-import React from 'react';
-import { createBrowserRouter } from 'react-router-dom';
-import Layout from '../components/Layout';
-import SelectRole from '../page/auth/SelectRole';
-import WarrantyCenterLogin from '../page/auth/WarrantyCenterLogin';
-import ManufacturerLogin from '../page/auth/ManufacturerLogin';
-import WarrantyCenterDashboard from '../page/warranty-center/Dashboard';
-import ManufacturerDashboard from '../page/manufacturer/Dashboard';
+import React from "react";
+import { createBrowserRouter } from "react-router-dom";
+import Auth from "../page/auth/Auth";
+import DefaultLayout from "../components/DefaultLayout";
+import { SCHomePage } from "../page/Home";
+import RegisterVIN from "../page/Home/SC/RegisterVIN";
+import ForgotPassword from "../page/auth/ForgotPassword";
 
 const router = createBrowserRouter([
   {
-    path: '/',
-    element: <Layout />,
+    path: "/",
+    element: <Auth />,
+    children: [
+      {
+        path: "forgot-password",
+        element: <ForgotPassword />,
+      },
+    ],
+  },
+  {
+    path: "/sc",
+    element: <DefaultLayout />,
     children: [
       {
         index: true,
-        element: <SelectRole />
+        element: <SCHomePage />,
       },
       {
-        path: 'auth',
-        children: [
-          {
-            path: 'warranty-center',
-            element: <WarrantyCenterLogin />
-          },
-          {
-            path: 'manufacturer',
-            element: <ManufacturerLogin />
-          }
-        ]
+        path: "register-vin",
+        element: <RegisterVIN />,
       },
-      {
-        path: 'warranty-center',
-        children: [
-          {
-            index: true,
-            element: <WarrantyCenterDashboard />
-          }
-        ]
-      },
-      {
-        path: 'manufacturer',
-        children: [
-          {
-            index: true,
-            element: <ManufacturerDashboard />
-          }
-        ]
-      }
-    ]
-  }
+    ],
+  },
 ]);
 
 export default router;
