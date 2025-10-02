@@ -3,6 +3,7 @@ const Vehicle = require("../Model/Vehicle");
 const { authenticateToken, authorizeRole } = require("../../shared/middleware/AuthMiddleware");
 const redisService = require("../../shared/services/RedisService");
 
+
 const router = express.Router();
 
 // UC1: Register vehicle by VIN (admin, service_staff)
@@ -880,7 +881,7 @@ router.put("/:vehicleId/service-history/:recordId", authenticateToken, authorize
 
         // Invalidate cache
         await redisService.del(`vehicle:${vehicle.vin}`);
-        await redisService.del(`service_history:${vehicleId}:*`);
+        await redisService.deletePatternScan(`service_history:${vehicleId}:*`);
 
         console.log(`📋 Service record updated: ${recordId} by ${req.user.email}`);
 

@@ -225,10 +225,10 @@ router.post("/refresh", async (req, res) => {
             });
         }
 
-        // Find and validate refresh token
+        // Find and validate refresh token with populated user
         const refreshTokenDoc = await RefreshToken.findValidToken(refreshTokenString);
 
-        if (!refreshTokenDoc) {
+        if (!refreshTokenDoc || !refreshTokenDoc.userId) {
             res.clearCookie('refreshToken');
             return res.status(401).json({
                 success: false,
@@ -236,12 +236,38 @@ router.post("/refresh", async (req, res) => {
             });
         }
 
-        // Generate new access token
-        const accessToken = generateAccessToken(refreshTokenDoc.userId);
+        // Get current user data (refreshTokenDoc.userId is populated by findValidToken)
+        const user = refreshTokenDoc.userId;
+
+        // Security checks: Verify user is still active and not locked
+        if (user.status !== "active") {
+            // Revoke all tokens for inactive user
+            await RefreshToken.revokeAllUserTokens(user._id);
+            res.clearCookie('refreshToken');
+            return res.status(403).json({
+                success: false,
+                message: "Tài khoản đã bị vô hiệu hóa"
+            });
+        }
+
+        if (user.isLocked && user.isLocked()) {
+            res.clearCookie('refreshToken');
+            return res.status(423).json({
+                success: false,
+                message: "Tài khoản đang bị khóa"
+            });
+        }
+
+        // Generate new access token with current user data
+        const accessToken = generateAccessToken(user);
+
+        // Update last login time
+        user.lastLoginAt = new Date();
+        await user.save();
 
         res.json({
             success: true,
-            message: "Token đã được làm mới",
+            message: "Token đã được gia hạn",
             accessToken,
             expiresIn: 30 * 60, // 30 minutes
             tokenType: 'Bearer'

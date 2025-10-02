@@ -109,7 +109,7 @@ services:
       GATEWAY_PORT: 3000
       USER_SERVICE_URL: http://user-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3002
-      ALLOWED_ORIGINS: "*"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3000:3000"

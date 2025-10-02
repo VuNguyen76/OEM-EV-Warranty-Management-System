@@ -11,7 +11,7 @@ const Auth = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // const [login, { isLoading }] = useLoginMutation();
+  const [login, { isLoading }] = useLoginMutation();
 
   const handleLogin = async () => {
     const res = await login({ email, password }).unwrap();

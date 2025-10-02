@@ -59,7 +59,7 @@ router.post("/register", authenticateToken, authorizeRole("admin", "service_staf
         // Invalidate cache
         await redisService.del(`vehicles:service_center:${assignedServiceCenter}`);
 
-        console.log(`🚗 Vehicle registered: ${vin} by ${req.user.email}`);
+        console.log(` Vehicle registered: ${vin} by ${req.user.email}`);
 
         res.status(201).json({
             success: true,

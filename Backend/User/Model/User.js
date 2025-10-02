@@ -1,11 +1,11 @@
 const mongoose = require("mongoose");
 const validator = require("validator");
-const { BaseEntity } = require("../../shared/Base/BaseEntity");
+const BaseEntity = require("../../shared/Base/BaseEntity");
 const Enum = require("../../shared/Enum/Enum");
 
 const UserSchema = new mongoose.Schema({
     // Base fields
-    ...BaseEntity,
+    ...BaseEntity.BaseEntity,
 
     // Basic info
     username: {
