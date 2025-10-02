@@ -63,7 +63,7 @@ function createRateLimit(options = {}) {
 
             // Add response handler to track success/failure
             const originalSend = res.send;
-            res.send = function(data) {
+            res.send = function (data) {
                 const shouldSkip = (
                     (skipSuccessfulRequests && res.statusCode < 400) ||
                     (skipFailedRequests && res.statusCode >= 400)
@@ -104,7 +104,7 @@ const loginRateLimit = createRateLimit({
  */
 const registerRateLimit = createRateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 3, // 3 registrations per hour per IP
+    max: 20, // 20 registrations per hour per IP (increased for testing)
     keyGenerator: (req) => `register:${req.ip}`,
     message: 'Quá nhiều lần đăng ký từ IP này, vui lòng thử lại sau 1 giờ'
 });

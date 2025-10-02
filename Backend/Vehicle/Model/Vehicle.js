@@ -311,15 +311,14 @@ VehicleSchema.statics.findByServiceCenter = function (serviceCenterName) {
 VehicleSchema.set('toJSON', { virtuals: true });
 VehicleSchema.set('toObject', { virtuals: true });
 
-// Use separate connection for Vehicle model
-let Vehicle;
-try {
-    const vehicleConnection = getVehicleConnection();
-    Vehicle = vehicleConnection.model("Vehicle", VehicleSchema);
-} catch (error) {
-    // Fallback to default connection if vehicle connection not available
-    console.warn("Vehicle connection not available, using default connection");
-    Vehicle = mongoose.model("Vehicle", VehicleSchema);
-}
-
-module.exports = Vehicle;
+// Export a function that creates the model with the correct connection
+module.exports = function createVehicleModel() {
+    try {
+        const vehicleConnection = getVehicleConnection();
+        return vehicleConnection.model("Vehicle", VehicleSchema);
+    } catch (error) {
+        // Fallback to default connection if vehicle connection not available
+        console.warn("Vehicle connection not available, using default connection");
+        return mongoose.model("Vehicle", VehicleSchema);
+    }
+};

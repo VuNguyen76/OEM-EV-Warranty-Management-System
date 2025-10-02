@@ -116,6 +116,9 @@ const startServer = async () => {
         // Kết nối database trước
         await connectToVehicleDatabase();
 
+        // Initialize Vehicle model after database connection
+        VehicleService.initializeVehicleModel();
+
         // Kết nối Redis
         await redisService.connect();
 

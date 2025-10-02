@@ -46,7 +46,7 @@ const generateTokenPair = async (user) => {
 // Đăng ký tài khoản mới
 router.post("/register", registerRateLimit, validate(validationRules.register), async (req, res) => {
     try {
-        const { username, email, password, role } = req.body;
+        const { username, email, password, role, phone, fullAddress } = req.body;
 
         // Check if user already exists
         const existingUser = await User.findOne({
@@ -74,6 +74,8 @@ router.post("/register", registerRateLimit, validate(validationRules.register), 
             loginAttempts: 0,
             availability: role === "technician" ? true : undefined,
             workload: role === "technician" ? 0 : undefined,
+            // Add phone and fullAddress for customer role
+            ...(role === "customer" && { phone, fullAddress }),
         });
 
         await newUser.save();

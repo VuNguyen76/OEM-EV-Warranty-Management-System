@@ -1,46 +1,68 @@
-const express = require("express");
-const Vehicle = require("../Model/Vehicle");
-const { authenticateToken, authorizeRole } = require("../../shared/middleware/AuthMiddleware");
+const createVehicleModel = require("../Model/Vehicle");
 const redisService = require("../../shared/services/RedisService");
 
-const router = express.Router();
+// Initialize Vehicle model after connection is established
+let Vehicle;
 
-// UC2: Gắn số seri phụ tùng (Nhân viên & Kỹ thuật viên trung tâm dịch vụ)
-router.post("/:vehicleId/parts", authenticateToken, authorizeRole("admin", "service_staff", "technician"), async (req, res) => {
+// Initialize Vehicle model
+function initializeVehicleModel() {
+    if (!Vehicle) {
+        Vehicle = createVehicleModel();
+        console.log("✅ Vehicle model initialized in PartsController");
+    }
+}
+
+// UC2: Add parts to vehicle
+const addPartToVehicle = async (req, res) => {
     try {
         const { vehicleId } = req.params;
         const {
-            serialNumber,
-            partType,
-            partName,
-            manufacturer,
-            position,
-            warrantyEndDate,
-            specifications
+            serialNumber, partType, partName, manufacturer,
+            installationDate, warrantyEndDate, cost, notes
         } = req.body;
 
-        // Validate required fields
-        if (!serialNumber || !partType || !partName || !warrantyEndDate) {
+        // Validation
+        if (!serialNumber || !partType || !partName) {
             return res.status(400).json({
                 success: false,
-                message: "Số seri, loại phụ tùng, tên phụ tùng và ngày hết hạn bảo hành là bắt buộc"
+                message: "Số seri, loại phụ tùng và tên phụ tùng là bắt buộc"
             });
         }
 
-        // Check if serial number already exists
-        const existingVehicleWithPart = await Vehicle.findOne({
-            'parts.serialNumber': serialNumber
+        // Check if part serial already exists
+        const existingPart = await Vehicle.findOne({
+            "parts.serialNumber": serialNumber
         });
 
-        if (existingVehicleWithPart) {
+        if (existingPart) {
             return res.status(400).json({
                 success: false,
                 message: "Số seri phụ tùng đã tồn tại trong hệ thống"
             });
         }
 
-        // Find vehicle
-        const vehicle = await Vehicle.findById(vehicleId);
+        const newPart = {
+            serialNumber: serialNumber.toUpperCase(),
+            partType,
+            partName,
+            manufacturer,
+            installationDate: installationDate ? new Date(installationDate) : new Date(),
+            warrantyEndDate: warrantyEndDate ? new Date(warrantyEndDate) : null,
+            cost: cost || 0,
+            status: "active",
+            notes: notes || "",
+            addedBy: req.user.userId
+        };
+
+        const vehicle = await Vehicle.findByIdAndUpdate(
+            vehicleId,
+            { 
+                $push: { parts: newPart },
+                $set: { updatedAt: new Date() }
+            },
+            { new: true }
+        ).select("vin model parts");
+
         if (!vehicle) {
             return res.status(404).json({
                 success: false,
@@ -48,24 +70,9 @@ router.post("/:vehicleId/parts", authenticateToken, authorizeRole("admin", "serv
             });
         }
 
-        // Create part data
-        const partData = {
-            serialNumber: serialNumber.trim().toUpperCase(),
-            partType,
-            partName: partName.trim(),
-            manufacturer: manufacturer?.trim(),
-            position: position?.trim(),
-            warrantyEndDate: new Date(warrantyEndDate),
-            specifications,
-            status: 'active'
-        };
-
-        // Add part to vehicle
-        await vehicle.addPart(partData);
-
         // Invalidate cache
         await redisService.del(`vehicle:${vehicle.vin}`);
-        await redisService.del(`parts:vehicle:${vehicleId}`);
+        await redisService.del(`vehicle:${vehicleId}:parts`);
 
         console.log(`🔧 Part added: ${serialNumber} to vehicle ${vehicle.vin} by ${req.user.email}`);
 
@@ -74,12 +81,11 @@ router.post("/:vehicleId/parts", authenticateToken, authorizeRole("admin", "serv
             message: "Gắn phụ tùng thành công",
             data: {
                 vehicleVin: vehicle.vin,
-                partSerialNumber: partData.serialNumber,
-                partType: partData.partType,
-                partName: partData.partName
+                partSerialNumber: serialNumber,
+                partType,
+                partName
             }
         });
-
     } catch (err) {
         console.error("Add part error:", err);
         res.status(500).json({
@@ -88,26 +94,31 @@ router.post("/:vehicleId/parts", authenticateToken, authorizeRole("admin", "serv
             error: err.message
         });
     }
-});
+};
 
-// Get parts of a vehicle
-router.get("/:vehicleId/parts", authenticateToken, authorizeRole("admin", "service_staff", "technician"), async (req, res) => {
+// Get vehicle parts with Redis cache
+const getVehicleParts = async (req, res) => {
     try {
         const { vehicleId } = req.params;
         const { status, partType } = req.query;
 
-        // Check cache first
-        const cacheKey = `parts:vehicle:${vehicleId}:${status || 'all'}:${partType || 'all'}`;
+        const cacheKey = `vehicle:${vehicleId}:parts:${status || 'all'}:${partType || 'all'}`;
+
+        // Check Redis cache first
         const cachedParts = await redisService.get(cacheKey);
         if (cachedParts) {
             return res.json({
                 success: true,
-                message: "Lấy danh sách phụ tùng thành công",
-                data: cachedParts
+                message: "Lấy danh sách phụ tùng thành công (cached)",
+                data: JSON.parse(cachedParts),
+                cached: true
             });
         }
 
-        const vehicle = await Vehicle.findById(vehicleId).select('vin parts').lean();
+        const vehicle = await Vehicle.findById(vehicleId)
+            .select("vin model parts")
+            .lean();
+
         if (!vehicle) {
             return res.status(404).json({
                 success: false,
@@ -117,122 +128,117 @@ router.get("/:vehicleId/parts", authenticateToken, authorizeRole("admin", "servi
 
         let parts = vehicle.parts;
 
-        // Filter by status
+        // Filter by status if provided
         if (status) {
             parts = parts.filter(part => part.status === status);
         }
 
-        // Filter by part type
+        // Filter by partType if provided
         if (partType) {
             parts = parts.filter(part => part.partType === partType);
         }
 
-        // Add warranty status
-        parts = parts.map(part => ({
-            ...part,
-            isUnderWarranty: new Date() <= new Date(part.warrantyEndDate)
-        }));
+        const result = {
+            vehicleVin: vehicle.vin,
+            vehicleModel: vehicle.model,
+            parts: parts.sort((a, b) => new Date(b.installationDate) - new Date(a.installationDate))
+        };
 
         // Cache for 30 minutes
-        await redisService.set(cacheKey, parts, 1800);
+        await redisService.set(cacheKey, JSON.stringify(result), 1800);
 
         res.json({
             success: true,
             message: "Lấy danh sách phụ tùng thành công",
-            data: parts,
-            vehicleVin: vehicle.vin
+            data: result,
+            cached: false
         });
-
     } catch (err) {
-        console.error("Get parts error:", err);
+        console.error("Get vehicle parts error:", err);
         res.status(500).json({
             success: false,
             message: "Lỗi server khi lấy danh sách phụ tùng",
             error: err.message
         });
     }
-});
+};
 
-// Update part status (replace, defective, etc.)
-router.put("/:vehicleId/parts/:partId", authenticateToken, authorizeRole("admin", "service_staff", "technician"), async (req, res) => {
+// Update part status
+const updatePartStatus = async (req, res) => {
     try {
         const { vehicleId, partId } = req.params;
-        const { status, position, specifications, notes } = req.body;
+        const { status, notes } = req.body;
 
-        const vehicle = await Vehicle.findById(vehicleId);
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: "Trạng thái phụ tùng là bắt buộc"
+            });
+        }
+
+        const vehicle = await Vehicle.findOneAndUpdate(
+            { 
+                _id: vehicleId,
+                "parts._id": partId
+            },
+            {
+                $set: {
+                    "parts.$.status": status,
+                    "parts.$.notes": notes || "",
+                    "parts.$.updatedAt": new Date(),
+                    updatedAt: new Date()
+                }
+            },
+            { new: true }
+        ).select("vin parts");
+
         if (!vehicle) {
             return res.status(404).json({
                 success: false,
-                message: "Không tìm thấy xe"
+                message: "Không tìm thấy xe hoặc phụ tùng"
             });
         }
 
-        const part = vehicle.parts.id(partId);
-        if (!part) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy phụ tùng"
-            });
-        }
-
-        // Update part fields
-        if (status) part.status = status;
-        if (position) part.position = position;
-        if (specifications) part.specifications = { ...part.specifications, ...specifications };
-        if (notes) part.notes = notes;
-
-        part.updatedAt = new Date();
-
-        await vehicle.save();
+        const updatedPart = vehicle.parts.id(partId);
 
         // Invalidate cache
         await redisService.del(`vehicle:${vehicle.vin}`);
-        await redisService.del(`parts:vehicle:${vehicleId}`);
+        await redisService.del(`vehicle:${vehicleId}:parts`);
 
-        console.log(`🔧 Part updated: ${part.serialNumber} status to ${status} by ${req.user.email}`);
+        console.log(`🔧 Part status updated: ${updatedPart.serialNumber} to ${status} by ${req.user.email}`);
 
         res.json({
             success: true,
-            message: "Cập nhật phụ tùng thành công",
+            message: "Cập nhật trạng thái phụ tùng thành công",
             data: {
-                partId: part._id,
-                serialNumber: part.serialNumber,
-                status: part.status,
-                updatedAt: part.updatedAt
+                vehicleVin: vehicle.vin,
+                partId: updatedPart._id,
+                serialNumber: updatedPart.serialNumber,
+                status: updatedPart.status
             }
         });
-
     } catch (err) {
-        console.error("Update part error:", err);
+        console.error("Update part status error:", err);
         res.status(500).json({
             success: false,
-            message: "Lỗi server khi cập nhật phụ tùng",
+            message: "Lỗi server khi cập nhật trạng thái phụ tùng",
             error: err.message
         });
     }
-});
+};
 
-// Search parts by serial number
-router.get("/search/:serialNumber", authenticateToken, authorizeRole("admin", "service_staff", "technician"), async (req, res) => {
+// Search part by serial number
+const searchPartBySerial = async (req, res) => {
     try {
         const { serialNumber } = req.params;
 
-        // Check cache first
-        const cacheKey = `part:search:${serialNumber.toUpperCase()}`;
-        const cachedResult = await redisService.get(cacheKey);
-        if (cachedResult) {
-            return res.json({
-                success: true,
-                message: "Tìm kiếm phụ tùng thành công",
-                data: cachedResult
-            });
-        }
-
         const vehicle = await Vehicle.findOne({
-            'parts.serialNumber': serialNumber.toUpperCase()
-        }).select('vin model year ownerName parts.$').lean();
+            "parts.serialNumber": serialNumber.toUpperCase()
+        })
+        .select("vin model parts.$")
+        .lean();
 
-        if (!vehicle) {
+        if (!vehicle || !vehicle.parts || vehicle.parts.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Không tìm thấy phụ tùng với số seri này"
@@ -240,94 +246,110 @@ router.get("/search/:serialNumber", authenticateToken, authorizeRole("admin", "s
         }
 
         const part = vehicle.parts[0];
-        const result = {
-            vehicle: {
-                vin: vehicle.vin,
-                model: vehicle.model,
-                year: vehicle.year,
-                ownerName: vehicle.ownerName
-            },
-            part: {
-                ...part,
-                isUnderWarranty: new Date() <= new Date(part.warrantyEndDate)
-            }
-        };
-
-        // Cache for 1 hour
-        await redisService.set(cacheKey, result, 3600);
 
         res.json({
             success: true,
-            message: "Tìm kiếm phụ tùng thành công",
-            data: result
+            message: "Tìm thấy phụ tùng",
+            data: {
+                vehicleVin: vehicle.vin,
+                vehicleModel: vehicle.model,
+                part
+            }
         });
-
     } catch (err) {
-        console.error("Search part error:", err);
+        console.error("Search part by serial error:", err);
         res.status(500).json({
             success: false,
             message: "Lỗi server khi tìm kiếm phụ tùng",
             error: err.message
         });
     }
-});
+};
 
 // Get parts statistics
-router.get("/stats/overview", authenticateToken, authorizeRole("admin", "service_staff"), async (req, res) => {
+const getPartsStatistics = async (req, res) => {
     try {
-        const { serviceCenter } = req.query;
+        const cacheKey = "parts:statistics";
 
-        // Check cache first
-        const cacheKey = `parts:stats:${serviceCenter || 'all'}`;
+        // Check Redis cache first
         const cachedStats = await redisService.get(cacheKey);
         if (cachedStats) {
             return res.json({
                 success: true,
-                message: "Lấy thống kê phụ tùng thành công",
-                data: cachedStats
+                message: "Lấy thống kê phụ tùng thành công (cached)",
+                data: JSON.parse(cachedStats),
+                cached: true
             });
         }
 
-        const matchStage = serviceCenter ? { assignedServiceCenter: serviceCenter } : {};
-
         const stats = await Vehicle.aggregate([
-            { $match: matchStage },
-            { $unwind: '$parts' },
+            { $unwind: "$parts" },
             {
                 $group: {
-                    _id: '$parts.partType',
+                    _id: null,
                     totalParts: { $sum: 1 },
                     activeParts: {
-                        $sum: { $cond: [{ $eq: ['$parts.status', 'active'] }, 1, 0] }
+                        $sum: { $cond: [{ $eq: ["$parts.status", "active"] }, 1, 0] }
                     },
                     replacedParts: {
-                        $sum: { $cond: [{ $eq: ['$parts.status', 'replaced'] }, 1, 0] }
+                        $sum: { $cond: [{ $eq: ["$parts.status", "replaced"] }, 1, 0] }
                     },
                     defectiveParts: {
-                        $sum: { $cond: [{ $eq: ['$parts.status', 'defective'] }, 1, 0] }
+                        $sum: { $cond: [{ $eq: ["$parts.status", "defective"] }, 1, 0] }
+                    },
+                    partsByType: {
+                        $push: "$parts.partType"
                     }
                 }
-            },
-            { $sort: { totalParts: -1 } }
+            }
         ]);
 
+        const partTypeStats = await Vehicle.aggregate([
+            { $unwind: "$parts" },
+            {
+                $group: {
+                    _id: "$parts.partType",
+                    count: { $sum: 1 },
+                    totalCost: { $sum: "$parts.cost" }
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
+        const result = {
+            overview: stats[0] || {
+                totalParts: 0,
+                activeParts: 0,
+                replacedParts: 0,
+                defectiveParts: 0
+            },
+            partTypes: partTypeStats
+        };
+
         // Cache for 1 hour
-        await redisService.set(cacheKey, stats, 3600);
+        await redisService.set(cacheKey, JSON.stringify(result), 3600);
 
         res.json({
             success: true,
             message: "Lấy thống kê phụ tùng thành công",
-            data: stats
+            data: result,
+            cached: false
         });
-
     } catch (err) {
-        console.error("Get parts stats error:", err);
+        console.error("Get parts statistics error:", err);
         res.status(500).json({
             success: false,
             message: "Lỗi server khi lấy thống kê phụ tùng",
             error: err.message
         });
     }
-});
+};
 
-module.exports = router;
+module.exports = {
+    initializeVehicleModel,
+    addPartToVehicle,
+    getVehicleParts,
+    updatePartStatus,
+    searchPartBySerial,
+    getPartsStatistics
+};
