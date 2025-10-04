@@ -1,4 +1,5 @@
 import { api } from "../../service/api";
+import { logout } from "../userSlice/userSlice.slice";
 
 const authApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -25,6 +26,14 @@ const authApi = api.injectEndpoints({
       }),
 
       invalidatesTags: ["Auth"],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          dispatch(logout());
+        } catch (error) {
+          console.log(error);
+        }
+      },
     }),
     getUserById: builder.query({
       query: (id) => ({
@@ -35,5 +44,5 @@ const authApi = api.injectEndpoints({
   }),
 });
 
-export const { useLoginMutation, useRegisterMutation, useGetUserByIdQuery } =
+export const { useLoginMutation, useRegisterMutation, useGetUserByIdQuery, useLogoutMutation } =
   authApi;
