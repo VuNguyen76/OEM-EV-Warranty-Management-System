@@ -72,6 +72,11 @@ app.get('/api-docs', (req, res) => {
 app.use((err, req, res, next) => {
     console.error('Vehicle Service Error:', err);
 
+    // Check if response already sent
+    if (res.headersSent) {
+        return next(err);
+    }
+
     if (err.name === 'ValidationError') {
         return res.status(400).json({
             success: false,
@@ -116,8 +121,8 @@ const startServer = async () => {
         // Kết nối database trước
         await connectToVehicleDatabase();
 
-        // Initialize Vehicle model after database connection
-        VehicleService.initializeVehicleModel();
+        // Initialize all models after database connection
+        VehicleService.initializeModels();
 
         // Kết nối Redis
         await redisService.connect();

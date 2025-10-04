@@ -16,7 +16,7 @@ const sendSuccess = (res, message, data = null, statusCode = 200, meta = {}) => 
         ...(data && { data }),
         ...meta
     };
-    
+
     return res.status(statusCode).json(response);
 };
 
@@ -35,7 +35,7 @@ const sendError = (res, message, statusCode = 500, error = null, meta = {}) => {
         ...(error && { error }),
         ...meta
     };
-    
+
     return res.status(statusCode).json(response);
 };
 
@@ -48,9 +48,9 @@ const sendError = (res, message, statusCode = 500, error = null, meta = {}) => {
  * @param {boolean} cached - Whether data is from cache
  */
 const sendPaginatedResponse = (res, message, data, pagination, cached = false) => {
-    return sendSuccess(res, message, { 
+    return sendSuccess(res, message, {
         [Array.isArray(data) ? 'items' : 'data']: data,
-        pagination 
+        pagination
     }, 200, { cached });
 };
 
@@ -65,7 +65,7 @@ const createPagination = (page, limit, total) => {
     const currentPage = parseInt(page);
     const itemsPerPage = parseInt(limit);
     const totalPages = Math.ceil(total / itemsPerPage);
-    
+
     return {
         page: currentPage,
         limit: itemsPerPage,
@@ -96,33 +96,33 @@ const asyncHandler = (fn) => {
  */
 const errorHandler = (err, req, res, next) => {
     console.error('Error:', err);
-    
+
     // Mongoose validation error
     if (err.name === 'ValidationError') {
         const errors = Object.values(err.errors).map(e => e.message);
         return sendError(res, 'Dữ liệu không hợp lệ', 400, errors.join(', '));
     }
-    
+
     // Mongoose cast error (invalid ObjectId)
     if (err.name === 'CastError') {
         return sendError(res, 'ID không hợp lệ', 400, err.message);
     }
-    
+
     // Mongoose duplicate key error
     if (err.code === 11000) {
         const field = Object.keys(err.keyValue)[0];
         return sendError(res, `${field} đã tồn tại`, 400, 'Duplicate field value');
     }
-    
+
     // JWT errors
     if (err.name === 'JsonWebTokenError') {
         return sendError(res, 'Token không hợp lệ', 401, err.message);
     }
-    
+
     if (err.name === 'TokenExpiredError') {
         return sendError(res, 'Token đã hết hạn', 401, err.message);
     }
-    
+
     // Default server error
     sendError(res, 'Lỗi server nội bộ', 500, err.message);
 };
@@ -136,6 +136,15 @@ const notFoundHandler = (req, res) => {
     sendError(res, `Route ${req.originalUrl} không tồn tại`, 404);
 };
 
+// Aliases for backward compatibility
+const success = (res, data, message, statusCode = 200) => {
+    return sendSuccess(res, message, data, statusCode);
+};
+
+const error = (res, message, statusCode = 500, errorDetails = null) => {
+    return sendError(res, message, statusCode, errorDetails);
+};
+
 module.exports = {
     sendSuccess,
     sendError,
@@ -143,5 +152,8 @@ module.exports = {
     createPagination,
     asyncHandler,
     errorHandler,
-    notFoundHandler
+    notFoundHandler,
+    // Aliases
+    success,
+    error
 };
