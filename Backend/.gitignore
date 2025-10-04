@@ -73,3 +73,6 @@ storage/
 # Test files
 test-results/
 coverage/
+
+#file md
+*.md

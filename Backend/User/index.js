@@ -7,6 +7,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const UserService = require("./Service/UserService");
 const AuthController = require("./Controller/AuthController");
 const { setupCommonMiddleware } = require("../shared/middleware/common");
@@ -20,6 +21,7 @@ const port = process.env.PORT || process.env.USER_SERVICE_PORT || 3001;
 setupCommonMiddleware(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Add cookie parser middleware
 
 // Routes
 app.use("/users", UserService);

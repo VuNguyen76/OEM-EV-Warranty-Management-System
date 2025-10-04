@@ -1,325 +1,309 @@
 const mongoose = require("mongoose");
-const { BaseEntity } = require("../../shared/Base/BaseEntity");
 const { getVehicleConnection } = require("../../shared/database/vehicleConnection");
 
-// VIN validation function
-const validateVIN = (vin) => {
-    // VIN must be exactly 17 characters
-    if (vin.length !== 17) return false;
+// Vehicle Model Schema (for manufacturers)
+const VehicleModelSchema = new mongoose.Schema({
+    // Basic Model Information
+    modelName: {
+        type: String,
+        required: true,
+        trim: true,
+        description: "Tên model xe (VD: EV-SUV-2024)"
+    },
 
-    // VIN should not contain I, O, Q
-    if (/[IOQ]/.test(vin)) return false;
-
-    // Basic format check (alphanumeric)
-    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return false;
-
-    return true;
-};
-
-// Parts Schema for embedded parts
-const PartSchema = new mongoose.Schema({
-    serialNumber: {
+    modelCode: {
         type: String,
         required: true,
         unique: true,
-        trim: true
+        uppercase: true,
+        trim: true,
+        description: "Mã model (VD: EVSUV24)"
     },
-    partType: {
-        type: String,
-        required: true,
-        enum: [
-            'battery', 'motor', 'bms', 'inverter', 'charger',
-            'brake_system', 'suspension', 'steering', 'hvac',
-            'infotainment', 'lighting', 'body_parts', 'other'
-        ]
-    },
-    partName: {
-        type: String,
-        required: true,
-        trim: true
-    },
+
     manufacturer: {
         type: String,
-        trim: true
-    },
-    installationDate: {
-        type: Date,
-        default: Date.now
-    },
-    warrantyStartDate: {
-        type: Date,
-        default: Date.now
-    },
-    warrantyEndDate: {
-        type: Date,
-        required: true
-    },
-    position: {
-        type: String,
+        required: true,
         trim: true,
-        description: "Vị trí lắp đặt trên xe"
+        description: "Hãng sản xuất"
     },
-    status: {
-        type: String,
-        enum: ['active', 'replaced', 'defective', 'recalled'],
-        default: 'active'
-    },
-    specifications: {
-        type: mongoose.Schema.Types.Mixed,
-        description: "Thông số kỹ thuật của phụ tùng"
-    }
-}, {
-    timestamps: true
-});
 
-// Service History Schema
-const ServiceHistorySchema = new mongoose.Schema({
-    serviceType: {
+    category: {
         type: String,
         required: true,
-        enum: ['maintenance', 'repair', 'warranty', 'recall', 'inspection']
+        enum: ["sedan", "suv", "hatchback", "truck", "van"],
+        description: "Loại xe"
     },
-    description: {
-        type: String,
+
+    year: {
+        type: Number,
         required: true,
-        trim: true
+        min: 2020,
+        max: new Date().getFullYear() + 2,
+        description: "Năm sản xuất"
     },
-    serviceDate: {
-        type: Date,
-        default: Date.now
-    },
-    mileage: {
+
+    // Technical Specifications
+    batteryCapacity: {
         type: Number,
-        min: 0,
-        description: "Số km khi thực hiện dịch vụ"
+        required: true,
+        min: 10,
+        max: 200,
+        description: "Dung lượng pin (kWh)"
     },
-    serviceCenterName: {
-        type: String,
-        trim: true
-    },
-    technicianId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-    partsReplaced: [{
-        partType: String,
-        oldSerialNumber: String,
-        newSerialNumber: String,
-        reason: String
-    }],
-    cost: {
+
+    motorPower: {
         type: Number,
-        min: 0,
-        description: "Chi phí dịch vụ"
+        required: true,
+        min: 50,
+        max: 1000,
+        description: "Công suất động cơ (kW)"
     },
-    attachments: [{
-        fileName: String,
-        filePath: String,
-        fileType: String,
-        uploadDate: {
-            type: Date,
-            default: Date.now
-        }
-    }],
-    notes: {
-        type: String,
-        trim: true
+
+    range: {
+        type: Number,
+        required: true,
+        min: 100,
+        max: 1000,
+        description: "Phạm vi hoạt động (km)"
     },
+
+    // Warranty Information
+    vehicleWarrantyMonths: {
+        type: Number,
+        required: true,
+        min: 12,
+        max: 120,
+        default: 36,
+        description: "Bảo hành xe (tháng)"
+    },
+
+    batteryWarrantyMonths: {
+        type: Number,
+        required: true,
+        min: 24,
+        max: 120,
+        default: 96,
+        description: "Bảo hành pin (tháng)"
+    },
+
+    // Pricing
+    basePrice: {
+        type: Number,
+        required: true,
+        min: 100000000,
+        description: "Giá cơ bản (VND)"
+    },
+
+    // Status
     status: {
         type: String,
-        enum: ['completed', 'in_progress', 'cancelled'],
-        default: 'completed'
+        enum: ["development", "production", "discontinued"],
+        default: "development",
+        description: "Trạng thái model"
+    },
+
+    // Metadata
+    createdBy: {
+        type: String,
+        required: true,
+        description: "Người tạo model"
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    collection: "vehicle_models"
 });
 
-// Main Vehicle Schema
+// Vehicle Schema (for individual vehicles)
 const VehicleSchema = new mongoose.Schema({
-    ...BaseEntity,
-
-    // Vehicle Identification
+    // Basic Information
     vin: {
         type: String,
         required: true,
         unique: true,
         uppercase: true,
         trim: true,
-        validate: {
-            validator: validateVIN,
-            message: 'VIN không hợp lệ. VIN phải có 17 ký tự và không chứa I, O, Q'
-        }
+        description: "Vehicle Identification Number (nhập thủ công)"
     },
 
-    // Vehicle Information
-    model: {
+    // Model Reference
+    modelId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'VehicleModel',
+        description: "ID của vehicle model (optional)"
+    },
+
+    // Production Information (for manufacturers)
+    productionDate: {
+        type: Date,
+        description: "Ngày sản xuất"
+    },
+
+    productionBatch: {
         type: String,
-        required: true,
-        trim: true
+        trim: true,
+        description: "Lô sản xuất"
     },
-    year: {
-        type: Number,
-        required: true,
-        min: 2020,
-        max: new Date().getFullYear() + 1
-    },
+
+    // Vehicle Specific Details
     color: {
         type: String,
-        trim: true
-    },
-    batteryCapacity: {
-        type: Number,
-        min: 0,
-        description: "Dung lượng pin (kWh)"
-    },
-    range: {
-        type: Number,
-        min: 0,
-        description: "Phạm vi hoạt động (km)"
+        required: true,
+        trim: true,
+        description: "Màu sắc xe"
     },
 
-    // Owner Information
+    // Registration Information (for service centers)
+    registrationDate: {
+        type: Date,
+        description: "Ngày đăng ký vào hệ thống bảo hành"
+    },
+
+    // Warranty Information
+    warrantyStartDate: {
+        type: Date,
+        description: "Ngày bắt đầu bảo hành"
+    },
+
+    warrantyEndDate: {
+        type: Date,
+        description: "Ngày kết thúc bảo hành"
+    },
+
+    warrantyStatus: {
+        type: String,
+        enum: ["pending", "active", "expired", "voided"],
+        default: "pending",
+        description: "Trạng thái bảo hành"
+    },
+
+    // Owner Information (filled by service center)
     ownerName: {
         type: String,
-        required: true,
-        trim: true
+        trim: true,
+        description: "Tên chủ sở hữu"
     },
+
     ownerPhone: {
         type: String,
-        required: true,
-        trim: true
+        trim: true,
+        description: "Số điện thoại chủ sở hữu"
     },
+
     ownerEmail: {
         type: String,
         trim: true,
-        lowercase: true
+        lowercase: true,
+        description: "Email chủ sở hữu"
     },
+
     ownerAddress: {
         type: String,
-        trim: true
+        trim: true,
+        description: "Địa chỉ chủ sở hữu"
     },
 
-    // Purchase Information
-    purchaseDate: {
-        type: Date,
-        required: true
-    },
-    dealerName: {
+    // Service Center Information
+    serviceCenterId: {
         type: String,
-        trim: true
-    },
-    warrantyStartDate: {
-        type: Date,
-        default: Date.now
-    },
-    warrantyEndDate: {
-        type: Date,
-        required: true
+        description: "ID trung tâm bảo hành"
     },
 
-    // Current Status
-    currentMileage: {
-        type: Number,
-        min: 0,
-        default: 0
-    },
-    status: {
-        type: String,
-        enum: ['active', 'inactive', 'recalled', 'scrapped'],
-        default: 'active'
-    },
-
-    // Service Center
-    assignedServiceCenter: {
+    serviceCenterName: {
         type: String,
         trim: true,
-        description: "Trung tâm dịch vụ được phân công"
+        description: "Tên trung tâm bảo hành"
     },
 
-    // Parts and Service History
-    parts: [PartSchema],
-    serviceHistory: [ServiceHistorySchema],
-
-    // Additional Information
-    specifications: {
-        type: mongoose.Schema.Types.Mixed,
-        description: "Thông số kỹ thuật chi tiết của xe"
-    },
-    notes: {
+    // Status
+    status: {
         type: String,
-        trim: true
+        enum: ["manufactured", "registered", "active", "inactive", "recalled"],
+        default: "manufactured",
+        description: "Trạng thái xe"
+    },
+
+    // Role-based tracking
+    createdBy: {
+        type: String,
+        required: true,
+        description: "Người tạo (manufacturer hoặc service_staff)"
+    },
+
+    createdByRole: {
+        type: String,
+        enum: ["manufacturer_staff", "service_staff", "admin"],
+        required: true,
+        description: "Vai trò người tạo"
     }
+}, {
+    timestamps: true,
+    collection: "vehicles"
 });
 
-// Indexes for better performance
-VehicleSchema.index({ vin: 1 });
-VehicleSchema.index({ ownerPhone: 1 });
-VehicleSchema.index({ ownerEmail: 1 });
-VehicleSchema.index({ model: 1, year: 1 });
+// Indexes
+VehicleModelSchema.index({ modelCode: 1 }, { unique: true });
+VehicleModelSchema.index({ manufacturer: 1, modelName: 1 });
+VehicleModelSchema.index({ status: 1 });
+
+VehicleSchema.index({ vin: 1 }, { unique: true });
+VehicleSchema.index({ modelId: 1 });
 VehicleSchema.index({ status: 1 });
-VehicleSchema.index({ assignedServiceCenter: 1 });
-VehicleSchema.index({ 'parts.serialNumber': 1 });
-VehicleSchema.index({ 'parts.partType': 1 });
+VehicleSchema.index({ warrantyStatus: 1 });
+VehicleSchema.index({ serviceCenterId: 1 });
+VehicleSchema.index({ createdByRole: 1 });
 
-// Virtual for warranty status
-VehicleSchema.virtual('isUnderWarranty').get(function () {
-    return new Date() <= this.warrantyEndDate;
-});
-
-// Virtual for vehicle age
-VehicleSchema.virtual('vehicleAge').get(function () {
-    const currentYear = new Date().getFullYear();
-    return currentYear - this.year;
+// Virtual fields
+VehicleSchema.virtual('isWarrantyActive').get(function () {
+    return this.warrantyStatus === 'active' && this.warrantyEndDate > new Date();
 });
 
 // Methods
-VehicleSchema.methods.addPart = function (partData) {
-    this.parts.push(partData);
-    return this.save();
-};
+VehicleSchema.methods.activateWarranty = function (startDate, ownerInfo, serviceCenterInfo, updatedBy) {
+    this.warrantyStartDate = startDate || new Date();
+    this.registrationDate = new Date();
+    this.status = 'registered';
+    this.warrantyStatus = 'active';
 
-VehicleSchema.methods.addServiceRecord = function (serviceData) {
-    this.serviceHistory.push(serviceData);
-    return this.save();
-};
-
-VehicleSchema.methods.updateMileage = function (newMileage) {
-    if (newMileage >= this.currentMileage) {
-        this.currentMileage = newMileage;
-        return this.save();
+    // Set owner information
+    if (ownerInfo) {
+        this.ownerName = ownerInfo.name;
+        this.ownerPhone = ownerInfo.phone;
+        this.ownerEmail = ownerInfo.email;
+        this.ownerAddress = ownerInfo.address;
     }
-    throw new Error('Số km mới không thể nhỏ hơn số km hiện tại');
+
+    // Set service center information
+    if (serviceCenterInfo) {
+        this.serviceCenterId = serviceCenterInfo.id;
+        this.serviceCenterName = serviceCenterInfo.name;
+    }
+
+    this.updatedBy = updatedBy;
+    return this.save();
 };
 
 // Static methods
 VehicleSchema.statics.findByVIN = function (vin) {
-    return this.findOne({ vin: vin.toUpperCase() });
+    return this.findOne({ vin: vin.toUpperCase() }).populate('modelId');
 };
 
-VehicleSchema.statics.findByOwner = function (ownerInfo) {
-    const query = {};
-    if (ownerInfo.phone) query.ownerPhone = ownerInfo.phone;
-    if (ownerInfo.email) query.ownerEmail = ownerInfo.email.toLowerCase();
-    return this.find(query);
+VehicleModelSchema.statics.findByCode = function (modelCode) {
+    return this.findOne({ modelCode: modelCode.toUpperCase() });
 };
 
-VehicleSchema.statics.findByServiceCenter = function (serviceCenterName) {
-    return this.find({ assignedServiceCenter: serviceCenterName });
+// Export factory functions
+module.exports = function createVehicleModels() {
+    try {
+        const vehicleConnection = getVehicleConnection();
+        const VehicleModel = vehicleConnection.model('VehicleModel', VehicleModelSchema);
+        const Vehicle = vehicleConnection.model('Vehicle', VehicleSchema);
+
+        return { VehicleModel, Vehicle };
+    } catch (error) {
+        console.warn("Vehicle connection not available, using default connection");
+        const VehicleModel = mongoose.model('VehicleModel', VehicleModelSchema);
+        const Vehicle = mongoose.model('Vehicle', VehicleSchema);
+
+        return { VehicleModel, Vehicle };
+    }
 };
-
-// Ensure virtual fields are serialized
-VehicleSchema.set('toJSON', { virtuals: true });
-VehicleSchema.set('toObject', { virtuals: true });
-
-// Use separate connection for Vehicle model
-let Vehicle;
-try {
-    const vehicleConnection = getVehicleConnection();
-    Vehicle = vehicleConnection.model("Vehicle", VehicleSchema);
-} catch (error) {
-    // Fallback to default connection if vehicle connection not available
-    console.warn("Vehicle connection not available, using default connection");
-    Vehicle = mongoose.model("Vehicle", VehicleSchema);
-}
-
-module.exports = Vehicle;

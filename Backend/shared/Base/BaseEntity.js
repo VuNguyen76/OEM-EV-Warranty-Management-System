@@ -19,4 +19,6 @@ const BaseEntitySchema = {
     }
 };
 
-module.exports = BaseEntitySchema;
+module.exports = {
+    BaseEntity: BaseEntitySchema
+};

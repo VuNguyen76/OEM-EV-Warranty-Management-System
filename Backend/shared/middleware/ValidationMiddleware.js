@@ -34,18 +34,18 @@ const validationRules = {
             .withMessage('Username phải từ 3-30 ký tự')
             .matches(/^[a-zA-Z0-9_]+$/)
             .withMessage('Username chỉ chứa chữ, số và dấu gạch dưới'),
-        
+
         body('email')
             .isEmail()
             .withMessage('Email không hợp lệ')
             .normalizeEmail(),
-        
+
         body('password')
             .isLength({ min: 6 })
             .withMessage('Password phải ít nhất 6 ký tự')
             .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
             .withMessage('Password phải chứa ít nhất 1 chữ thường, 1 chữ hoa và 1 số'),
-        
+
         body('role')
             .optional()
             .isIn(['admin', 'service_staff', 'technician', 'manufacturer_staff', 'customer'])
@@ -55,11 +55,14 @@ const validationRules = {
     // User login validation
     login: [
         body('email')
+            .trim()
+            .escape()
             .isEmail()
             .withMessage('Email không hợp lệ')
             .normalizeEmail(),
-        
+
         body('password')
+            .trim()
             .notEmpty()
             .withMessage('Password không được để trống')
     ],
@@ -71,22 +74,50 @@ const validationRules = {
             .trim()
             .isLength({ min: 3, max: 30 })
             .withMessage('Username phải từ 3-30 ký tự'),
-        
+
         body('email')
             .optional()
             .isEmail()
             .withMessage('Email không hợp lệ')
             .normalizeEmail(),
-        
+
         body('phone')
             .optional()
             .matches(/^[0-9+\-\s()]+$/)
             .withMessage('Số điện thoại không hợp lệ'),
-        
+
         body('role')
             .optional()
             .isIn(['admin', 'service_staff', 'technician', 'manufacturer_staff', 'customer'])
-            .withMessage('Role không hợp lệ')
+            .withMessage('Role không hợp lệ'),
+
+        // Phone validation for customer role
+        body('phone')
+            .custom((value, { req }) => {
+                if (req.body.role === 'customer') {
+                    if (!value) {
+                        throw new Error('Số điện thoại là bắt buộc cho customer');
+                    }
+                    if (!/^[0-9]{10,11}$/.test(value)) {
+                        throw new Error('Số điện thoại phải có 10-11 chữ số');
+                    }
+                }
+                return true;
+            }),
+
+        // Full address validation for customer role
+        body('fullAddress')
+            .custom((value, { req }) => {
+                if (req.body.role === 'customer') {
+                    if (!value) {
+                        throw new Error('Địa chỉ đầy đủ là bắt buộc cho customer');
+                    }
+                    if (value.length < 10) {
+                        throw new Error('Địa chỉ phải ít nhất 10 ký tự');
+                    }
+                }
+                return true;
+            })
     ],
 
     // Vehicle registration validation
@@ -96,26 +127,26 @@ const validationRules = {
             .withMessage('VIN phải có đúng 17 ký tự')
             .matches(/^[A-HJ-NPR-Z0-9]{17}$/)
             .withMessage('VIN không hợp lệ (không chứa I, O, Q)'),
-        
+
         body('make')
             .trim()
             .notEmpty()
             .withMessage('Hãng xe không được để trống'),
-        
+
         body('model')
             .trim()
             .notEmpty()
             .withMessage('Model xe không được để trống'),
-        
+
         body('year')
             .isInt({ min: 2000, max: new Date().getFullYear() + 1 })
             .withMessage('Năm sản xuất không hợp lệ'),
-        
+
         body('ownerEmail')
             .isEmail()
             .withMessage('Email chủ xe không hợp lệ')
             .normalizeEmail(),
-        
+
         body('ownerPhone')
             .matches(/^[0-9+\-\s()]+$/)
             .withMessage('Số điện thoại chủ xe không hợp lệ')

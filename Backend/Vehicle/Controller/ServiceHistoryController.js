@@ -1,369 +1,286 @@
-const express = require("express");
-const Vehicle = require("../Model/Vehicle");
-const { authenticateToken, authorizeRole } = require("../../shared/middleware/AuthMiddleware");
+const { getVehicleConnection } = require("../../shared/database/vehicleConnection");
+const responseHelper = require("../../shared/utils/responseHelper");
+const queryHelper = require("../../shared/utils/queryHelper");
 const redisService = require("../../shared/services/RedisService");
 
-const router = express.Router();
+let ServiceHistory, Vehicle, VehiclePart;
 
-// UC3: Lưu lịch sử dịch vụ (Nhân viên & Kỹ thuật viên trung tâm dịch vụ)
-router.post("/:vehicleId/service-history", authenticateToken, authorizeRole("admin", "service_staff", "technician"), async (req, res) => {
+// Initialize models
+function initializeModels() {
+    try {
+        const vehicleConnection = getVehicleConnection();
+
+        // Load models
+        ServiceHistory = require("../Model/ServiceHistory")(vehicleConnection);
+        Vehicle = require("../Model/Vehicle")();
+        VehiclePart = require("../Model/VehiclePart")(vehicleConnection);
+
+        console.log("✅ ServiceHistory models initialized successfully");
+    } catch (error) {
+        console.error("❌ Failed to initialize ServiceHistory models:", error.message);
+        throw error;
+    }
+}
+
+// UC3: Lưu lịch sử dịch vụ
+const addServiceHistory = async (req, res) => {
     try {
         const { vehicleId } = req.params;
-        const {
-            serviceType,
-            description,
-            serviceDate,
-            mileage,
-            serviceCenterName,
-            partsReplaced,
-            cost,
-            attachments,
-            notes
-        } = req.body;
+        const serviceData = req.body;
 
         // Validate required fields
-        if (!serviceType || !description) {
-            return res.status(400).json({
-                success: false,
-                message: "Loại dịch vụ và mô tả là bắt buộc"
-            });
+        if (!serviceData.serviceType || !serviceData.description || !serviceData.performedBy) {
+            return responseHelper.error(res, "Thiếu thông tin bắt buộc: serviceType, description, performedBy", 400);
         }
 
-        // Find vehicle
+        // Check if vehicle exists
         const vehicle = await Vehicle.findById(vehicleId);
         if (!vehicle) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy xe"
-            });
+            return responseHelper.error(res, "Không tìm thấy xe", 404);
         }
 
-        // Validate mileage if provided
-        if (mileage && mileage < vehicle.currentMileage) {
-            return res.status(400).json({
-                success: false,
-                message: "Số km dịch vụ không thể nhỏ hơn số km hiện tại của xe"
-            });
-        }
+        // Create service history record
+        const serviceHistory = new ServiceHistory({
+            vehicleId,
+            ...serviceData,
+            serviceDate: serviceData.serviceDate || new Date()
+        });
 
-        // Create service history data
-        const serviceHistoryData = {
-            serviceType,
-            description: description.trim(),
-            serviceDate: serviceDate ? new Date(serviceDate) : new Date(),
-            mileage: mileage || vehicle.currentMileage,
-            serviceCenterName: serviceCenterName || vehicle.assignedServiceCenter,
-            technicianId: req.user.userId,
-            partsReplaced: partsReplaced || [],
-            cost: cost || 0,
-            attachments: attachments || [],
-            notes: notes?.trim(),
-            status: 'completed'
-        };
+        await serviceHistory.save();
 
-        // Add service record to vehicle
-        await vehicle.addServiceRecord(serviceHistoryData);
-
-        // Update vehicle mileage if provided and higher
-        if (mileage && mileage > vehicle.currentMileage) {
-            vehicle.currentMileage = mileage;
+        // Update vehicle mileage if provided
+        if (serviceData.odometerReading && serviceData.odometerReading > vehicle.currentMileage) {
+            vehicle.currentMileage = serviceData.odometerReading;
             await vehicle.save();
         }
 
-        // Update parts status if parts were replaced
-        if (partsReplaced && partsReplaced.length > 0) {
-            for (const replacedPart of partsReplaced) {
-                if (replacedPart.oldSerialNumber) {
-                    const part = vehicle.parts.find(p => p.serialNumber === replacedPart.oldSerialNumber);
-                    if (part) {
-                        part.status = 'replaced';
-                        part.updatedAt = new Date();
-                    }
-                }
-            }
-            await vehicle.save();
-        }
+        // Clear cache
+        await redisService.deletePattern(`vehicle:${vehicleId}:*`);
+        await redisService.deletePattern('service-history:*');
 
-        // Invalidate cache
-        await redisService.del(`vehicle:${vehicle.vin}`);
-        await redisService.del(`service_history:vehicle:${vehicleId}`);
-        if (vehicle.assignedServiceCenter) {
-            await redisService.del(`service_history:center:${vehicle.assignedServiceCenter}`);
-        }
+        // Populate response (only populate parts, not users)
+        await serviceHistory.populate('partsUsed.partId');
 
-        console.log(`📋 Service record added to vehicle ${vehicle.vin} by ${req.user.email}`);
-
-        res.status(201).json({
-            success: true,
-            message: "Lưu lịch sử dịch vụ thành công",
-            data: {
-                vehicleVin: vehicle.vin,
-                serviceType: serviceHistoryData.serviceType,
-                serviceDate: serviceHistoryData.serviceDate,
-                mileage: serviceHistoryData.mileage
-            }
-        });
-
-    } catch (err) {
-        console.error("Add service history error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi lưu lịch sử dịch vụ",
-            error: err.message
-        });
+        responseHelper.success(res, serviceHistory, "Thêm lịch sử dịch vụ thành công", 201);
+    } catch (error) {
+        console.error("Error adding service history:", error);
+        responseHelper.error(res, "Lỗi thêm lịch sử dịch vụ", 500);
     }
-});
+};
 
-// Get service history of a vehicle
-router.get("/:vehicleId/service-history", authenticateToken, authorizeRole("admin", "service_staff", "technician"), async (req, res) => {
+const getServiceHistory = async (req, res) => {
     try {
         const { vehicleId } = req.params;
-        const { serviceType, page = 1, limit = 20 } = req.query;
+        const { page = 1, limit = 10, serviceType, dateFrom, dateTo } = req.query;
+        const cacheKey = `vehicle:${vehicleId}:history:${JSON.stringify(req.query)}`;
 
-        // Check cache first
-        const cacheKey = `service_history:vehicle:${vehicleId}:${serviceType || 'all'}:${page}:${limit}`;
+        // Try cache first
         const cachedHistory = await redisService.get(cacheKey);
         if (cachedHistory) {
-            return res.json({
-                success: true,
-                message: "Lấy lịch sử dịch vụ thành công",
-                data: cachedHistory.serviceHistory,
-                pagination: cachedHistory.pagination
-            });
+            return responseHelper.success(res, cachedHistory, "Lấy lịch sử dịch vụ thành công (cache)");
         }
 
-        const vehicle = await Vehicle.findById(vehicleId)
-            .select('vin serviceHistory')
-            .populate('serviceHistory.technicianId', 'username email')
-            .lean();
+        // Build query options
+        const options = { serviceType, dateFrom, dateTo };
 
-        if (!vehicle) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy xe"
-            });
-        }
+        // Get service history with pagination
+        const serviceHistory = await ServiceHistory.find({ vehicleId })
+            .populate(['vehicleId', 'partsUsed.partId'])
+            .sort({ serviceDate: -1 })
+            .limit(limit)
+            .skip((page - 1) * limit);
 
-        let serviceHistory = vehicle.serviceHistory;
-
-        // Filter by service type
-        if (serviceType) {
-            serviceHistory = serviceHistory.filter(record => record.serviceType === serviceType);
-        }
-
-        // Sort by service date (newest first)
-        serviceHistory.sort((a, b) => new Date(b.serviceDate) - new Date(a.serviceDate));
-
-        // Pagination
-        const total = serviceHistory.length;
-        const skip = (page - 1) * limit;
-        const paginatedHistory = serviceHistory.slice(skip, skip + parseInt(limit));
+        const total = await ServiceHistory.countDocuments({ vehicleId });
+        const pagination = responseHelper.createPagination(page, limit, total);
 
         const result = {
-            serviceHistory: paginatedHistory,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(total / limit),
-                totalItems: total,
-                itemsPerPage: parseInt(limit)
-            }
+            serviceHistory,
+            pagination
         };
 
-        // Cache for 30 minutes
-        await redisService.set(cacheKey, result, 1800);
+        // Cache result
+        await redisService.set(cacheKey, result, 300); // 5 minutes
 
-        res.json({
-            success: true,
-            message: "Lấy lịch sử dịch vụ thành công",
-            data: result.serviceHistory,
-            pagination: result.pagination,
-            vehicleVin: vehicle.vin
-        });
-
-    } catch (err) {
-        console.error("Get service history error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi lấy lịch sử dịch vụ",
-            error: err.message
-        });
+        responseHelper.success(res, result, "Lấy lịch sử dịch vụ thành công");
+    } catch (error) {
+        console.error("Error getting service history:", error);
+        responseHelper.error(res, "Lỗi lấy lịch sử dịch vụ", 500);
     }
-});
+};
 
-// Update service history record
-router.put("/:vehicleId/service-history/:recordId", authenticateToken, authorizeRole("admin", "service_staff", "technician"), async (req, res) => {
+const updateServiceHistory = async (req, res) => {
     try {
         const { vehicleId, recordId } = req.params;
         const updateData = req.body;
 
-        // Remove fields that shouldn't be updated
-        delete updateData.technicianId;
-        delete updateData.createdAt;
-
-        const vehicle = await Vehicle.findById(vehicleId);
-        if (!vehicle) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy xe"
-            });
-        }
-
-        const serviceRecord = vehicle.serviceHistory.id(recordId);
-        if (!serviceRecord) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy bản ghi dịch vụ"
-            });
-        }
-
-        // Check permission - only the technician who created the record or admin/service_staff can update
-        if (req.user.role !== 'admin' && req.user.role !== 'service_staff' &&
-            serviceRecord.technicianId.toString() !== req.user.userId) {
-            return res.status(403).json({
-                success: false,
-                message: "Không có quyền cập nhật bản ghi này"
-            });
-        }
-
-        // Update fields
-        Object.keys(updateData).forEach(key => {
-            if (updateData[key] !== undefined) {
-                serviceRecord[key] = updateData[key];
-            }
+        const serviceHistory = await ServiceHistory.findOne({
+            _id: recordId,
+            vehicleId: vehicleId
         });
 
-        serviceRecord.updatedAt = new Date();
-        await vehicle.save();
+        if (!serviceHistory) {
+            return responseHelper.error(res, "Không tìm thấy bản ghi dịch vụ", 404);
+        }
 
-        // Invalidate cache
-        await redisService.del(`vehicle:${vehicle.vin}`);
-        await redisService.del(`service_history:vehicle:${vehicleId}`);
+        // Update service history
+        Object.assign(serviceHistory, updateData);
+        await serviceHistory.save();
 
-        console.log(`📝 Service record updated: ${recordId} by ${req.user.email}`);
+        // Clear cache
+        await redisService.deletePattern(`vehicle:${vehicleId}:*`);
+        await redisService.deletePattern('service-history:*');
 
-        res.json({
-            success: true,
-            message: "Cập nhật lịch sử dịch vụ thành công",
-            data: {
-                recordId: serviceRecord._id,
-                serviceType: serviceRecord.serviceType,
-                updatedAt: serviceRecord.updatedAt
-            }
-        });
-
-    } catch (err) {
-        console.error("Update service history error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi cập nhật lịch sử dịch vụ",
-            error: err.message
-        });
+        responseHelper.success(res, serviceHistory, "Cập nhật lịch sử dịch vụ thành công");
+    } catch (error) {
+        console.error("Error updating service history:", error);
+        responseHelper.error(res, "Lỗi cập nhật lịch sử dịch vụ", 500);
     }
-});
+};
 
-// Get service history by service center
-router.get("/service-center/:centerName/history", authenticateToken, authorizeRole("admin", "service_staff"), async (req, res) => {
+const getServiceCenterHistory = async (req, res) => {
     try {
         const { centerName } = req.params;
-        const { serviceType, startDate, endDate, page = 1, limit = 50 } = req.query;
+        const { page = 1, limit = 10, dateFrom, dateTo } = req.query;
+        const cacheKey = `service-center:${centerName}:history:${JSON.stringify(req.query)}`;
 
-        // Check cache first
-        const cacheKey = `service_history:center:${centerName}:${serviceType || 'all'}:${startDate || ''}:${endDate || ''}:${page}:${limit}`;
+        // Try cache first
         const cachedHistory = await redisService.get(cacheKey);
         if (cachedHistory) {
-            return res.json({
-                success: true,
-                message: "Lấy lịch sử dịch vụ thành công",
-                data: cachedHistory.records,
-                pagination: cachedHistory.pagination
-            });
+            return responseHelper.success(res, cachedHistory, "Lấy lịch sử dịch vụ trung tâm thành công (cache)");
         }
 
-        // Build aggregation pipeline
-        const pipeline = [
-            { $match: { assignedServiceCenter: centerName } },
-            { $unwind: '$serviceHistory' },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'serviceHistory.technicianId',
-                    foreignField: '_id',
-                    as: 'serviceHistory.technician'
-                }
-            },
-            {
-                $project: {
-                    vin: 1,
-                    model: 1,
-                    year: 1,
-                    ownerName: 1,
-                    'serviceHistory._id': 1,
-                    'serviceHistory.serviceType': 1,
-                    'serviceHistory.description': 1,
-                    'serviceHistory.serviceDate': 1,
-                    'serviceHistory.mileage': 1,
-                    'serviceHistory.cost': 1,
-                    'serviceHistory.status': 1,
-                    'serviceHistory.technician.username': 1,
-                    'serviceHistory.technician.email': 1
-                }
-            }
-        ];
+        // Build query
+        let query = { 'serviceCenter.name': centerName };
 
-        // Add filters
-        const matchConditions = {};
-        if (serviceType) {
-            matchConditions['serviceHistory.serviceType'] = serviceType;
-        }
-        if (startDate || endDate) {
-            matchConditions['serviceHistory.serviceDate'] = {};
-            if (startDate) matchConditions['serviceHistory.serviceDate'].$gte = new Date(startDate);
-            if (endDate) matchConditions['serviceHistory.serviceDate'].$lte = new Date(endDate);
+        if (dateFrom || dateTo) {
+            query.serviceDate = {};
+            if (dateFrom) query.serviceDate.$gte = new Date(dateFrom);
+            if (dateTo) query.serviceDate.$lte = new Date(dateTo);
         }
 
-        if (Object.keys(matchConditions).length > 0) {
-            pipeline.push({ $match: matchConditions });
-        }
+        // Execute query with pagination
+        const options = queryHelper.getPaginationOptions(page, limit);
+        const serviceHistory = await ServiceHistory.find(query)
+            .populate(['vehicleId', 'partsUsed.partId'])
+            .sort({ serviceDate: -1 })
+            .limit(options.limit)
+            .skip(options.skip);
 
-        // Sort by service date (newest first)
-        pipeline.push({ $sort: { 'serviceHistory.serviceDate': -1 } });
-
-        // Execute aggregation
-        const records = await Vehicle.aggregate(pipeline);
-
-        // Pagination
-        const total = records.length;
-        const skip = (page - 1) * limit;
-        const paginatedRecords = records.slice(skip, skip + parseInt(limit));
+        const total = await ServiceHistory.countDocuments(query);
+        const pagination = queryHelper.getPaginationInfo(page, limit, total);
 
         const result = {
-            records: paginatedRecords,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(total / limit),
-                totalItems: total,
-                itemsPerPage: parseInt(limit)
-            }
+            serviceHistory,
+            pagination
         };
 
-        // Cache for 15 minutes
-        await redisService.set(cacheKey, result, 900);
+        // Cache result
+        await redisService.set(cacheKey, result, 300); // 5 minutes
 
-        res.json({
-            success: true,
-            message: "Lấy lịch sử dịch vụ thành công",
-            data: result.records,
-            pagination: result.pagination
-        });
-
-    } catch (err) {
-        console.error("Get service center history error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi lấy lịch sử dịch vụ",
-            error: err.message
-        });
+        responseHelper.success(res, result, "Lấy lịch sử dịch vụ trung tâm thành công");
+    } catch (error) {
+        console.error("Error getting service center history:", error);
+        responseHelper.error(res, "Lỗi lấy lịch sử dịch vụ trung tâm", 500);
     }
-});
+};
 
-module.exports = router;
+const completeService = async (req, res) => {
+    try {
+        const { vehicleId, recordId } = req.params;
+        const completionData = req.body;
+
+        const serviceHistory = await ServiceHistory.findOne({
+            _id: recordId,
+            vehicleId: vehicleId
+        });
+
+        if (!serviceHistory) {
+            return responseHelper.error(res, "Không tìm thấy bản ghi dịch vụ", 404);
+        }
+
+        // Complete the service
+        await serviceHistory.completeService(completionData);
+
+        // Clear cache
+        await redisService.deletePattern(`vehicle:${vehicleId}:*`);
+        await redisService.deletePattern('service-history:*');
+
+        responseHelper.success(res, serviceHistory, "Hoàn thành dịch vụ thành công");
+    } catch (error) {
+        console.error("Error completing service:", error);
+        responseHelper.error(res, "Lỗi hoàn thành dịch vụ", 500);
+    }
+};
+
+const getServiceStatistics = async (req, res) => {
+    try {
+        const { dateFrom, dateTo, serviceCenter } = req.query;
+        const cacheKey = `service-stats:${JSON.stringify(req.query)}`;
+
+        // Try cache first
+        const cachedStats = await redisService.get(cacheKey);
+        if (cachedStats) {
+            return responseHelper.success(res, cachedStats, "Lấy thống kê dịch vụ thành công (cache)");
+        }
+
+        // Build filters
+        const filters = {};
+        if (dateFrom || dateTo) {
+            filters.dateFrom = dateFrom;
+            filters.dateTo = dateTo;
+        }
+        if (serviceCenter) {
+            filters.serviceCenter = serviceCenter;
+        }
+
+        const stats = await ServiceHistory.getServiceStats(filters);
+
+        // Cache result
+        await redisService.set(cacheKey, stats, 600); // 10 minutes
+
+        responseHelper.success(res, stats, "Lấy thống kê dịch vụ thành công");
+    } catch (error) {
+        console.error("Error getting service statistics:", error);
+        responseHelper.error(res, "Lỗi lấy thống kê dịch vụ", 500);
+    }
+};
+
+const getUpcomingServices = async (req, res) => {
+    try {
+        const { days = 30 } = req.query;
+        const cacheKey = `upcoming-services:${days}`;
+
+        // Try cache first
+        const cachedServices = await redisService.get(cacheKey);
+        if (cachedServices) {
+            return responseHelper.success(res, cachedServices, "Lấy danh sách dịch vụ sắp tới thành công (cache)");
+        }
+
+        const upcomingServices = await ServiceHistory.findUpcomingServices(parseInt(days));
+
+        // Cache result
+        await redisService.set(cacheKey, upcomingServices, 300); // 5 minutes
+
+        responseHelper.success(res, upcomingServices, "Lấy danh sách dịch vụ sắp tới thành công");
+    } catch (error) {
+        console.error("Error getting upcoming services:", error);
+        responseHelper.error(res, "Lỗi lấy danh sách dịch vụ sắp tới", 500);
+    }
+};
+
+module.exports = {
+    initializeModels,
+
+    // Service history management (UC3)
+    addServiceHistory,
+    getServiceHistory,
+    updateServiceHistory,
+    completeService,
+
+    // Service center operations
+    getServiceCenterHistory,
+
+    // Statistics and reporting
+    getServiceStatistics,
+    getUpcomingServices
+};

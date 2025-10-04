@@ -9,21 +9,22 @@ class RedisService {
     async connect() {
         try {
             const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+            console.log(`🔄 Attempting to connect to Redis: ${redisUrl}`);
 
             this.client = redis.createClient({
                 url: redisUrl,
-                retry_strategy: (options) => {
-                    if (options.error && options.error.code === 'ECONNREFUSED') {
-                        console.error('Redis connection refused');
-                        return new Error('Redis connection refused');
-                    }
-                    if (options.total_retry_time > 1000 * 60 * 60) {
-                        return new Error('Retry time exhausted');
-                    }
-                    if (options.attempt > 10) {
-                        return undefined;
-                    }
-                    return Math.min(options.attempt * 100, 3000);
+                socket: {
+                    reconnectStrategy: (retries) => {
+                        if (retries > 10) {
+                            console.error('Redis: Max reconnection attempts reached');
+                            return false; // Stop reconnecting
+                        }
+                        const delay = Math.min(retries * 100, 3000);
+                        console.log(`Redis: Reconnecting in ${delay}ms (attempt ${retries})`);
+                        return delay;
+                    },
+                    connectTimeout: 10000,
+                    lazyConnect: true
                 }
             });
 
@@ -42,10 +43,14 @@ class RedisService {
                 this.isConnected = false;
             });
 
+            console.log('🔄 Calling client.connect()...');
             await this.client.connect();
+            console.log('✅ client.connect() completed successfully');
             return true;
         } catch (error) {
-            console.error('Redis connection failed:', error);
+            console.error('❌ Redis connection failed:', error);
+            console.error('Error details:', error.message);
+            console.error('Error stack:', error.stack);
             this.isConnected = false;
             return false;
         }
@@ -350,6 +355,72 @@ class RedisService {
         } catch (error) {
             console.error('Redis ping error:', error);
             return false;
+        }
+    }
+
+    // Delete keys matching pattern (safe wildcard deletion)
+    async deletePattern(pattern) {
+        if (!this.isConnected) {
+            console.warn('Redis not connected, skipping pattern deletion');
+            return 0;
+        }
+
+        try {
+            const keys = await this.client.keys(pattern);
+            if (keys.length === 0) {
+                return 0;
+            }
+
+            // Delete keys in batches to avoid blocking Redis
+            const batchSize = 100;
+            let deletedCount = 0;
+
+            for (let i = 0; i < keys.length; i += batchSize) {
+                const batch = keys.slice(i, i + batchSize);
+                const result = await this.client.del(batch);
+                deletedCount += result;
+            }
+
+            console.log(`🗑️ Deleted ${deletedCount} keys matching pattern: ${pattern}`);
+            return deletedCount;
+        } catch (error) {
+            console.error('Redis delete pattern error:', error);
+            return 0;
+        }
+    }
+
+    // Alternative using SCAN for better performance (non-blocking)
+    async deletePatternScan(pattern) {
+        if (!this.isConnected) {
+            console.warn('Redis not connected, skipping pattern deletion');
+            return 0;
+        }
+
+        try {
+            let cursor = 0;
+            let deletedCount = 0;
+            const batchSize = 100;
+
+            do {
+                const result = await this.client.scan(cursor, {
+                    MATCH: pattern,
+                    COUNT: batchSize
+                });
+
+                cursor = result.cursor;
+                const keys = result.keys;
+
+                if (keys.length > 0) {
+                    const deleted = await this.client.del(keys);
+                    deletedCount += deleted;
+                }
+            } while (cursor !== 0);
+
+            console.log(`🗑️ Deleted ${deletedCount} keys matching pattern: ${pattern} (SCAN)`);
+            return deletedCount;
+        } catch (error) {
+            console.error('Redis delete pattern scan error:', error);
+            return 0;
         }
     }
 }

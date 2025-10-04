@@ -1,17 +1,16 @@
 const mongoose = require("mongoose");
 const validator = require("validator");
-const { BaseEntity } = require("../../shared/Base/BaseEntity");
+const BaseEntity = require("../../shared/Base/BaseEntity");
 const Enum = require("../../shared/Enum/Enum");
 
 const UserSchema = new mongoose.Schema({
     // Base fields
-    ...BaseEntity,
+    ...BaseEntity.BaseEntity,
 
     // Basic info
     username: {
         type: String,
         required: true,
-        unique: true,
         trim: true,
         minlength: 3,
         maxlength: 30
@@ -24,7 +23,6 @@ const UserSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
-        unique: true,
         trim: true,
         lowercase: true,
         validate: [validator.isEmail, "Email không hợp lệ"]
@@ -133,6 +131,12 @@ UserSchema.methods.incrementLoginAttempts = function () {
 // Ensure virtual fields are serialized
 UserSchema.set('toJSON', { virtuals: true });
 UserSchema.set('toObject', { virtuals: true });
+
+// Create indexes for performance
+UserSchema.index({ email: 1 }, { unique: true }); // Index for email lookups
+UserSchema.index({ username: 1 }, { unique: true }); // Index for username lookups
+UserSchema.index({ role: 1 }); // Index for role-based queries
+UserSchema.index({ status: 1 }); // Index for status queries
 
 const User = mongoose.model("User", UserSchema);
 
