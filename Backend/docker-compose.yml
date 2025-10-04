@@ -103,12 +103,15 @@ services:
       dockerfile: api-gateway/Dockerfile
     container_name: warranty_api_gateway
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       PORT: 3000
       GATEWAY_PORT: 3000
       USER_SERVICE_URL: http://user-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3002
+      REDIS_URL: redis://:warranty123@redis:6379
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       JWT_SECRET: ${JWT_SECRET}
     ports:
@@ -116,6 +119,7 @@ services:
     depends_on:
       - user-service
       - vehicle-service
+      - redis
     networks:
       - warranty_network
     volumes:

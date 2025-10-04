@@ -9,6 +9,7 @@ class RedisService {
     async connect() {
         try {
             const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+            console.log(`🔄 Attempting to connect to Redis: ${redisUrl}`);
 
             this.client = redis.createClient({
                 url: redisUrl,
@@ -42,10 +43,14 @@ class RedisService {
                 this.isConnected = false;
             });
 
+            console.log('🔄 Calling client.connect()...');
             await this.client.connect();
+            console.log('✅ client.connect() completed successfully');
             return true;
         } catch (error) {
-            console.error('Redis connection failed:', error);
+            console.error('❌ Redis connection failed:', error);
+            console.error('Error details:', error.message);
+            console.error('Error stack:', error.stack);
             this.isConnected = false;
             return false;
         }

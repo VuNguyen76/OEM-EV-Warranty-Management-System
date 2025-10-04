@@ -55,11 +55,14 @@ const validationRules = {
     // User login validation
     login: [
         body('email')
+            .trim()
+            .escape()
             .isEmail()
             .withMessage('Email không hợp lệ')
             .normalizeEmail(),
 
         body('password')
+            .trim()
             .notEmpty()
             .withMessage('Password không được để trống')
     ],

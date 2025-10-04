@@ -1,14 +1,14 @@
 const helmet = require("helmet");
 const cors = require("cors");
 const morgan = require("morgan");
-const { securityHeaders, sanitizeRequest, securityLogger, requestSizeLimiter } = require("./SecurityMiddleware");
+const { securityHeaders, securityLogger, requestSizeLimiter } = require("./SecurityMiddleware");
 
 const setupCommonMiddleware = (app) => {
     // Security middleware
     app.use(securityHeaders);
     app.use(securityLogger);
     app.use(requestSizeLimiter("10mb"));
-    app.use(sanitizeRequest);
+    // sanitizeRequest removed - conflicts with body parser
 
     // Third-party security middleware
     app.use(
