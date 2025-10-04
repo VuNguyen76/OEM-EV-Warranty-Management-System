@@ -4,7 +4,7 @@ const RefreshToken = require("../Model/RefreshToken");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("../../shared/middleware/AuthMiddleware");
-const { loginRateLimit, registerRateLimit, strictRateLimit } = require("../../shared/middleware/RateLimitMiddleware");
+// Rate limiting is now handled at API Gateway level
 const { validate, validationRules } = require("../../shared/middleware/ValidationMiddleware");
 
 const router = express.Router();
@@ -13,14 +13,23 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 const ACCESS_TOKEN_EXPIRY = '30m'; // 30 minutes
 
+// Performance logging helper
+const logPerformance = (operation, startTime, additionalInfo = {}) => {
+    const duration = Date.now() - startTime;
+    // Async logging to avoid blocking
+    setImmediate(() => {
+        console.log(`[PERF] ${operation}: ${duration}ms`, additionalInfo);
+    });
+};
+
 // Helper functions
 const generateAccessToken = (user) => {
     return jwt.sign(
         {
             sub: user._id || user.id,
             email: user.email,
-            role: user.role,
-            username: user.username
+            role: user.role
+            // Removed username to make payload lighter
         },
         JWT_SECRET,
         {
@@ -44,27 +53,33 @@ const generateTokenPair = async (user) => {
 };
 
 // Đăng ký tài khoản mới
-router.post("/register", registerRateLimit, validate(validationRules.register), async (req, res) => {
+router.post("/register", validate(validationRules.register), async (req, res) => {
+    const startTime = Date.now();
     try {
         const { username, email, password, role, phone, fullAddress } = req.body;
 
-        // Check if user already exists
+        // Check if user already exists with index on email
+        const checkStart = Date.now();
         const existingUser = await User.findOne({
-            $or: [{ email }, { username }]
+            $or: [{ email: email.toLowerCase() }, { username }]
         });
+        logPerformance('register-check-existing', checkStart, { email });
 
         if (existingUser) {
             return res.status(400).json({
                 success: false,
-                message: existingUser.email === email ? "Email đã được sử dụng" : "Username đã được sử dụng"
+                message: existingUser.email === email ? "Email already used" : "Username already used"
             });
         }
 
-        // Hash password
-        const saltRounds = 10;
+        // Hash password with optimal salt rounds
+        const hashStart = Date.now();
+        const saltRounds = 10; // Optimal balance between security and performance
         const hashedPassword = await bcrypt.hash(password, saltRounds);
+        logPerformance('register-hash-password', hashStart);
 
         // Create new user
+        const createStart = Date.now();
         const newUser = new User({
             username,
             email: email.toLowerCase(),
@@ -79,9 +94,12 @@ router.post("/register", registerRateLimit, validate(validationRules.register), 
         });
 
         await newUser.save();
+        logPerformance('register-save-user', createStart);
 
         // Generate token pair (access + refresh)
+        const tokenStart = Date.now();
         const tokens = await generateTokenPair(newUser);
+        logPerformance('register-generate-tokens', tokenStart);
 
         // Return success response (don't send password)
         const userResponse = {
@@ -110,27 +128,37 @@ router.post("/register", registerRateLimit, validate(validationRules.register), 
             user: userResponse
         });
 
+        logPerformance('register-total', startTime, { userId: newUser._id, role });
+
     } catch (err) {
-        console.error("Register error:", err);
+        // Async error logging
+        setImmediate(() => {
+            console.error("Register error:", err);
+        });
         res.status(500).json({
             success: false,
-            message: "Lỗi server khi đăng ký",
+            message: "Server error during registration",
             error: err.message
         });
+        logPerformance('register-error', startTime, { error: err.message });
     }
 });
 
 // Đăng nhập
-router.post("/login", loginRateLimit, validate(validationRules.login), async (req, res) => {
+router.post("/login", validate(validationRules.login), async (req, res) => {
+    const startTime = Date.now();
     try {
         const { email, password } = req.body;
 
-        // Find user by email
+        // Find user by email with index
+        const findStart = Date.now();
         const user = await User.findOne({ email: email.toLowerCase() });
+        logPerformance('login-find-user', findStart, { email });
+
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: "Email hoặc password không đúng"
+                message: "Email hoặc mật khẩu không đúng"
             });
         }
 
@@ -138,7 +166,7 @@ router.post("/login", loginRateLimit, validate(validationRules.login), async (re
         if (user.lockedUntil && user.lockedUntil > Date.now()) {
             return res.status(401).json({
                 success: false,
-                message: "Tài khoản đã bị khóa tạm thời. Vui lòng thử lại sau."
+                message: "Account temporarily locked. Please try again later."
             });
         }
 
@@ -146,38 +174,53 @@ router.post("/login", loginRateLimit, validate(validationRules.login), async (re
         if (user.status !== "active") {
             return res.status(401).json({
                 success: false,
-                message: "Tài khoản đã bị vô hiệu hóa"
+                message: "Account has been deactivated"
             });
         }
 
         // Compare password
+        const compareStart = Date.now();
         const isPasswordValid = await bcrypt.compare(password, user.password);
+        logPerformance('login-compare-password', compareStart);
+
         if (!isPasswordValid) {
-            // Increment login attempts
-            user.loginAttempts = (user.loginAttempts || 0) + 1;
+            // Increment login attempts and save once
+            const updateData = {
+                loginAttempts: (user.loginAttempts || 0) + 1
+            };
 
             // Lock account after 5 failed attempts for 15 minutes
-            if (user.loginAttempts >= 5) {
-                user.lockedUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+            if (updateData.loginAttempts >= 5) {
+                updateData.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
             }
 
-            await user.save();
+            await User.updateOne({ _id: user._id }, updateData);
 
             return res.status(401).json({
                 success: false,
-                message: "Email hoặc password không đúng"
+                message: "Email hoặc mật khẩu không đúng"
             });
         }
 
-        // Reset login attempts and update last login
-        user.loginAttempts = 0;
-        user.lockedUntil = undefined;
-        user.lastLoginAt = new Date();
-        user.updatedAt = new Date();
-        await user.save();
+        // Reset login attempts and update last login in one operation
+        const updateStart = Date.now();
+        await User.updateOne(
+            { _id: user._id },
+            {
+                $unset: { lockedUntil: 1 },
+                $set: {
+                    loginAttempts: 0,
+                    lastLoginAt: new Date(),
+                    updatedAt: new Date()
+                }
+            }
+        );
+        logPerformance('login-update-user', updateStart);
 
         // Generate token pair (access + refresh)
+        const tokenStart = Date.now();
         const tokens = await generateTokenPair(user);
+        logPerformance('login-generate-tokens', tokenStart);
 
         // Return success response
         const userResponse = {
@@ -205,13 +248,19 @@ router.post("/login", loginRateLimit, validate(validationRules.login), async (re
             user: userResponse
         });
 
+        logPerformance('login-total', startTime, { userId: user._id, role: user.role });
+
     } catch (err) {
-        console.error("Login error:", err);
+        // Async error logging
+        setImmediate(() => {
+            console.error("Login error:", err);
+        });
         res.status(500).json({
             success: false,
-            message: "Lỗi server khi đăng nhập",
+            message: "Server error during login",
             error: err.message
         });
+        logPerformance('login-error', startTime, { error: err.message });
     }
 });
 
@@ -324,7 +373,9 @@ router.post("/logout", async (req, res) => {
 // Lấy thông tin user hiện tại (cần authentication)
 router.get("/me", authenticateToken, async (req, res) => {
     try {
-        const user = await User.findById(req.user.userId).select("-password");
+        // JWT payload has 'sub' field, not 'userId'
+        const userId = req.user.sub || req.user.userId;
+        const user = await User.findById(userId).select("-password");
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -355,7 +406,7 @@ router.get("/me", authenticateToken, async (req, res) => {
 });
 
 // Force logout user (Admin only)
-router.post("/force-logout/:userId", strictRateLimit, authenticateToken, async (req, res) => {
+router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
     try {
         // Check if user is admin
         if (req.user.role !== 'admin') {

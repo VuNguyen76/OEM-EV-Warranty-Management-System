@@ -94,7 +94,7 @@ function createRateLimit(options = {}) {
 const loginRateLimit = createRateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 5, // 5 login attempts per 15 minutes
-    keyGenerator: (req) => `login:${req.ip}:${req.body.email || 'unknown'}`,
+    keyGenerator: (req) => `login:${req.ip}:${req.body?.email || 'unknown'}`,
     message: 'Quá nhiều lần đăng nhập thất bại, vui lòng thử lại sau 15 phút',
     skipSuccessfulRequests: true // Don't count successful logins
 });
@@ -128,7 +128,7 @@ const apiRateLimit = createRateLimit({
 const passwordResetRateLimit = createRateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3, // 3 password reset attempts per hour
-    keyGenerator: (req) => `password_reset:${req.ip}:${req.body.email || 'unknown'}`,
+    keyGenerator: (req) => `password_reset:${req.ip}:${req.body?.email || 'unknown'}`,
     message: 'Quá nhiều yêu cầu đặt lại mật khẩu, vui lòng thử lại sau 1 giờ'
 });
 

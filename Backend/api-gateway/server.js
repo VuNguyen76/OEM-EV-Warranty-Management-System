@@ -26,4 +26,15 @@ const port = process.env.PORT || process.env.GATEWAY_PORT || 3000;
 
 // Khởi tạo và chạy API Gateway
 const app = new App();
-app.start(port);
+
+// Async function để khởi động server
+async function startServer() {
+    try {
+        await app.start(port);
+    } catch (error) {
+        console.error('❌ Failed to start API Gateway:', error);
+        process.exit(1);
+    }
+}
+
+startServer();
