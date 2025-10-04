@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import Title from "../../../components/Title";
 import Backdrop from "../../../components/Backdrop";
 import Modal from "../../../components/Modal";
+import { useDispatch, useSelector } from "react-redux";
+import { closeModal, openModal } from "../../../features/ui/uiSlice";
 
 const vehicles = [
   {
@@ -31,11 +33,10 @@ const vehicles = [
 ];
 
 const RegisterVIN = () => {
-  const [isOpen, setIsOpen] = useState({
-    register: false,
-    manageParts: false,
-  });
-  console.log(isOpen);
+  const dispatch = useDispatch();
+  const { isOpen, modalType, modalData } = useSelector(
+    (state) => state.ui.modal
+  );
 
   function handleClose() {
     setIsOpen({ register: false, manageParts: false });
@@ -50,9 +51,11 @@ const RegisterVIN = () => {
         />
         <button
           className="flex items-center gap-3 font-semibold px-4 py-2 bg-green-600 text-white cursor-pointer hover:opacity-50 rounded-lg"
-          onClick={() => setIsOpen({ ...isOpen, register: true })}
+          onClick={() =>
+            dispatch(openModal({ modalType: "viewRegister", modalData: null }))
+          }
         >
-          <span className="text-2xl">+</span> <span>Đăng ký xe mới</span>
+          <i class="fa-solid fa-plus"></i> <span>Đăng ký xe mới</span>
         </button>
       </div>
       {/* Danh sách xe */}
@@ -111,7 +114,11 @@ const RegisterVIN = () => {
               {/* Thao tác */}
               <div
                 className="flex items-center gap-2 text-green-700 font-medium cursor-pointer hover:text-green-600"
-                onClick={() => setIsOpen({ manageParts: true })}
+                onClick={() =>
+                  dispatch(
+                    openModal({ modalType: "manageParts", modalData: item })
+                  )
+                }
               >
                 <i className="fa-solid fa-gear"></i>
                 <span>Quản lý phụ tùng</span>
@@ -120,12 +127,16 @@ const RegisterVIN = () => {
           ))}
         </div>
         <Backdrop
-          isOpen={isOpen.register || isOpen.manageParts}
-          onClose={handleClose}
+          isOpen={
+            isOpen ||
+            modalType === "viewRegister" ||
+            modalType === "manageParts"
+          }
+          onClose={() => dispatch(closeModal())}
         />
 
-        {isOpen.register && (
-          <Modal isOpen={isOpen.register}>
+        {isOpen && modalType === "viewRegister" && (
+          <Modal isOpen={isOpen}>
             <Title
               title={"Đăng ký xe mới"}
               subTitle={"Nhập thông tin xe để đăng ký vào hệ thống"}
@@ -223,7 +234,7 @@ const RegisterVIN = () => {
               <div className="flex justify-end items-center gap-5 mt-4">
                 <button
                   className="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:opacity-50 cursor-pointer"
-                  onClick={() => setIsOpen({ ...isOpen, register: false })}
+                  onClick={() => dispatch(closeModal())}
                 >
                   Hủy
                 </button>
@@ -237,9 +248,9 @@ const RegisterVIN = () => {
             </div>
           </Modal>
         )}
-        {isOpen.manageParts && (
-          <Modal isOpen={isOpen.manageParts}>
-           <div className="w-[800px]">
+        {isOpen && modalType === "manageParts" && (
+          <Modal isOpen={isOpen}>
+            <div className="w-[800px]">
               <Title
                 title="Quản lý phụ tùng - 5YJ3E1EA4KF123456"
                 subTitle="VinFast VF8 (2023)"
@@ -282,14 +293,16 @@ const RegisterVIN = () => {
                 <div className="font-semibold text-gray-600">
                   Battery Pack Module
                 </div>
-                <div className="font-semibold text-gray-600">BP-001-2023-001</div>
+                <div className="font-semibold text-gray-600">
+                  BP-001-2023-001
+                </div>
                 <div className="font-semibold text-gray-600 ">15/3/2023</div>
                 <div className="font-semibold text-gray-600 ">Factory</div>
               </div>
               <div className="flex justify-end items-center gap-5 mt-4">
                 <button
                   className="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:opacity-50 cursor-pointer"
-                  onClick={() => setIsOpen({ ...isOpen, manageParts: false })}
+                  onClick={() => dispatch(closeModal())}
                 >
                   Hủy
                 </button>
@@ -300,7 +313,7 @@ const RegisterVIN = () => {
                   Lưu
                 </button>
               </div>
-           </div>
+            </div>
           </Modal>
         )}
       </div>
