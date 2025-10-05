@@ -89,10 +89,6 @@ services:
       - redis
     networks:
       - warranty_network
-    volumes:
-      - ./Manufacturing:/app/Manufacturing
-      - ./shared:/app/shared
-      - ./node_modules:/app/node_modules
 
   # Warranty Service
   warranty-service:
@@ -115,10 +111,6 @@ services:
       - redis
     networks:
       - warranty_network
-    volumes:
-      - ./Warranty:/app/Warranty
-      - ./shared:/app/shared
-      - ./node_modules:/app/node_modules
 
   # Vehicle Service
   warranty_vehicle_service:
@@ -128,6 +120,7 @@ services:
       dockerfile: Vehicle/Dockerfile
     environment:
       NODE_ENV: production
+      PORT: 3004
       VEHICLE_MONGODB_URI: ${VEHICLE_MONGODB_URI}
       REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
       JWT_SECRET: ${JWT_SECRET}

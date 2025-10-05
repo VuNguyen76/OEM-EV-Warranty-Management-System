@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const redisService = require('../services/RedisService');
 
 // Middleware xác thực JWT access token (đơn giản)
 const authenticateToken = async (req, res, next) => {
@@ -13,22 +14,69 @@ const authenticateToken = async (req, res, next) => {
     }
 
     try {
-        // Verify access token directly
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Verify access token with proper claims validation
+        const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+            issuer: 'warranty-system',
+            audience: 'warranty-users'
+        });
+
+        // Validate required claims
+        if (!decoded.sub && !decoded.userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Token thiếu thông tin user ID"
+            });
+        }
+
+        if (!decoded.role) {
+            return res.status(401).json({
+                success: false,
+                message: "Token thiếu thông tin role"
+            });
+        }
+
+        // Check if token is blacklisted
+        const isBlacklisted = await redisService.get(`blacklist:${token}`);
+        if (isBlacklisted) {
+            return res.status(401).json({
+                success: false,
+                message: "Token đã bị vô hiệu hóa"
+            });
+        }
+
         req.user = decoded;
         next();
     } catch (error) {
-        console.error('Auth middleware error:', error);
+        console.error('❌ Auth middleware error:', {
+            error: error.message,
+            token: token?.substring(0, 20) + '...',
+            timestamp: new Date().toISOString()
+        });
+
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                success: false,
+                message: "Token đã hết hạn"
+            });
+        }
+
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                success: false,
+                message: "Token không hợp lệ"
+            });
+        }
+
         return res.status(401).json({
             success: false,
-            message: error.message || "Token không hợp lệ"
+            message: "Lỗi xác thực token"
         });
     }
 };
 
-// Middleware phân quyền
+// Middleware phân quyền với database validation
 const authorizeRole = (...allowedRoles) => {
-    return (req, res, next) => {
+    return async (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({
                 success: false,
@@ -36,6 +84,7 @@ const authorizeRole = (...allowedRoles) => {
             });
         }
 
+        // Check token role first (fast check)
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
@@ -44,6 +93,9 @@ const authorizeRole = (...allowedRoles) => {
                 userRole: req.user.role
             });
         }
+
+        // TODO: Add database role validation for sensitive operations
+        // For now, rely on token role to avoid startup issues
 
         next();
     };

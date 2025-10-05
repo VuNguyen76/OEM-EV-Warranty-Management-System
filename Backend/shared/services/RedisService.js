@@ -345,6 +345,22 @@ class RedisService {
         }
     }
 
+    // Invalidate specific cache keys (better performance than pattern scan)
+    async invalidateSpecificKeys(keys) {
+        if (!this.isConnected || !keys || keys.length === 0) {
+            return 0;
+        }
+
+        try {
+            const deletedCount = await this.client.del(keys);
+            console.log(`✅ Invalidated ${deletedCount} specific cache keys`);
+            return deletedCount;
+        } catch (error) {
+            console.error('❌ Error invalidating specific cache keys:', error);
+            return 0;
+        }
+    }
+
     // Alternative using SCAN for better performance (non-blocking)
     async deletePatternScan(pattern) {
         if (!this.isConnected) {

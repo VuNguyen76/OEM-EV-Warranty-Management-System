@@ -160,22 +160,56 @@ partSchema.virtual('isLowStock').get(function () {
 
 // Methods
 partSchema.methods.updateStock = function (quantity, operation = 'add') {
+  // Validate input
+  if (typeof quantity !== 'number' || isNaN(quantity) || !isFinite(quantity)) {
+    throw new Error('Quantity phải là số hợp lệ');
+  }
+
+  if (quantity < 0) {
+    throw new Error('Quantity không được âm');
+  }
+
+  if (quantity > 1000000) {
+    throw new Error('Quantity quá lớn (tối đa 1,000,000)');
+  }
+
   if (operation === 'add') {
     this.stockQuantity += quantity;
     this.lastRestocked = new Date();
   } else if (operation === 'subtract') {
-    this.stockQuantity = Math.max(0, this.stockQuantity - quantity);
+    if (this.stockQuantity < quantity) {
+      throw new Error('Không đủ tồn kho để trừ');
+    }
+    this.stockQuantity -= quantity;
     this.lastUsed = new Date();
+  } else {
+    throw new Error('Operation không hợp lệ (chỉ chấp nhận "add" hoặc "subtract")');
   }
+
   return this.save();
 };
 
-partSchema.methods.reserveStock = function (quantity) {
-  if (this.availableQuantity >= quantity) {
-    this.reservedQuantity += quantity;
-    return this.save();
+partSchema.methods.reserveStock = function (quantity, reservedBy, expirationMinutes = 30) {
+  // Validate input
+  if (typeof quantity !== 'number' || isNaN(quantity) || quantity <= 0) {
+    throw new Error('Quantity phải là số dương hợp lệ');
   }
-  throw new Error('Không đủ tồn kho để đặt trước');
+
+  if (!reservedBy) {
+    throw new Error('reservedBy là bắt buộc');
+  }
+
+  if (this.availableQuantity < quantity) {
+    throw new Error('Không đủ tồn kho để đặt trước');
+  }
+
+  // Create reservation record (would need separate Reservation model in production)
+  this.reservedQuantity += quantity;
+  this.lastReserved = new Date();
+
+  // Note: In production, should create separate Reservation document with expiration
+  // For now, just add to reserved quantity
+  return this.save();
 };
 
 partSchema.methods.releaseReservedStock = function (quantity) {

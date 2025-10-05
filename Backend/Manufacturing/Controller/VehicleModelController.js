@@ -2,7 +2,6 @@ const responseHelper = require('../../shared/utils/responseHelper');
 const queryHelper = require('../../shared/utils/queryHelper');
 const redisService = require('../../shared/services/RedisService');
 
-// Models
 let VehicleModel;
 
 function initializeModels() {
@@ -11,7 +10,6 @@ function initializeModels() {
     }
 }
 
-// Create Vehicle Model
 const createVehicleModel = async (req, res) => {
     try {
         initializeModels();
@@ -31,15 +29,11 @@ const createVehicleModel = async (req, res) => {
             year
         } = req.body;
 
-        // Basic validation handled by ValidationMiddleware at route level
-
-        // Check if model code already exists
         const existingModel = await VehicleModel.findOne({ modelCode: modelCode.toUpperCase() });
         if (existingModel) {
             return responseHelper.error(res, "Mã model đã tồn tại", 400);
         }
 
-        // Create new vehicle model
         const newModel = new VehicleModel({
             modelName,
             modelCode: modelCode.toUpperCase(),
@@ -60,7 +54,6 @@ const createVehicleModel = async (req, res) => {
 
         await newModel.save();
 
-        // Clear cache
         await redisService.del("manufacturing:models:*");
 
         return responseHelper.success(res, {
@@ -77,7 +70,6 @@ const createVehicleModel = async (req, res) => {
     }
 };
 
-// Get All Vehicle Models
 const getAllVehicleModels = async (req, res) => {
     try {
         initializeModels();
@@ -85,14 +77,12 @@ const getAllVehicleModels = async (req, res) => {
         const { page = 1, limit = 10, manufacturer, category, status, search, year } = req.query;
         const cacheKey = `manufacturing:models:list:${JSON.stringify(req.query)}`;
 
-        // Try cache first
         const cachedData = await redisService.get(cacheKey);
         if (cachedData) {
             const { models, pagination } = JSON.parse(cachedData);
             return responseHelper.sendPaginatedResponse(res, "Lấy danh sách model xe thành công (cached)", models, pagination);
         }
 
-        // Build query
         let query = {};
 
         if (manufacturer) {
@@ -119,7 +109,6 @@ const getAllVehicleModels = async (req, res) => {
             ];
         }
 
-        // Execute query with pagination
         const { skip, limitNum } = queryHelper.parsePagination(page, limit);
 
         const [models, total] = await Promise.all([
@@ -133,7 +122,6 @@ const getAllVehicleModels = async (req, res) => {
 
         const pagination = responseHelper.createPagination(page, limitNum, total);
 
-        // Cache models data for 10 minutes
         const cacheData = { models, pagination };
         await redisService.set(cacheKey, JSON.stringify(cacheData), 600);
 
@@ -143,7 +131,6 @@ const getAllVehicleModels = async (req, res) => {
     }
 };
 
-// Get Vehicle Model by ID
 const getVehicleModelById = async (req, res) => {
     try {
         initializeModels();
@@ -151,7 +138,6 @@ const getVehicleModelById = async (req, res) => {
         const { id } = req.params;
         const cacheKey = `manufacturing:models:${id}`;
 
-        // Try cache first
         const cachedData = await redisService.get(cacheKey);
         if (cachedData) {
             return responseHelper.success(res, JSON.parse(cachedData), "Lấy thông tin model xe thành công (cached)");
@@ -162,7 +148,6 @@ const getVehicleModelById = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy model xe", 404);
         }
 
-        // Cache model data for 10 minutes
         await redisService.set(cacheKey, JSON.stringify(model), 600);
 
         return responseHelper.success(res, model, "Lấy thông tin model xe thành công");
@@ -171,7 +156,6 @@ const getVehicleModelById = async (req, res) => {
     }
 };
 
-// Update Vehicle Model
 const updateVehicleModel = async (req, res) => {
     try {
         initializeModels();
@@ -189,7 +173,6 @@ const updateVehicleModel = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy model xe", 404);
         }
 
-        // Clear cache
         await redisService.del("manufacturing:models:*");
 
         return responseHelper.success(res, model, "Cập nhật model xe thành công");
@@ -198,7 +181,6 @@ const updateVehicleModel = async (req, res) => {
     }
 };
 
-// Delete Vehicle Model
 const deleteVehicleModel = async (req, res) => {
     try {
         initializeModels();
@@ -210,7 +192,6 @@ const deleteVehicleModel = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy model xe", 404);
         }
 
-        // Clear cache
         await redisService.del("manufacturing:models:*");
 
         return responseHelper.success(res, null, "Xóa model xe thành công");
@@ -219,14 +200,12 @@ const deleteVehicleModel = async (req, res) => {
     }
 };
 
-// Get Model Statistics
 const getModelStatistics = async (req, res) => {
     try {
         initializeModels();
 
         const cacheKey = 'manufacturing:models:statistics';
 
-        // Try cache first
         const cachedData = await redisService.get(cacheKey);
         if (cachedData) {
             return responseHelper.success(res, JSON.parse(cachedData), "Lấy thống kê model xe thành công (cached)");
@@ -261,7 +240,6 @@ const getModelStatistics = async (req, res) => {
             }, {})
         };
 
-        // Cache statistics for 30 minutes
         await redisService.set(cacheKey, JSON.stringify(statistics), 1800);
 
         return responseHelper.success(res, statistics, "Lấy thống kê model xe thành công");

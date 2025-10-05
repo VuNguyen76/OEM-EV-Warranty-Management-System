@@ -7,7 +7,7 @@ const vehiclePartSchema = new mongoose.Schema({
   // Liên kết
   vehicleId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vehicle',
+    ref: 'WarrantyVehicle',
     required: true
   },
 

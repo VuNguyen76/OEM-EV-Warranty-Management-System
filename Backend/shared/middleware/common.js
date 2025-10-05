@@ -4,30 +4,29 @@ const morgan = require("morgan");
 const { securityHeaders, securityLogger, requestSizeLimiter } = require("./SecurityMiddleware");
 
 const setupCommonMiddleware = (app) => {
-    // Security middleware
+    // Middleware bảo mật
     app.use(securityHeaders);
     app.use(securityLogger);
     app.use(requestSizeLimiter("10mb"));
-    // sanitizeRequest removed - conflicts with body parser
 
-    // Third-party security middleware
+    // Middleware bảo mật bên thứ ba
     app.use(
         helmet({
-            contentSecurityPolicy: false, // We set our own CSP
+            contentSecurityPolicy: false,
             crossOriginEmbedderPolicy: false,
         })
     );
 
-    // Load allowed origins từ ENV
+    // Tải danh sách origins được phép từ ENV
     const allowedOrigins = process.env.ALLOWED_ORIGINS
         ? process.env.ALLOWED_ORIGINS.split(",")
         : [];
 
-    // CORS configuration
+    // Cấu hình CORS
     app.use(
         cors({
             origin: function (origin, callback) {
-                // Cho phép request từ Postman / curl (không có header Origin)
+                // Cho phép request từ Postman/curl
                 if (!origin) return callback(null, true);
                 if (allowedOrigins.includes(origin)) {
                     return callback(null, true);
@@ -42,9 +41,7 @@ const setupCommonMiddleware = (app) => {
         })
     );
 
-    // CORS middleware đã tự động xử lý preflight OPTIONS requests
-
-    // Logging
+    // Ghi log
     app.use(morgan("combined"));
 };
 

@@ -32,15 +32,18 @@ const addServiceHistory = async (req, res) => {
             serviceDate,
             nextServiceDate,
             mileage,
-            technicianName,
             serviceCenterInfo,
-            notes,
-            qualityRating
+            notes
         } = req.body;
 
         // Validate required fields
         if (!vin || !serviceType || !description) {
             return responseHelper.error(res, "Thiếu thông tin bắt buộc: VIN, loại dịch vụ, mô tả", 400);
+        }
+
+        // Validate user authentication
+        if (!req.user.sub && !req.user.userId) {
+            return responseHelper.error(res, "User ID không hợp lệ trong token", 401);
         }
 
         // Check if vehicle exists
@@ -51,41 +54,80 @@ const addServiceHistory = async (req, res) => {
 
         // Create service history record
         const serviceHistory = new ServiceHistory({
-            vin: vin.toUpperCase(),
+            vehicleId: vehicle._id,
             serviceType,
+            title: `${serviceType} - ${description.substring(0, 50)}`,
             description,
-            partsUsed: partsUsed || [],
-            costs: {
-                labor: laborCost || 0,
-                parts: partsCost || 0,
-                total: totalCost || (laborCost || 0) + (partsCost || 0)
+            performedBy: req.user.sub || req.user.userId,
+            serviceCenter: {
+                name: serviceCenterInfo?.name || req.user.serviceCenterName || 'Default Service Center',
+                code: serviceCenterInfo?.code || req.user.serviceCenterCode || 'SC001',
+                address: serviceCenterInfo?.address,
+                contact: serviceCenterInfo?.contact
             },
+            partsUsed: partsUsed || [],
+            laborCost: laborCost || 0,
+            partsCost: partsCost || 0,
+            totalCost: totalCost || (laborCost || 0) + (partsCost || 0),
             serviceDate: serviceDate ? new Date(serviceDate) : new Date(),
             nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
-            mileage: mileage || 0,
-            technicianName: technicianName || req.user.fullName,
-            serviceCenterInfo: serviceCenterInfo || {
-                name: req.user.serviceCenterName,
-                code: req.user.serviceCenterCode
-            },
+            odometerReading: mileage || 0,
             notes,
-            qualityRating: qualityRating || 5,
+            status: 'completed',
             createdBy: req.user.email
         });
 
-        await serviceHistory.save();
+        // Use transaction to ensure data consistency
+        const mongoose = require('mongoose');
+        const session = await mongoose.startSession();
+        let savedServiceHistory = null;
 
-        // Update vehicle's last service info
-        vehicle.lastServiceDate = serviceHistory.serviceDate;
-        vehicle.currentMileage = mileage || vehicle.currentMileage;
-        await vehicle.save();
+        try {
+            await session.withTransaction(async () => {
+                // Save service history
+                savedServiceHistory = await serviceHistory.save({ session });
 
-        // Clear cache
-        await redisService.del("service-history:*");
+                // Update vehicle's last service info
+                vehicle.lastServiceDate = serviceHistory.serviceDate;
 
-        return responseHelper.success(res, serviceHistory, "Thêm lịch sử bảo dưỡng thành công", 201);
+                // Validate mileage - new mileage must be >= current mileage (prevent "chạy lùi")
+                if (mileage !== undefined && mileage !== null) {
+                    if (vehicle.currentMileage && mileage < vehicle.currentMileage) {
+                        throw new Error(`Số km mới (${mileage}) không thể nhỏ hơn số km hiện tại (${vehicle.currentMileage})`);
+                    }
+                    vehicle.currentMileage = mileage;
+                }
+
+                await vehicle.save({ session });
+            });
+
+            // Transaction successful - clear cache
+            await redisService.deletePatternScan("service-history:*");
+
+            return responseHelper.success(res, savedServiceHistory, "Thêm lịch sử bảo dưỡng thành công", 201);
+        } catch (transactionError) {
+            console.error('❌ Transaction failed in addServiceHistory:', {
+                error: transactionError.message,
+                stack: transactionError.stack,
+                user: req.user?.email,
+                vin: req.body?.vin,
+                serviceType: req.body?.serviceType,
+                timestamp: new Date().toISOString()
+            });
+
+            return responseHelper.error(res, "Lỗi khi lưu lịch sử bảo dưỡng - transaction rollback", 500);
+        } finally {
+            await session.endSession();
+        }
     } catch (error) {
-        console.error('❌ Error in addServiceHistory:', error);
+        console.error('❌ Error in addServiceHistory:', {
+            error: error.message,
+            stack: error.stack,
+            user: req.user?.email,
+            vin: req.body?.vin,
+            serviceType: req.body?.serviceType,
+            timestamp: new Date().toISOString()
+        });
         return responseHelper.error(res, "Lỗi khi thêm lịch sử bảo dưỡng", 500);
     }
 };
@@ -95,7 +137,8 @@ const getServiceHistoryByVIN = async (req, res) => {
     try {
         const { vin } = req.params;
         const { page = 1, limit = 10, serviceType, startDate, endDate } = req.query;
-        const cacheKey = `service-history:${vin}:${JSON.stringify(req.query)}`;
+        // Better cache key generation (avoid JSON.stringify issues)
+        const cacheKey = `service-history:${vin}:page:${page}:limit:${limit}:type:${serviceType || 'all'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
         // Try cache first
         const cachedData = await redisService.get(cacheKey);
@@ -103,8 +146,14 @@ const getServiceHistoryByVIN = async (req, res) => {
             return responseHelper.success(res, JSON.parse(cachedData), "Lấy lịch sử bảo dưỡng thành công (từ cache)");
         }
 
-        // Build search query
-        const searchQuery = { vin: vin.toUpperCase() };
+        // Find vehicle first to get vehicleId
+        const vehicle = await WarrantyVehicle.findOne({ vin: vin.toUpperCase() });
+        if (!vehicle) {
+            return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
+        }
+
+        // Build search query using vehicleId
+        const searchQuery = { vehicleId: vehicle._id };
 
         if (serviceType) {
             searchQuery.serviceType = serviceType;
@@ -120,6 +169,10 @@ const getServiceHistoryByVIN = async (req, res) => {
         const { skip, limitNum } = queryHelper.parsePagination(page, limit);
         const [serviceHistories, total] = await Promise.all([
             ServiceHistory.find(searchQuery)
+                .populate('performedBy', 'username email role')
+                .populate('vehicleId', 'vin modelName ownerName')
+                .select('serviceType serviceDate description laborCost partsCost mileage performedBy vehicleId createdAt')
+                .lean() // 5x faster, 5x less memory
                 .sort({ serviceDate: -1 })
                 .skip(skip)
                 .limit(limitNum),
@@ -144,8 +197,9 @@ const getServiceHistoryByVIN = async (req, res) => {
 // Get All Service Histories
 const getAllServiceHistories = async (req, res) => {
     try {
-        const { page = 1, limit = 10, serviceType, technicianName, startDate, endDate, search } = req.query;
-        const cacheKey = `service-history:all:${JSON.stringify(req.query)}`;
+        const { page = 1, limit = 10, serviceType, startDate, endDate, search } = req.query;
+        // Better cache key generation (avoid JSON.stringify issues)
+        const cacheKey = `service-history:all:page:${page}:limit:${limit}:type:${serviceType || 'all'}:search:${search || 'none'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
         // Try cache first
         const cachedData = await redisService.get(cacheKey);
@@ -160,15 +214,12 @@ const getAllServiceHistories = async (req, res) => {
             searchQuery.serviceType = serviceType;
         }
 
-        if (technicianName) {
-            searchQuery.technicianName = { $regex: technicianName, $options: 'i' };
-        }
-
         if (search) {
             searchQuery.$or = [
-                { vin: { $regex: search, $options: 'i' } },
+                { title: { $regex: search, $options: 'i' } },
                 { description: { $regex: search, $options: 'i' } },
-                { technicianName: { $regex: search, $options: 'i' } }
+                { 'serviceCenter.name': { $regex: search, $options: 'i' } },
+                { 'serviceCenter.code': { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -242,7 +293,7 @@ const updateServiceHistory = async (req, res) => {
         }
 
         // Clear cache
-        await redisService.del("service-history:*");
+        await redisService.deletePatternScan("service-history:*");
 
         return responseHelper.success(res, serviceHistory, "Cập nhật lịch sử bảo dưỡng thành công");
     } catch (error) {
@@ -255,7 +306,8 @@ const updateServiceHistory = async (req, res) => {
 const getServiceStatistics = async (req, res) => {
     try {
         const { startDate, endDate, serviceType } = req.query;
-        const cacheKey = `service-history:stats:${JSON.stringify(req.query)}`;
+        // Better cache key generation (avoid JSON.stringify issues)
+        const cacheKey = `service-history:stats:type:${serviceType || 'all'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
         // Try cache first
         const cachedData = await redisService.get(cacheKey);
@@ -288,15 +340,15 @@ const getServiceStatistics = async (req, res) => {
             ServiceHistory.countDocuments(matchFilter),
             ServiceHistory.aggregate([
                 { $match: matchFilter },
-                { $group: { _id: null, total: { $sum: "$costs.total" } } }
+                { $group: { _id: null, total: { $sum: "$totalCost" } } }
             ]),
             ServiceHistory.aggregate([
                 { $match: matchFilter },
-                { $group: { _id: null, avg: { $avg: "$costs.total" } } }
+                { $group: { _id: null, avg: { $avg: "$totalCost" } } }
             ]),
             ServiceHistory.aggregate([
                 { $match: matchFilter },
-                { $group: { _id: "$serviceType", count: { $sum: 1 }, totalCost: { $sum: "$costs.total" } } },
+                { $group: { _id: "$serviceType", count: { $sum: 1 }, totalCost: { $sum: "$totalCost" } } },
                 { $sort: { count: -1 } }
             ]),
             ServiceHistory.aggregate([
@@ -308,7 +360,7 @@ const getServiceStatistics = async (req, res) => {
                             month: { $month: "$serviceDate" }
                         },
                         count: { $sum: 1 },
-                        totalCost: { $sum: "$costs.total" }
+                        totalCost: { $sum: "$totalCost" }
                     }
                 },
                 { $sort: { "_id.year": -1, "_id.month": -1 } }

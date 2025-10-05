@@ -7,7 +7,7 @@ const serviceHistorySchema = new mongoose.Schema({
   // Liên kết
   vehicleId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vehicle',
+    ref: 'WarrantyVehicle',
     required: true
   },
 
@@ -281,6 +281,16 @@ serviceHistorySchema.index({ performedBy: 1, serviceDate: -1 });
 serviceHistorySchema.index({ warrantyRequestId: 1 });
 serviceHistorySchema.index({ nextServiceDate: 1 });
 serviceHistorySchema.index({ 'qualityCheck.result': 1 });
+
+// Additional indexes for search performance
+serviceHistorySchema.index({ 'serviceCenter.code': 1 });
+serviceHistorySchema.index({ 'serviceCenter.name': 1 });
+serviceHistorySchema.index({ title: 'text', description: 'text' });
+serviceHistorySchema.index({ totalCost: 1 });
+serviceHistorySchema.index({ serviceDate: 1, serviceType: 1 }); // For statistics
+// Compound indexes for complex queries (fix N+1 problem)
+serviceHistorySchema.index({ vehicleId: 1, serviceDate: -1, serviceType: 1 });
+serviceHistorySchema.index({ serviceDate: -1, serviceType: 1, performedBy: 1 });
 
 // Virtual cho duration
 serviceHistorySchema.virtual('duration').get(function () {

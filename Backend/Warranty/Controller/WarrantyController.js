@@ -1,6 +1,6 @@
 // const asyncHandler = require('express-async-handler'); // Removed - using try-catch instead
 const responseHelper = require('../../shared/utils/responseHelper');
-const queryHelper = require('../../shared/utils/queryHelper');
+
 const redisService = require('../../shared/services/RedisService');
 
 // Models
@@ -29,15 +29,14 @@ const registerWarranty = async (req, res) => {
             ownerAddress,
             serviceCenterName,
             serviceCenterCode,
-            serviceCenterAddress,
-            serviceCenterPhone,
+
             warrantyStartDate,
             notes
         } = req.body;
 
         // Validate required fields
-        if (!vin || !modelName || !ownerName || !ownerPhone) {
-            return responseHelper.error(res, "Thiếu thông tin bắt buộc: VIN, tên model, tên chủ xe, số điện thoại", 400);
+        if (!vin || !modelName || !ownerName || !ownerPhone || !ownerAddress) {
+            return responseHelper.error(res, "Thiếu thông tin bắt buộc: VIN, tên model, tên chủ xe, số điện thoại, địa chỉ chủ xe", 400);
         }
 
         // Check if VIN already exists
@@ -46,16 +45,54 @@ const registerWarranty = async (req, res) => {
             return responseHelper.error(res, "VIN này đã được đăng ký bảo hành", 400);
         }
 
-        // Calculate warranty end date (default 3 years from start date)
+        // Calculate warranty end date based on model or default
         const startDate = warrantyStartDate ? new Date(warrantyStartDate) : new Date();
         const endDate = new Date(startDate);
-        endDate.setFullYear(endDate.getFullYear() + 3);
+
+        // Get warranty period from vehicle model (improved logic)
+        let warrantyMonths = 36; // Default fallback
+        let warrantySource = 'default';
+
+        try {
+            // First try: Get from modelCode if provided
+            if (modelCode) {
+                const manufacturingConnection = require('../../shared/database/manufacturingConnection');
+                const VehicleModel = require('../../Manufacturing/Model/VehicleModel')(manufacturingConnection);
+                const model = await VehicleModel.findOne({ modelCode });
+                if (model && model.vehicleWarrantyMonths) {
+                    warrantyMonths = model.vehicleWarrantyMonths;
+                    warrantySource = `model:${modelCode}`;
+                } else if (model) {
+                    console.warn(`⚠️ Model ${modelCode} found but no warranty period defined`);
+                } else {
+                    console.warn(`⚠️ Model ${modelCode} not found in database`);
+                }
+            }
+
+            // Second try: Get from VIN lookup in Vehicle service if still default
+            if (warrantySource === 'default' && vin) {
+                const vehicleConnection = require('../../shared/database/vehicleConnection');
+                const Vehicle = require('../../Vehicle/Model/Vehicle')(vehicleConnection);
+                const vehicle = await Vehicle.findOne({ vin: vin.toUpperCase() }).populate('modelId');
+                if (vehicle && vehicle.modelId && vehicle.modelId.vehicleWarrantyMonths) {
+                    warrantyMonths = vehicle.modelId.vehicleWarrantyMonths;
+                    warrantySource = `vehicle:${vin}`;
+                }
+            }
+
+            console.log(`✅ Warranty period: ${warrantyMonths} months (source: ${warrantySource})`);
+        } catch (error) {
+            console.error('❌ Error fetching warranty period:', error);
+            console.warn(`⚠️ Using default warranty period: ${warrantyMonths} months`);
+        }
+
+        endDate.setMonth(endDate.getMonth() + warrantyMonths);
 
         // Create warranty vehicle
         const warrantyVehicle = new WarrantyVehicle({
             vin: vin.toUpperCase(),
             modelName,
-            modelCode,
+            modelCode: modelCode || `${modelName.replace(/\s+/g, '').toUpperCase()}-${Date.now()}`,
             manufacturer: manufacturer || 'EV Manufacturer',
             year: year || new Date().getFullYear(),
             color: color || 'white',
@@ -77,8 +114,15 @@ const registerWarranty = async (req, res) => {
 
         await warrantyVehicle.save();
 
-        // Clear cache
-        await redisService.del("warranty:vehicles:*");
+        // Clear specific cache keys (better performance than pattern scan)
+        const keysToInvalidate = [
+            `warranty:vehicles:vin:${vin.toUpperCase()}`,
+            `warranty:vehicles:list:page:1`,
+            `warranty:vehicles:list:page:2`,
+            `warranty:vehicles:list:page:3`,
+            `warranty:vehicles:stats`
+        ];
+        await redisService.invalidateSpecificKeys(keysToInvalidate);
 
         return responseHelper.success(res, {
             id: warrantyVehicle._id,
@@ -141,13 +185,13 @@ const getAllWarranties = async (req, res) => {
         }
 
         if (serviceCenterId) {
-            searchQuery['serviceCenterInfo.code'] = serviceCenterId;
+            searchQuery.serviceCenterId = serviceCenterId;
         }
 
         if (search) {
             searchQuery.$or = [
                 { vin: { $regex: search, $options: 'i' } },
-                { 'ownerInfo.name': { $regex: search, $options: 'i' } },
+                { ownerName: { $regex: search, $options: 'i' } },
                 { modelName: { $regex: search, $options: 'i' } }
             ];
         }
@@ -162,6 +206,8 @@ const getAllWarranties = async (req, res) => {
         const skip = (page - 1) * limit;
         const [vehicles, total] = await Promise.all([
             WarrantyVehicle.find(searchQuery)
+                .select('vin modelName ownerName ownerPhone warrantyStatus warrantyStartDate warrantyEndDate serviceCenterName createdAt')
+                .lean()
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(parseInt(limit)),
@@ -199,8 +245,15 @@ const updateWarranty = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy thông tin bảo hành cho VIN này", 404);
         }
 
-        // Clear cache
-        await redisService.del("warranty:vehicles:*");
+        // Clear specific cache keys (better performance than pattern scan)
+        const keysToInvalidate = [
+            `warranty:vehicles:vin:${vin.toUpperCase()}`,
+            `warranty:vehicles:list:page:1`,
+            `warranty:vehicles:list:page:2`,
+            `warranty:vehicles:list:page:3`,
+            `warranty:vehicles:stats`
+        ];
+        await redisService.invalidateSpecificKeys(keysToInvalidate);
 
         return responseHelper.success(res, vehicle, "Cập nhật bảo hành thành công");
     } catch (error) {
@@ -223,17 +276,54 @@ const activateWarranty = async (req, res) => {
         // Update warranty status and info
         vehicle.warrantyStatus = 'active';
         vehicle.warrantyStartDate = warrantyStartDate || new Date();
-        vehicle.warrantyEndDate = new Date(vehicle.warrantyStartDate);
-        vehicle.warrantyEndDate.setFullYear(vehicle.warrantyEndDate.getFullYear() + 3);
 
-        if (ownerInfo) vehicle.ownerInfo = { ...vehicle.ownerInfo, ...ownerInfo };
-        if (serviceCenterInfo) vehicle.serviceCenterInfo = { ...vehicle.serviceCenterInfo, ...serviceCenterInfo };
+        // Calculate warranty end date based on model warranty period (not hardcoded 3 years)
+        let warrantyMonths = 36; // Default fallback
+        try {
+            // Try to get warranty period from model
+            if (vehicle.modelCode) {
+                const manufacturingConnection = require('../../shared/database/manufacturingConnection');
+                const VehicleModel = require('../../Manufacturing/Model/VehicleModel')(manufacturingConnection);
+                const model = await VehicleModel.findOne({ modelCode: vehicle.modelCode });
+                if (model && model.vehicleWarrantyMonths) {
+                    warrantyMonths = model.vehicleWarrantyMonths;
+                    console.log(`✅ Using model warranty period: ${warrantyMonths} months for ${vehicle.modelCode}`);
+                } else {
+                    console.warn(`⚠️ Model ${vehicle.modelCode} not found or no warranty period, using default`);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error fetching warranty period for activation:', error);
+            console.warn(`⚠️ Using default warranty period: ${warrantyMonths} months`);
+        }
+
+        vehicle.warrantyEndDate = new Date(vehicle.warrantyStartDate);
+        vehicle.warrantyEndDate.setMonth(vehicle.warrantyEndDate.getMonth() + warrantyMonths);
+
+        if (ownerInfo) {
+            if (ownerInfo.name) vehicle.ownerName = ownerInfo.name;
+            if (ownerInfo.phone) vehicle.ownerPhone = ownerInfo.phone;
+            if (ownerInfo.email) vehicle.ownerEmail = ownerInfo.email;
+            if (ownerInfo.address) vehicle.ownerAddress = ownerInfo.address;
+        }
+
+        if (serviceCenterInfo) {
+            if (serviceCenterInfo.id) vehicle.serviceCenterId = serviceCenterInfo.id;
+            if (serviceCenterInfo.name) vehicle.serviceCenterName = serviceCenterInfo.name;
+        }
 
         vehicle.updatedBy = req.user.email;
         await vehicle.save();
 
-        // Clear cache
-        await redisService.del("warranty:vehicles:*");
+        // Clear specific cache keys (better performance than pattern scan)
+        const keysToInvalidate = [
+            `warranty:vehicles:vin:${vin.toUpperCase()}`,
+            `warranty:vehicles:list:page:1`,
+            `warranty:vehicles:list:page:2`,
+            `warranty:vehicles:list:page:3`,
+            `warranty:vehicles:stats`
+        ];
+        await redisService.invalidateSpecificKeys(keysToInvalidate);
 
         return responseHelper.success(res, vehicle, "Kích hoạt bảo hành thành công");
     } catch (error) {
@@ -257,14 +347,17 @@ const voidWarranty = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy thông tin bảo hành cho VIN này", 404);
         }
 
-        vehicle.warrantyStatus = 'voided';
-        vehicle.voidReason = reason;
-        vehicle.voidDate = new Date();
-        vehicle.updatedBy = req.user.email;
-        await vehicle.save();
+        await vehicle.voidWarranty(reason, req.user.email);
 
-        // Clear cache
-        await redisService.del("warranty:vehicles:*");
+        // Clear specific cache keys (better performance than pattern scan)
+        const keysToInvalidate = [
+            `warranty:vehicles:vin:${vin.toUpperCase()}`,
+            `warranty:vehicles:list:page:1`,
+            `warranty:vehicles:list:page:2`,
+            `warranty:vehicles:list:page:3`,
+            `warranty:vehicles:stats`
+        ];
+        await redisService.invalidateSpecificKeys(keysToInvalidate);
 
         return responseHelper.success(res, vehicle, "Hủy bảo hành thành công");
     } catch (error) {

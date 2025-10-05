@@ -1,27 +1,17 @@
-// api-gateway/services/GatewayService.js
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
-/**
- * Service quản lý API Gateway
- */
 class GatewayService {
     constructor(app) {
         this.app = app;
 
-        // Cấu hình URL của các microservice
         this.services = {
             user: process.env.USER_SERVICE_URL,
             manufacturing: process.env.MANUFACTURING_SERVICE_URL,
             warranty: process.env.WARRANTY_SERVICE_URL,
             vehicle: process.env.VEHICLE_SERVICE_URL,
         };
-
-        // Environment variables loaded
     }
 
-    /**
-     * Create generic proxy middleware
-     */
     createProxyConfig(target, pathRewrite, requiresAuth = false) {
         return {
             target,
@@ -29,13 +19,11 @@ class GatewayService {
             timeout: 30000,
             proxyTimeout: 30000,
             pathRewrite,
-            onProxyReq: (proxyReq, req, res) => {
-                // Forward Authorization header if required
+            onProxyReq: (proxyReq, req) => {
                 if (requiresAuth && req.headers.authorization) {
                     proxyReq.setHeader('Authorization', req.headers.authorization);
                 }
 
-                // Fix body forwarding for POST/PUT/PATCH requests
                 if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
                     const bodyData = JSON.stringify(req.body);
                     proxyReq.setHeader('Content-Type', 'application/json');
@@ -55,35 +43,16 @@ class GatewayService {
         };
     }
 
-    /**
-     * Khởi tạo tất cả các routes
-     */
     initRoutes() {
-        // Health check
         this.setupHealthCheck();
-
-        // Auth routes (không cần token)
         this.setupAuthRoutes();
-
-        // User routes (cần token)
         this.setupUserRoutes();
-
-        // Manufacturing routes (cần token)
         this.setupManufacturingRoutes();
-
-        // Warranty routes (cần token)
         this.setupWarrantyRoutes();
-
-        // Vehicle routes (cần token)
         this.setupVehicleRoutes();
-
-        // 404 handler
         this.setup404Handler();
     }
 
-    /**
-     * Health check route
-     */
     setupHealthCheck() {
         this.app.get('/health', (req, res) => {
             res.json({
@@ -95,9 +64,6 @@ class GatewayService {
         });
     }
 
-    /**
-     * Auth routes (không cần token)
-     */
     setupAuthRoutes() {
         this.app.use(
             '/api/auth',
@@ -109,9 +75,6 @@ class GatewayService {
         );
     }
 
-    /**
-     * User routes (cần token)
-     */
     setupUserRoutes() {
         this.app.use(
             '/api/users',
@@ -123,9 +86,6 @@ class GatewayService {
         );
     }
 
-    /**
-     * Manufacturing routes (cần token)
-     */
     setupManufacturingRoutes() {
         this.app.use(
             '/api/manufacturing',
@@ -137,9 +97,6 @@ class GatewayService {
         );
     }
 
-    /**
-     * Warranty routes (cần token)
-     */
     setupWarrantyRoutes() {
         this.app.use(
             '/api/warranty',
@@ -151,9 +108,6 @@ class GatewayService {
         );
     }
 
-    /**
-     * Vehicle routes (cần token)
-     */
     setupVehicleRoutes() {
         this.app.use(
             '/api/vehicle',
@@ -165,9 +119,6 @@ class GatewayService {
         );
     }
 
-    /**
-     * 404 handler
-     */
     setup404Handler() {
         this.app.use((req, res) => {
             res.status(404).json({

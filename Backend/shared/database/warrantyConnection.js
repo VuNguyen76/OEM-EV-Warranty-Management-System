@@ -14,8 +14,9 @@ const connectToWarrantyDB = async () => {
             maxPoolSize: 20,
             minPoolSize: 5,
             maxIdleTimeMS: 30000,
-            serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000
+            serverSelectionTimeoutMS: 30000,
+            socketTimeoutMS: 45000,
+            connectTimeoutMS: 30000
         });
 
         warrantyConnection.on('connected', () => {

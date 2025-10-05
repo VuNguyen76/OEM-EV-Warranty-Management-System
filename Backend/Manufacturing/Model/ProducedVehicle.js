@@ -1,6 +1,15 @@
 const mongoose = require('mongoose');
 const { getManufacturingConnection } = require('../../shared/database/manufacturingConnection');
 
+// Custom error classes for better error handling
+class QualityCheckError extends Error {
+    constructor(message, code) {
+        super(message);
+        this.name = 'QualityCheckError';
+        this.code = code;
+    }
+}
+
 // Produced Vehicle Schema (for individual vehicles in production)
 const ProducedVehicleSchema = new mongoose.Schema({
     vin: {
@@ -161,18 +170,40 @@ ProducedVehicleSchema.virtual('productionAge').get(function () {
 
 // Instance methods
 ProducedVehicleSchema.methods.passQualityCheck = function (checkType, checkedBy, notes) {
+    // Check if already passed this check type
+    const existingPassedCheck = this.qualityChecks.find(
+        check => check.checkType === checkType && check.status === 'pass'
+    );
+
+    if (existingPassedCheck) {
+        throw new QualityCheckError(`Quality check '${checkType}' đã được pass rồi`, 'DUPLICATE_CHECK');
+    }
+
+    // Remove any previous failed checks of the same type
+    this.qualityChecks = this.qualityChecks.filter(
+        check => check.checkType !== checkType
+    );
+
+    // Add new passed check
     this.qualityChecks.push({
         checkType,
         status: 'pass',
         checkedBy,
+        checkedAt: new Date(),
         notes
     });
 
     // Check if all required quality checks are passed
     const requiredChecks = ['safety', 'performance', 'electrical', 'final'];
-    const passedChecks = this.qualityChecks.filter(check => check.status === 'pass').map(check => check.checkType);
+    const passedCheckTypes = new Set(
+        this.qualityChecks
+            .filter(check => check.status === 'pass')
+            .map(check => check.checkType)
+    );
 
-    if (requiredChecks.every(check => passedChecks.includes(check))) {
+    // Ensure exact match - all required checks passed, no extras
+    if (requiredChecks.every(check => passedCheckTypes.has(check)) &&
+        passedCheckTypes.size === requiredChecks.length) {
         this.qualityStatus = 'passed';
         this.status = 'ready_for_delivery';
     }

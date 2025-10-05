@@ -186,6 +186,19 @@ WarrantyVehicleSchema.index({ warrantyEndDate: 1 });
 WarrantyVehicleSchema.index({ ownerPhone: 1 });
 WarrantyVehicleSchema.index({ createdAt: -1 });
 
+// Additional indexes for search performance
+WarrantyVehicleSchema.index({ ownerName: 1 });
+WarrantyVehicleSchema.index({ modelName: 1 });
+WarrantyVehicleSchema.index({ warrantyStatus: 1, warrantyEndDate: 1 });
+WarrantyVehicleSchema.index({ ownerName: 'text', modelName: 'text' }); // Text search
+
+// Compound indexes for common queries
+WarrantyVehicleSchema.index({ serviceCenterId: 1, warrantyStatus: 1 });
+WarrantyVehicleSchema.index({ warrantyStatus: 1, createdAt: -1 });
+WarrantyVehicleSchema.index({ ownerPhone: 1, warrantyStatus: 1 });
+WarrantyVehicleSchema.index({ modelName: 1, warrantyStatus: 1 });
+WarrantyVehicleSchema.index({ warrantyEndDate: 1, warrantyStatus: 1 }); // For expiration queries
+
 // Virtual fields
 WarrantyVehicleSchema.virtual('isWarrantyActive').get(function () {
     return this.warrantyStatus === 'active' && this.warrantyEndDate > new Date();
@@ -299,6 +312,41 @@ WarrantyVehicleSchema.pre('save', function (next) {
     }
 
     next();
+});
+
+// Static methods
+WarrantyVehicleSchema.statics.findActiveWarranties = function (query = {}) {
+    return this.find({
+        ...query,
+        warrantyStatus: 'active',
+        warrantyEndDate: { $gt: new Date() } // Only truly active warranties
+    });
+};
+
+WarrantyVehicleSchema.statics.expireOverdueWarranties = async function () {
+    const result = await this.updateMany(
+        {
+            warrantyStatus: 'active',
+            warrantyEndDate: { $lt: new Date() }
+        },
+        {
+            $set: {
+                warrantyStatus: 'expired',
+                updatedAt: new Date()
+            }
+        }
+    );
+
+    console.log(`✅ Expired ${result.modifiedCount} overdue warranties`);
+    return result;
+};
+
+// Virtual field for actual status
+WarrantyVehicleSchema.virtual('actualStatus').get(function () {
+    if (this.warrantyStatus === 'active' && this.warrantyEndDate < new Date()) {
+        return 'expired';
+    }
+    return this.warrantyStatus;
 });
 
 // Export factory function

@@ -5,14 +5,12 @@ const redisService = require('../../shared/services/RedisService');
 
 let Vehicle = null;
 
-// Initialize models
 const initializeModels = () => {
     if (!Vehicle) {
         Vehicle = createVehicleModel();
     }
 };
 
-// UC1: Register Vehicle by VIN (Service Center registers a vehicle)
 const registerVehicle = async (req, res) => {
     try {
         const {
@@ -36,15 +34,11 @@ const registerVehicle = async (req, res) => {
 
         initializeModels();
 
-        // Basic validation handled by ValidationMiddleware at route level
-
-        // Check if VIN already exists
         const existingVehicle = await Vehicle.findByVIN(vin);
         if (existingVehicle) {
             return responseHelper.error(res, "VIN này đã được đăng ký", 400);
         }
 
-        // Create new vehicle
         const vehicle = new Vehicle({
             vin: vin.toUpperCase(),
             modelName,
@@ -69,7 +63,6 @@ const registerVehicle = async (req, res) => {
 
         await vehicle.save();
 
-        // Clear cache
         await redisService.del("vehicles:*");
 
         return responseHelper.success(res, {
@@ -85,7 +78,6 @@ const registerVehicle = async (req, res) => {
     }
 };
 
-// Get Vehicle by VIN
 const getVehicleByVIN = async (req, res) => {
     try {
         const { vin } = req.params;
@@ -93,7 +85,6 @@ const getVehicleByVIN = async (req, res) => {
 
         initializeModels();
 
-        // Try cache first
         const cachedData = await redisService.get(cacheKey);
         if (cachedData) {
             return responseHelper.success(res, JSON.parse(cachedData), "Lấy thông tin xe thành công (từ cache)");
@@ -104,7 +95,6 @@ const getVehicleByVIN = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
         }
 
-        // Cache for 10 minutes
         await redisService.set(cacheKey, JSON.stringify(vehicle), 600);
 
         return responseHelper.success(res, vehicle, "Lấy thông tin xe thành công");
@@ -113,7 +103,6 @@ const getVehicleByVIN = async (req, res) => {
     }
 };
 
-// Get All Vehicles with pagination and search
 const getAllVehicles = async (req, res) => {
     try {
         const { page = 1, limit = 10, search, status, serviceCenterCode } = req.query;
@@ -121,21 +110,17 @@ const getAllVehicles = async (req, res) => {
 
         initializeModels();
 
-        // Try cache first
         const cachedData = await redisService.get(cacheKey);
         if (cachedData) {
             return responseHelper.success(res, JSON.parse(cachedData), "Lấy danh sách xe thành công (từ cache)");
         }
 
-        // Build query
         let query = {};
 
-        // Add search functionality
         if (search) {
             query = queryHelper.buildSearchQuery(search, ['vin', 'ownerName', 'ownerPhone', 'modelName']);
         }
 
-        // Add filters
         if (status) {
             query.status = status;
         }
@@ -144,10 +129,8 @@ const getAllVehicles = async (req, res) => {
             query.serviceCenterCode = serviceCenterCode.toUpperCase();
         }
 
-        // Parse pagination
         const { skip, limitNum } = queryHelper.parsePagination({ page, limit });
 
-        // Get vehicles
         const vehicles = await Vehicle.find(query)
             .select("vin modelName modelCode manufacturer year color ownerName ownerPhone serviceCenterName status registrationDate")
             .sort({ registrationDate: -1 })
@@ -159,7 +142,6 @@ const getAllVehicles = async (req, res) => {
 
         const result = { vehicles, pagination };
 
-        // Cache for 5 minutes
         await redisService.set(cacheKey, JSON.stringify(result), 300);
 
         return responseHelper.success(res, result, "Lấy danh sách xe thành công");
@@ -168,7 +150,6 @@ const getAllVehicles = async (req, res) => {
     }
 };
 
-// Update Vehicle
 const updateVehicle = async (req, res) => {
     try {
         const { id } = req.params;
@@ -176,12 +157,10 @@ const updateVehicle = async (req, res) => {
 
         initializeModels();
 
-        // Remove fields that shouldn't be updated
         delete updateData.vin;
         delete updateData.createdBy;
         delete updateData.registeredBy;
 
-        // Add updatedBy
         updateData.updatedBy = req.user.email;
 
         const vehicle = await Vehicle.findByIdAndUpdate(id, updateData, { new: true });
@@ -189,7 +168,6 @@ const updateVehicle = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy xe", 404);
         }
 
-        // Clear cache
         await redisService.del("vehicles:*");
 
         return responseHelper.success(res, vehicle, "Cập nhật thông tin xe thành công");
@@ -198,7 +176,6 @@ const updateVehicle = async (req, res) => {
     }
 };
 
-// Search Vehicles
 const searchVehicles = async (req, res) => {
     try {
         const { q, type = 'all', page = 1, limit = 10 } = req.query;
@@ -211,7 +188,6 @@ const searchVehicles = async (req, res) => {
 
         let query = {};
 
-        // Build search query based on type
         switch (type) {
             case 'vin':
                 query.vin = { $regex: q, $options: 'i' };
@@ -249,29 +225,24 @@ const searchVehicles = async (req, res) => {
     }
 };
 
-// Get Vehicle Statistics
 const getVehicleStatistics = async (req, res) => {
     try {
         const cacheKey = 'vehicle_statistics';
 
-        // Try to get from cache first
         const cachedStats = await redisService.get(cacheKey);
         if (cachedStats) {
             return responseHelper.success(res, cachedStats, 'Thống kê xe (từ cache)');
         }
 
-        // Get statistics from database
         const totalVehicles = await Vehicle.countDocuments();
         const activeVehicles = await Vehicle.countDocuments({ status: 'active' });
         const inactiveVehicles = await Vehicle.countDocuments({ status: 'inactive' });
 
-        // Group by brand
         const brandStats = await Vehicle.aggregate([
             { $group: { _id: '$brand', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
         ]);
 
-        // Group by model year
         const yearStats = await Vehicle.aggregate([
             { $group: { _id: '$modelYear', count: { $sum: 1 } } },
             { $sort: { _id: -1 } }
@@ -286,7 +257,6 @@ const getVehicleStatistics = async (req, res) => {
             lastUpdated: new Date()
         };
 
-        // Cache for 5 minutes
         await redisService.set(cacheKey, statistics, 300);
 
         responseHelper.success(res, statistics, 'Lấy thống kê xe thành công');

@@ -4,25 +4,19 @@ const RefreshToken = require("../Model/RefreshToken");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("../../shared/middleware/AuthMiddleware");
-// Rate limiting is now handled at API Gateway level
 const { validate, validationRules } = require("../../shared/middleware/ValidationMiddleware");
 
 const router = express.Router();
 
-// JWT configuration
 const JWT_SECRET = process.env.JWT_SECRET;
-const ACCESS_TOKEN_EXPIRY = '30m'; // 30 minutes
+const ACCESS_TOKEN_EXPIRY = '30m';
 
-// Performance logging helper - removed for production
-
-// Helper functions
 const generateAccessToken = (user) => {
     return jwt.sign(
         {
             sub: user._id || user.id,
             email: user.email,
             role: user.role
-            // Removed username to make payload lighter
         },
         JWT_SECRET,
         {
@@ -40,17 +34,15 @@ const generateTokenPair = async (user) => {
     return {
         accessToken,
         refreshToken: refreshTokenDoc.token,
-        expiresIn: 30 * 60, // 30 minutes in seconds
+        expiresIn: 30 * 60, // 30 phút tính bằng giây
         tokenType: 'Bearer'
     };
 };
 
-// Đăng ký tài khoản mới
 router.post("/register", validate(validationRules.register), async (req, res) => {
     try {
         const { username, email, password, role, phone, fullAddress } = req.body;
 
-        // Check if user already exists with index on email
         const existingUser = await User.findOne({
             $or: [{ email: email.toLowerCase() }, { username }]
         });
@@ -62,11 +54,9 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
             });
         }
 
-        // Hash password with optimal salt rounds
-        const saltRounds = 10; // Optimal balance between security and performance
+        const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        // Create new user
         const newUser = new User({
             username,
             email: email.toLowerCase(),
@@ -76,16 +66,13 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
             loginAttempts: 0,
             availability: role === "technician" ? true : undefined,
             workload: role === "technician" ? 0 : undefined,
-            // Add phone and fullAddress for customer role
             ...(role === "customer" && { phone, fullAddress }),
         });
 
         await newUser.save();
 
-        // Generate token pair (access + refresh)
         const tokens = await generateTokenPair(newUser);
 
-        // Return success response (don't send password)
         const userResponse = {
             id: newUser._id,
             username: newUser.username,
@@ -95,12 +82,11 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
             createdAt: newUser.createdAt
         };
 
-        // Set refresh token as httpOnly cookie
         res.cookie('refreshToken', tokens.refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         res.status(201).json({
@@ -121,12 +107,10 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
     }
 });
 
-// Đăng nhập
 router.post("/login", validate(validationRules.login), async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Find user by email with index
         const user = await User.findOne({ email: email.toLowerCase() });
 
         if (!user) {
@@ -136,7 +120,6 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
             });
         }
 
-        // Check if account is locked
         if (user.lockedUntil && user.lockedUntil > Date.now()) {
             return res.status(401).json({
                 success: false,
@@ -144,7 +127,6 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
             });
         }
 
-        // Check if user is active
         if (user.status !== "active") {
             return res.status(401).json({
                 success: false,
@@ -152,21 +134,35 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
             });
         }
 
-        // Compare password
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
         if (!isPasswordValid) {
-            // Increment login attempts and save once
-            const updateData = {
-                loginAttempts: (user.loginAttempts || 0) + 1
-            };
+            // Use atomic operation to prevent race condition
+            const result = await User.findOneAndUpdate(
+                {
+                    _id: user._id,
+                    $or: [
+                        { lockedUntil: { $exists: false } },
+                        { lockedUntil: { $lt: new Date() } }
+                    ]
+                },
+                {
+                    $inc: { loginAttempts: 1 }
+                },
+                { new: true }
+            );
 
-            // Lock account after 5 failed attempts for 15 minutes
-            if (updateData.loginAttempts >= 5) {
-                updateData.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+            // Check if should lock account after atomic increment
+            if (result && result.loginAttempts >= 5) {
+                await User.updateOne(
+                    { _id: user._id },
+                    {
+                        $set: {
+                            lockedUntil: new Date(Date.now() + 15 * 60 * 1000)
+                        }
+                    }
+                );
             }
-
-            await User.updateOne({ _id: user._id }, updateData);
 
             return res.status(401).json({
                 success: false,
@@ -174,7 +170,6 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
             });
         }
 
-        // Reset login attempts and update last login in one operation
         await User.updateOne(
             { _id: user._id },
             {
@@ -187,10 +182,8 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
             }
         );
 
-        // Generate token pair (access + refresh)
         const tokens = await generateTokenPair(user);
 
-        // Return success response
         const userResponse = {
             id: user._id,
             username: user.username,
@@ -199,12 +192,11 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
             status: user.status
         };
 
-        // Set refresh token as httpOnly cookie
         res.cookie('refreshToken', tokens.refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         res.json({
@@ -225,7 +217,6 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
     }
 });
 
-// Refresh access token
 router.post("/refresh", async (req, res) => {
     try {
         const refreshTokenString = req.cookies.refreshToken;
@@ -237,7 +228,6 @@ router.post("/refresh", async (req, res) => {
             });
         }
 
-        // Find and validate refresh token with populated user
         const refreshTokenDoc = await RefreshToken.findValidToken(refreshTokenString);
 
         if (!refreshTokenDoc || !refreshTokenDoc.userId) {
@@ -248,12 +238,9 @@ router.post("/refresh", async (req, res) => {
             });
         }
 
-        // Get current user data (refreshTokenDoc.userId is populated by findValidToken)
         const user = refreshTokenDoc.userId;
 
-        // Security checks: Verify user is still active and not locked
         if (user.status !== "active") {
-            // Revoke all tokens for inactive user
             await RefreshToken.revokeAllUserTokens(user._id);
             res.clearCookie('refreshToken');
             return res.status(403).json({
@@ -270,10 +257,8 @@ router.post("/refresh", async (req, res) => {
             });
         }
 
-        // Generate new access token with current user data
         const accessToken = generateAccessToken(user);
 
-        // Update last login time
         user.lastLoginAt = new Date();
         await user.save();
 
@@ -281,14 +266,11 @@ router.post("/refresh", async (req, res) => {
             success: true,
             message: "Token đã được gia hạn",
             accessToken,
-            expiresIn: 30 * 60, // 30 minutes
+            expiresIn: 30 * 60,
             tokenType: 'Bearer'
         });
 
     } catch (err) {
-
-
-        // Clear invalid refresh token cookie
         res.clearCookie('refreshToken');
 
         res.status(401).json({
@@ -299,21 +281,17 @@ router.post("/refresh", async (req, res) => {
     }
 });
 
-// Đăng xuất - Chỉ revoke refresh token
 router.post("/logout", async (req, res) => {
     try {
         const refreshToken = req.cookies.refreshToken;
 
         if (refreshToken) {
             try {
-                // Revoke refresh token
                 await RefreshToken.revokeToken(refreshToken);
             } catch (err) {
-                // Failed to revoke refresh token - continue
             }
         }
 
-        // Clear refresh token cookie
         res.clearCookie('refreshToken');
 
         res.json({
@@ -329,10 +307,8 @@ router.post("/logout", async (req, res) => {
     }
 });
 
-// Lấy thông tin user hiện tại (cần authentication)
 router.get("/me", authenticateToken, async (req, res) => {
     try {
-        // JWT payload has 'sub' field, not 'userId'
         const userId = req.user.sub || req.user.userId;
         const user = await User.findById(userId).select("-password");
         if (!user) {
@@ -363,10 +339,8 @@ router.get("/me", authenticateToken, async (req, res) => {
     }
 });
 
-// Force logout user (Admin only)
 router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
     try {
-        // Check if user is admin
         if (req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
@@ -376,7 +350,6 @@ router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
 
         const { userId } = req.params;
 
-        // Check if target user exists
         const targetUser = await User.findById(userId);
         if (!targetUser) {
             return res.status(404).json({
@@ -385,10 +358,7 @@ router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
             });
         }
 
-        // Blacklist all tokens for this user
         const blacklistedCount = await redisService.blacklistUserTokens(userId);
-
-
 
         res.json({
             success: true,
@@ -409,5 +379,4 @@ router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
     }
 });
 
-// Export router
 module.exports = router;

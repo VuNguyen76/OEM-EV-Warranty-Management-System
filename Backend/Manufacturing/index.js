@@ -2,9 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-// Swagger disabled for now
-// const swaggerUi = require('swagger-ui-express');
-// const swaggerJsdoc = require('swagger-jsdoc');
 
 // Import middleware
 const { authenticateToken, authorizeRole } = require('../shared/middleware/AuthMiddleware');
@@ -14,7 +11,7 @@ const VehicleModelController = require('./Controller/VehicleModelController');
 const ProductionController = require('./Controller/ProductionController');
 
 const app = express();
-const PORT = process.env.MANUFACTURING_PORT || 3003;
+const PORT = process.env.PORT || process.env.MANUFACTURING_PORT || 3003;
 
 // Swagger configuration
 const swaggerOptions = {
@@ -35,8 +32,6 @@ const swaggerOptions = {
     apis: ['./Manufacturing/Service/*.js']
 };
 
-// const specs = swaggerJsdoc(swaggerOptions);
-
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -47,15 +42,12 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: process.env.ALLOWED_ORIGINS?.split(','),
     credentials: true
 }));
 app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-// API Documentation - disabled for now
-// app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -67,6 +59,11 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Demo endpoint - no auth required
+app.get('/demo/models', VehicleModelController.getAllVehicleModels);
+app.get('/demo/production', ProductionController.getAllProducedVehicles);
+app.post('/demo/quality-check/:vin', ProductionController.passQualityCheck);
+
 // Initialize database connection
 const { connectToManufacturingDB } = require('../shared/database/manufacturingConnection');
 
@@ -75,19 +72,15 @@ connectToManufacturingDB().catch(err => {
     process.exit(1);
 });
 
-// Initialize models
-app.use((req, res, next) => {
-    try {
-        VehicleModelController.initializeModels();
-        ProductionController.initializeModels();
-        next();
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khởi tạo hệ thống'
-        });
-    }
-});
+// Initialize models once on startup
+try {
+    VehicleModelController.initializeModels();
+    ProductionController.initializeModels();
+    console.log('✅ Manufacturing models initialized successfully');
+} catch (error) {
+    console.error('❌ Failed to initialize Manufacturing models:', error);
+    process.exit(1);
+}
 
 // Routes
 // Vehicle Model Management
@@ -102,6 +95,10 @@ app.post('/production', authenticateToken, authorizeRole('admin', 'manufacturer_
 app.get('/production', authenticateToken, ProductionController.getAllProducedVehicles);
 app.get('/production/:vin', authenticateToken, ProductionController.getVehicleByVIN);
 app.put('/production/:vin', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), ProductionController.updateVehicle);
+
+// Quality Check
+app.post('/production/:vin/quality-check', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), ProductionController.passQualityCheck);
+app.post('/production/:vin/quality-fail', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), ProductionController.failQualityCheck);
 
 // Production Statistics
 app.get('/statistics/production', authenticateToken, ProductionController.getProductionStatistics);
@@ -148,13 +145,35 @@ app.use((req, res) => {
     res.status(404).json({
         success: false,
         message: 'Endpoint không tồn tại',
-        availableEndpoints: '/api-docs'
+        availableEndpoints: ['/health', '/models', '/production', '/statistics/models', '/statistics/production']
     });
 });
 
 // Start server
-app.listen(PORT, () => {
-    // Manufacturing service started
+const server = app.listen(PORT, () => {
+    console.log(`🚀 Manufacturing Service running on port ${PORT}`);
 });
+
+// Graceful shutdown
+const gracefulShutdown = async (signal) => {
+    console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+
+    server.close(async () => {
+        try {
+            const mongoose = require('mongoose');
+            await mongoose.connection.close();
+            console.log('✅ MongoDB disconnected');
+
+            console.log('✅ Manufacturing Service shutdown complete');
+            process.exit(0);
+        } catch (error) {
+            console.error('❌ Error during shutdown:', error);
+            process.exit(1);
+        }
+    });
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 module.exports = app;

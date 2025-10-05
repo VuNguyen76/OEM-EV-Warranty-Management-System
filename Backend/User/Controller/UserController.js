@@ -1,12 +1,10 @@
 const User = require("../Model/User");
 const redisService = require("../../shared/services/RedisService");
 
-// Get all users (admin only)
 const getAllUsers = async (req, res) => {
     try {
         const cacheKey = "users:all";
 
-        // Check Redis cache first (with error handling)
         let cachedUsers = null;
         try {
             cachedUsers = await redisService.get(cacheKey);
@@ -21,16 +19,13 @@ const getAllUsers = async (req, res) => {
                 });
             }
         } catch (cacheError) {
-            // Continue without cache - fail-safe approach
         }
 
         const users = await User.find().select("-password");
 
-        // Cache for 10 minutes (with error handling)
         try {
             await redisService.set(cacheKey, JSON.stringify(users), 600);
         } catch (cacheError) {
-            // Continue without caching - fail-safe approach
         }
 
         res.json({
@@ -49,20 +44,16 @@ const getAllUsers = async (req, res) => {
     }
 };
 
-// Get user by ID (admin or self)
 const getUserById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Kiểm tra quyền: admin hoặc chính user đó
         if (req.user.role !== "admin" && req.user.userId !== id) {
             return res.status(403).json({
                 success: false,
                 message: "Không có quyền truy cập thông tin user này"
             });
         }
-
-        // Check Redis cache first (with error handling)
         let cachedUser = null;
         try {
             cachedUser = await redisService.getUser(id);
@@ -75,7 +66,6 @@ const getUserById = async (req, res) => {
                 });
             }
         } catch (cacheError) {
-            // Continue without cache - fail-safe approach
         }
 
         const user = await User.findById(id).select("-password");
@@ -86,11 +76,9 @@ const getUserById = async (req, res) => {
             });
         }
 
-        // Cache for 1 hour (with error handling)
         try {
             await redisService.cacheUser(id, user, 3600);
         } catch (cacheError) {
-            // Continue without caching - fail-safe approach
         }
 
         res.json({
@@ -109,7 +97,6 @@ const getUserById = async (req, res) => {
     }
 };
 
-// Update user (admin or self)
 const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -118,7 +105,6 @@ const updateUser = async (req, res) => {
             serviceCenter, specialization, skills, availability
         } = req.body;
 
-        // Kiểm tra quyền
         if (req.user.role !== "admin" && req.user.userId !== id) {
             return res.status(403).json({
                 success: false,
@@ -126,10 +112,8 @@ const updateUser = async (req, res) => {
             });
         }
 
-        // User thường chỉ có thể cập nhật thông tin cá nhân
         const updateData = { username, email, note, phone, address };
 
-        // Admin có thể cập nhật tất cả fields
         if (req.user.role === "admin") {
             updateData.role = role;
             updateData.status = status;
@@ -139,14 +123,12 @@ const updateUser = async (req, res) => {
             updateData.availability = availability;
         }
 
-        // Technician có thể cập nhật specialization, skills, availability
         if (req.user.role === "technician" && req.user.userId === id) {
             updateData.specialization = specialization;
             updateData.skills = skills;
             updateData.availability = availability;
         }
 
-        // Loại bỏ các field undefined
         Object.keys(updateData).forEach(key => {
             if (updateData[key] === undefined) {
                 delete updateData[key];
@@ -168,22 +150,17 @@ const updateUser = async (req, res) => {
             });
         }
 
-        // Smart cache invalidation (with error handling)
+        // Xóa cache liên quan
         try {
-            // Invalidate specific user cache
             await redisService.invalidateUser(id);
-
-            // Invalidate all users cache (since user list changed)
             await redisService.del("users:all");
 
-            // If technician data changed, invalidate technicians cache
             if (updatedUser.role === "technician" ||
                 (updateData.specialization || updateData.skills || updateData.availability !== undefined)) {
                 await redisService.invalidateTechnicians();
             }
 
         } catch (cacheError) {
-            // Continue without cache invalidation - fail-safe approach
         }
 
         res.json({
@@ -201,13 +178,11 @@ const updateUser = async (req, res) => {
     }
 };
 
-// Get available technicians (admin and service_staff) - with Redis cache
 const getAvailableTechnicians = async (req, res) => {
     try {
         const { specialization, serviceCenter } = req.query;
         const filters = { specialization, serviceCenter };
 
-        // Check Redis cache first (with error handling)
         let cachedTechnicians = null;
         try {
             cachedTechnicians = await redisService.getTechnicians(filters);
@@ -221,7 +196,6 @@ const getAvailableTechnicians = async (req, res) => {
                 });
             }
         } catch (cacheError) {
-            // Continue without cache - fail-safe approach
         }
 
         const filter = {
@@ -242,11 +216,9 @@ const getAvailableTechnicians = async (req, res) => {
             .select("-password -refreshToken")
             .sort({ workload: 1, "performanceMetrics.qualityScore": -1 });
 
-        // Cache for 5 minutes (with error handling)
         try {
             await redisService.cacheTechnicians(filters, technicians, 300);
         } catch (cacheError) {
-            // Continue without caching - fail-safe approach
         }
 
         res.json({
@@ -265,12 +237,10 @@ const getAvailableTechnicians = async (req, res) => {
     }
 };
 
-// Delete user (admin only)
 const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Không cho phép admin xóa chính mình
         if (req.user.userId === id) {
             return res.status(400).json({
                 success: false,

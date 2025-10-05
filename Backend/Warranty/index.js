@@ -2,40 +2,20 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-// const swaggerUi = require('swagger-ui-express');
-// const swaggerJsdoc = require('swagger-jsdoc');
 
 // Import middleware
 const { authenticateToken, authorizeRole } = require('../shared/middleware/AuthMiddleware');
 
-// Import controllers
+// Import services and controllers
+const redisService = require('../shared/services/RedisService');
+const { connectToWarrantyDB } = require('../shared/database/warrantyConnection');
 const WarrantyController = require('./Controller/WarrantyController');
 const PartsController = require('./Controller/PartsController');
 const ServiceHistoryController = require('./Controller/ServiceHistoryController');
 
 const app = express();
-const PORT = process.env.WARRANTY_PORT || 3002;
+const PORT = process.env.PORT || process.env.WARRANTY_PORT || 3002;
 
-// Swagger configuration - DISABLED
-// const swaggerOptions = {
-//     definition: {
-//         openapi: '3.0.0',
-//         info: {
-//             title: 'Warranty Service API',
-//             version: '1.0.0',
-//             description: 'API for warranty management and service center operations'
-//         },
-//         servers: [
-//             {
-//                 url: `http://localhost:${PORT}`,
-//                 description: 'Warranty Service'
-//             }
-//         ]
-//     },
-//     apis: ['./Warranty/Service/*.js']
-// };
-
-// const specs = swaggerJsdoc(swaggerOptions);
 
 // Rate limiting
 const limiter = rateLimit({
@@ -47,15 +27,12 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: process.env.ALLOWED_ORIGINS?.split(','),
     credentials: true
 }));
 app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-// API Documentation - DISABLED
-// app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -67,39 +44,22 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Initialize database connection
-const { connectToWarrantyDB } = require('../shared/database/warrantyConnection');
-
-// Initialize database on startup
-connectToWarrantyDB().catch(err => {
-    process.exit(1);
-});
-
-// Initialize models once on startup
-try {
-    WarrantyController.initializeModels();
-    PartsController.initializeModels();
-    ServiceHistoryController.initializeModels();
-} catch (error) {
-    process.exit(1);
-}
-
 // Routes
-// Warranty Management
-app.post('/warranty/register', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.registerWarranty);
-app.get('/warranty/:vin', authenticateToken, WarrantyController.getWarrantyByVIN);
-app.get('/warranty', authenticateToken, WarrantyController.getAllWarranties);
-app.put('/warranty/:vin', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.updateWarranty);
-app.post('/warranty/:vin/activate', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.activateWarranty);
-app.post('/warranty/:vin/void', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.voidWarranty);
+// Warranty Management (root paths for API Gateway compatibility)
+app.post('/register', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.registerWarranty);
+app.get('/warranties/:vin', authenticateToken, WarrantyController.getWarrantyByVIN);
+app.get('/warranties', authenticateToken, WarrantyController.getAllWarranties);
+app.put('/warranties/:vin', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.updateWarranty);
+app.post('/warranties/:vin/activate', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.activateWarranty);
+app.post('/warranties/:vin/void', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.voidWarranty);
 
-// Parts Management
+// Parts Management (fix route order - specific routes before parameterized routes)
 app.post('/parts', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.createPart);
 app.get('/parts', authenticateToken, PartsController.getAllParts);
+app.get('/parts/low-stock', authenticateToken, PartsController.getLowStockParts); // MOVED BEFORE :id
 app.get('/parts/:id', authenticateToken, PartsController.getPartById);
 app.put('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.updatePart);
 app.delete('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.deletePart);
-app.get('/parts/low-stock', authenticateToken, PartsController.getLowStockParts);
 
 // Vehicle Parts (Installation/Replacement)
 app.post('/vehicle-parts', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), PartsController.addPartToVehicle);
@@ -107,10 +67,10 @@ app.get('/vehicle-parts/:vin', authenticateToken, PartsController.getVehiclePart
 
 // Service History
 app.post('/service-history', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), ServiceHistoryController.addServiceHistory);
+app.get('/service-history/statistics', authenticateToken, ServiceHistoryController.getServiceStatistics);
 app.get('/service-history/:vin', authenticateToken, ServiceHistoryController.getServiceHistoryByVIN);
 app.get('/service-history', authenticateToken, ServiceHistoryController.getAllServiceHistories);
 app.put('/service-history/:id', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), ServiceHistoryController.updateServiceHistory);
-app.get('/service-history/statistics', authenticateToken, ServiceHistoryController.getServiceStatistics);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -157,9 +117,96 @@ app.use((req, res) => {
     });
 });
 
+// Initialize services
+const initializeServices = async () => {
+    try {
+        process.stderr.write('🔄 Starting Warranty service initialization...\n');
+        console.log('🔄 Starting Warranty service initialization...');
+
+        process.stderr.write('Connecting to database...\n');
+        await connectToWarrantyDB();
+        process.stderr.write('✅ Database connected\n');
+        console.log('✅ Database connected');
+
+        process.stderr.write('Connecting to Redis...\n');
+        await redisService.connect();
+        process.stderr.write('✅ Redis connected\n');
+        console.log('✅ Redis connected');
+
+        // Initialize controllers
+        process.stderr.write('Initializing controllers...\n');
+        WarrantyController.initializeModels();
+        PartsController.initializeModels();
+        ServiceHistoryController.initializeModels();
+        process.stderr.write('✅ Controllers initialized\n');
+
+        // Initialize warranty expiration job
+        process.stderr.write('Initializing jobs...\n');
+        const { initializeWarrantyExpirationJob } = require('../shared/jobs/WarrantyExpirationJob');
+        const { initializeReservationReleaseJob } = require('../shared/jobs/ReservationReleaseJob');
+        const warrantyConnection = require('../shared/database/warrantyConnection');
+        const WarrantyVehicle = require('./Model/WarrantyVehicle')(warrantyConnection);
+        const Reservation = require('./Model/Reservation')();
+
+        const warrantyJob = initializeWarrantyExpirationJob(WarrantyVehicle);
+        const reservationJob = initializeReservationReleaseJob(Reservation);
+
+        // Store jobs for graceful shutdown
+        process.warrantyExpirationJob = warrantyJob;
+        process.reservationReleaseJob = reservationJob;
+        process.stderr.write('✅ Jobs initialized\n');
+
+        process.stderr.write('✅ Warranty service initialized successfully\n');
+        console.log('✅ Warranty service initialized successfully');
+    } catch (error) {
+        process.stderr.write(`❌ Failed to initialize Warranty service: ${error.message}\n`);
+        process.stderr.write(`Stack: ${error.stack}\n`);
+        console.error('❌ Failed to initialize Warranty service:', error);
+        process.exit(1);
+    }
+};
+
 // Start server
-app.listen(PORT, () => {
-    // Warranty service started
+initializeServices().then(() => {
+    const server = app.listen(PORT, () => {
+        console.log(`🚀 Warranty Service running on port ${PORT}`);
+    });
+
+    // Graceful shutdown
+    const gracefulShutdown = async (signal) => {
+        console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+
+        server.close(async () => {
+            try {
+                // Stop scheduled jobs
+                if (process.warrantyExpirationJob) {
+                    const { stopWarrantyExpirationJob } = require('../shared/jobs/WarrantyExpirationJob');
+                    stopWarrantyExpirationJob(process.warrantyExpirationJob);
+                }
+
+                if (process.reservationReleaseJob) {
+                    const { stopReservationReleaseJob } = require('../shared/jobs/ReservationReleaseJob');
+                    stopReservationReleaseJob(process.reservationReleaseJob);
+                }
+
+                await redisService.disconnect();
+                console.log('✅ Redis disconnected');
+
+                const mongoose = require('mongoose');
+                await mongoose.connection.close();
+                console.log('✅ MongoDB disconnected');
+
+                console.log('✅ Warranty Service shutdown complete');
+                process.exit(0);
+            } catch (error) {
+                console.error('❌ Error during shutdown:', error);
+                process.exit(1);
+            }
+        });
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 });
 
 module.exports = app;

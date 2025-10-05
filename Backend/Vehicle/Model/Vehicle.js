@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { getVehicleConnection } = require('../../shared/database/vehicleConnection');
 
-// Vehicle Schema (for Service Centers to register vehicles)
 const VehicleSchema = new mongoose.Schema({
     vin: {
         type: String,
@@ -11,7 +10,6 @@ const VehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    // Vehicle Information (from Manufacturing Service)
     modelName: {
         type: String,
         required: true,
@@ -49,7 +47,6 @@ const VehicleSchema = new mongoose.Schema({
         type: Date
     },
 
-    // Owner Information
     ownerName: {
         type: String,
         required: true,
@@ -74,7 +71,6 @@ const VehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    // Service Center Information
     serviceCenterName: {
         type: String,
         required: true,
@@ -97,7 +93,6 @@ const VehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    // Registration Information
     registrationDate: {
         type: Date,
         default: Date.now
@@ -115,20 +110,17 @@ const VehicleSchema = new mongoose.Schema({
         required: true
     },
 
-    // Status
     status: {
         type: String,
         enum: ["active", "inactive", "maintenance", "recalled"],
         default: "active"
     },
 
-    // Notes
     notes: {
         type: String,
         trim: true
     },
 
-    // Audit fields
     createdBy: {
         type: String,
         required: true
@@ -142,7 +134,6 @@ const VehicleSchema = new mongoose.Schema({
     collection: "vehicles"
 });
 
-// Indexes for performance
 VehicleSchema.index({ vin: 1 });
 VehicleSchema.index({ modelCode: 1, year: 1 });
 VehicleSchema.index({ serviceCenterCode: 1, status: 1 });
@@ -150,7 +141,6 @@ VehicleSchema.index({ ownerPhone: 1 });
 VehicleSchema.index({ registrationDate: -1 });
 VehicleSchema.index({ createdAt: -1 });
 
-// Virtual fields
 VehicleSchema.virtual('fullOwnerInfo').get(function () {
     return `${this.ownerName} - ${this.ownerPhone}`;
 });
@@ -159,7 +149,6 @@ VehicleSchema.virtual('fullServiceCenterInfo').get(function () {
     return `${this.serviceCenterName} (${this.serviceCenterCode})`;
 });
 
-// Instance methods
 VehicleSchema.methods.updateOwnerInfo = function (ownerInfo) {
     if (ownerInfo) {
         this.ownerName = ownerInfo.name || this.ownerName;
@@ -180,7 +169,6 @@ VehicleSchema.methods.updateServiceCenterInfo = function (serviceCenterInfo) {
     return this;
 };
 
-// Static methods
 VehicleSchema.statics.findByVIN = function (vin) {
     return this.findOne({ vin: vin.toUpperCase() });
 };
@@ -197,7 +185,6 @@ VehicleSchema.statics.getActiveVehicles = function () {
     return this.find({ status: 'active' });
 };
 
-// Pre-save middleware
 VehicleSchema.pre('save', function (next) {
     if (this.isNew) {
         this.createdBy = this.registeredBy;
@@ -205,13 +192,11 @@ VehicleSchema.pre('save', function (next) {
     next();
 });
 
-// Pre-update middleware
 VehicleSchema.pre(['updateOne', 'findOneAndUpdate'], function (next) {
     this.set({ updatedAt: new Date() });
     next();
 });
 
-// Export factory function
 let Vehicle = null;
 
 const createVehicleModel = () => {

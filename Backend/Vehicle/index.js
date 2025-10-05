@@ -7,14 +7,12 @@ const { setupCommonMiddleware } = require('../shared/middleware/common');
 const VehicleController = require('./Controller/VehicleController');
 
 const app = express();
-const port = process.env.VEHICLE_SERVICE_PORT || 3004;
+const port = process.env.PORT || process.env.VEHICLE_SERVICE_PORT || 3004;
 
-// Setup common middleware
 setupCommonMiddleware(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
 app.get('/health', (req, res) => {
     res.json({
         success: true,
@@ -25,39 +23,60 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Initialize services
 const initializeServices = async () => {
     try {
-        // Connect to Vehicle database
         await connectToVehicleDatabase();
-
-        // Connect to Redis
         await redisService.connect();
-
-        // Initialize models in controllers
         VehicleController.initializeModels();
     } catch (error) {
         process.exit(1);
     }
 };
 
-// Vehicle Management Routes (UC1: Đăng Ký Xe Theo VIN)
-app.post('/vehicles/register', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.registerVehicle);
-app.get('/vehicles/vin/:vin', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.getVehicleByVIN);
-app.get('/vehicles', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getAllVehicles);
-app.put('/vehicles/:id', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.updateVehicle);
-app.get('/vehicles/search', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.searchVehicles);
-app.get('/statistics/vehicles', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getVehicleStatistics);
+// Vehicle Management (root paths for API Gateway compatibility)
+app.post('/register', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.registerVehicle);
+app.get('/search', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.searchVehicles);
+app.get('/vin/:vin', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.getVehicleByVIN);
+app.get('/statistics', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getVehicleStatistics);
+app.get('/:id', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getVehicleByVIN);
+app.get('/', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getAllVehicles);
+app.put('/:id', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.updateVehicle);
 
-// Start server
 const startServer = async () => {
     await initializeServices();
 
-    app.listen(port, () => {
-        // Vehicle service started
+    const server = app.listen(port, () => {
+        console.log(`🚀 Vehicle Service running on port ${port}`);
     });
+
+    // Graceful shutdown
+    const gracefulShutdown = async (signal) => {
+        console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+
+        server.close(async () => {
+            try {
+                const redisService = require('../shared/services/RedisService');
+                await redisService.disconnect();
+                console.log('✅ Redis disconnected');
+
+                const mongoose = require('mongoose');
+                await mongoose.connection.close();
+                console.log('✅ MongoDB disconnected');
+
+                console.log('✅ Vehicle Service shutdown complete');
+                process.exit(0);
+            } catch (error) {
+                console.error('❌ Error during shutdown:', error);
+                process.exit(1);
+            }
+        });
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 };
 
-startServer().catch(() => {
+startServer().catch((error) => {
+    console.error('❌ Failed to start Vehicle service:', error);
     process.exit(1);
 });

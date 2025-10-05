@@ -24,4 +24,7 @@ USER warranty
 
 EXPOSE 3002
 
-CMD ["node", "Warranty/index.js"]
+# Force unbuffered output
+ENV NODE_OPTIONS="--trace-warnings --trace-uncaught"
+
+CMD ["sh", "-c", "node --trace-warnings --trace-uncaught Warranty/index.js 2>&1 | tee /proc/1/fd/1"]

@@ -44,7 +44,7 @@ const createPart = async (req, res) => {
         await part.save();
 
         // Clear cache
-        await redisService.del("parts:*");
+        await redisService.deletePatternScan("parts:*");
 
         return responseHelper.success(res, part, "Tạo phụ tùng thành công", 201);
     } catch (error) {
@@ -148,7 +148,7 @@ const updatePart = async (req, res) => {
         }
 
         // Clear cache
-        await redisService.del("parts:*");
+        await redisService.deletePatternScan("parts:*");
 
         return responseHelper.success(res, part, "Cập nhật phụ tùng thành công");
     } catch (error) {
@@ -168,7 +168,7 @@ const deletePart = async (req, res) => {
         }
 
         // Clear cache
-        await redisService.del("parts:*");
+        await redisService.deletePatternScan("parts:*");
 
         return responseHelper.success(res, null, "Xóa phụ tùng thành công");
     } catch (error) {
@@ -233,33 +233,60 @@ const addPartToVehicle = async (req, res) => {
         const warrantyEndDate = new Date(installDate);
         warrantyEndDate.setMonth(warrantyEndDate.getMonth() + part.warrantyPeriod);
 
-        // Create vehicle part record
-        const vehiclePart = new VehiclePart({
-            vehicleId: vehicle._id,
-            vin: vin.toUpperCase(),
-            partId,
-            serialNumber,
-            position: position || 'Unknown',
-            installationDate: installDate,
-            warrantyEndDate,
-            installedBy: installedBy || req.user.email,
-            notes,
-            createdBy: req.user.email
-        });
+        // Use atomic operation to update stock and create vehicle part
+        const mongoose = require('mongoose');
+        const session = await mongoose.startSession();
 
-        await vehiclePart.save();
+        try {
+            await session.withTransaction(async () => {
+                // Atomic stock update with condition check
+                const updatedPart = await Part.findOneAndUpdate(
+                    {
+                        _id: partId,
+                        stockQuantity: { $gt: 0 }
+                    },
+                    {
+                        $inc: { stockQuantity: -1 }
+                    },
+                    {
+                        new: true,
+                        session
+                    }
+                );
 
-        // Update part stock quantity
-        if (part.stockQuantity > 0) {
-            part.stockQuantity -= 1;
-            await part.save();
+                if (!updatedPart) {
+                    throw new Error('Phụ tùng đã hết hàng hoặc không đủ số lượng');
+                }
+
+                // Create vehicle part record
+                const vehiclePart = new VehiclePart({
+                    vehicleId: vehicle._id,
+                    vin: vin.toUpperCase(),
+                    partId,
+                    serialNumber,
+                    position: position || 'Unknown',
+                    installationDate: installDate,
+                    warrantyEndDate,
+                    installedBy: installedBy || req.user.sub || req.user.userId,
+                    notes,
+                    createdBy: req.user.email
+                });
+
+                await vehiclePart.save({ session });
+
+                // Store for response (outside transaction)
+                req.vehiclePart = vehiclePart;
+            });
+        } finally {
+            await session.endSession();
         }
 
         // Clear cache
-        await redisService.del("parts:*");
-        await redisService.del("vehicle-parts:*");
+        await redisService.deletePatternScan("parts:*");
+        await redisService.deletePatternScan("vehicle-parts:*");
 
         // Populate part info for response
+        const vehiclePart = req.vehiclePart;
         await vehiclePart.populate('partId');
 
         return responseHelper.success(res, vehiclePart, "Thêm phụ tùng vào xe thành công", 201);
@@ -282,8 +309,14 @@ const getVehicleParts = async (req, res) => {
             return responseHelper.success(res, JSON.parse(cachedData), "Lấy danh sách phụ tùng xe thành công (từ cache)");
         }
 
-        // Build search query
-        const searchQuery = { vin: vin.toUpperCase() };
+        // Find vehicle first to get vehicleId
+        const vehicle = await WarrantyVehicle.findOne({ vin: vin.toUpperCase() });
+        if (!vehicle) {
+            return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
+        }
+
+        // Build search query using vehicleId
+        const searchQuery = { vehicleId: vehicle._id };
         if (status) {
             searchQuery.status = status;
         }
