@@ -13,14 +13,7 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 const ACCESS_TOKEN_EXPIRY = '30m'; // 30 minutes
 
-// Performance logging helper
-const logPerformance = (operation, startTime, additionalInfo = {}) => {
-    const duration = Date.now() - startTime;
-    // Async logging to avoid blocking
-    setImmediate(() => {
-        console.log(`[PERF] ${operation}: ${duration}ms`, additionalInfo);
-    });
-};
+// Performance logging helper - removed for production
 
 // Helper functions
 const generateAccessToken = (user) => {
@@ -54,16 +47,13 @@ const generateTokenPair = async (user) => {
 
 // Đăng ký tài khoản mới
 router.post("/register", validate(validationRules.register), async (req, res) => {
-    const startTime = Date.now();
     try {
         const { username, email, password, role, phone, fullAddress } = req.body;
 
         // Check if user already exists with index on email
-        const checkStart = Date.now();
         const existingUser = await User.findOne({
             $or: [{ email: email.toLowerCase() }, { username }]
         });
-        logPerformance('register-check-existing', checkStart, { email });
 
         if (existingUser) {
             return res.status(400).json({
@@ -73,13 +63,10 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
         }
 
         // Hash password with optimal salt rounds
-        const hashStart = Date.now();
         const saltRounds = 10; // Optimal balance between security and performance
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        logPerformance('register-hash-password', hashStart);
 
         // Create new user
-        const createStart = Date.now();
         const newUser = new User({
             username,
             email: email.toLowerCase(),
@@ -94,12 +81,9 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
         });
 
         await newUser.save();
-        logPerformance('register-save-user', createStart);
 
         // Generate token pair (access + refresh)
-        const tokenStart = Date.now();
         const tokens = await generateTokenPair(newUser);
-        logPerformance('register-generate-tokens', tokenStart);
 
         // Return success response (don't send password)
         const userResponse = {
@@ -128,32 +112,22 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
             user: userResponse
         });
 
-        logPerformance('register-total', startTime, { userId: newUser._id, role });
-
     } catch (err) {
-        // Async error logging
-        setImmediate(() => {
-            console.error("Register error:", err);
-        });
         res.status(500).json({
             success: false,
             message: "Server error during registration",
             error: err.message
         });
-        logPerformance('register-error', startTime, { error: err.message });
     }
 });
 
 // Đăng nhập
 router.post("/login", validate(validationRules.login), async (req, res) => {
-    const startTime = Date.now();
     try {
         const { email, password } = req.body;
 
         // Find user by email with index
-        const findStart = Date.now();
         const user = await User.findOne({ email: email.toLowerCase() });
-        logPerformance('login-find-user', findStart, { email });
 
         if (!user) {
             return res.status(401).json({
@@ -179,9 +153,7 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
         }
 
         // Compare password
-        const compareStart = Date.now();
         const isPasswordValid = await bcrypt.compare(password, user.password);
-        logPerformance('login-compare-password', compareStart);
 
         if (!isPasswordValid) {
             // Increment login attempts and save once
@@ -203,7 +175,6 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
         }
 
         // Reset login attempts and update last login in one operation
-        const updateStart = Date.now();
         await User.updateOne(
             { _id: user._id },
             {
@@ -215,12 +186,9 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
                 }
             }
         );
-        logPerformance('login-update-user', updateStart);
 
         // Generate token pair (access + refresh)
-        const tokenStart = Date.now();
         const tokens = await generateTokenPair(user);
-        logPerformance('login-generate-tokens', tokenStart);
 
         // Return success response
         const userResponse = {
@@ -248,19 +216,12 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
             user: userResponse
         });
 
-        logPerformance('login-total', startTime, { userId: user._id, role: user.role });
-
     } catch (err) {
-        // Async error logging
-        setImmediate(() => {
-            console.error("Login error:", err);
-        });
         res.status(500).json({
             success: false,
             message: "Server error during login",
             error: err.message
         });
-        logPerformance('login-error', startTime, { error: err.message });
     }
 });
 
@@ -325,7 +286,7 @@ router.post("/refresh", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("Refresh token error:", err);
+
 
         // Clear invalid refresh token cookie
         res.clearCookie('refreshToken');
@@ -347,9 +308,8 @@ router.post("/logout", async (req, res) => {
             try {
                 // Revoke refresh token
                 await RefreshToken.revokeToken(refreshToken);
-                console.log(`🚫 Refresh token revoked during logout`);
             } catch (err) {
-                console.log(`⚠️ Failed to revoke refresh token: ${err.message}`);
+                // Failed to revoke refresh token - continue
             }
         }
 
@@ -361,7 +321,6 @@ router.post("/logout", async (req, res) => {
             message: "Đăng xuất thành công"
         });
     } catch (err) {
-        console.error("Logout error:", err);
         res.status(500).json({
             success: false,
             message: "Lỗi server khi đăng xuất",
@@ -396,7 +355,6 @@ router.get("/me", authenticateToken, async (req, res) => {
             }
         });
     } catch (err) {
-        console.error("Get user info error:", err);
         res.status(500).json({
             success: false,
             message: "Lỗi server khi lấy thông tin user",
@@ -430,7 +388,7 @@ router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
         // Blacklist all tokens for this user
         const blacklistedCount = await redisService.blacklistUserTokens(userId);
 
-        console.log(`👮 Admin ${req.user.email} force logged out user ${targetUser.email}`);
+
 
         res.json({
             success: true,
@@ -443,7 +401,6 @@ router.post("/force-logout/:userId", authenticateToken, async (req, res) => {
             }
         });
     } catch (err) {
-        console.error("Force logout error:", err);
         res.status(500).json({
             success: false,
             message: "Lỗi server khi force logout",

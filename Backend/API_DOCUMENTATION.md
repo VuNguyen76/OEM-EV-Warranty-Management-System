@@ -1,516 +1,557 @@
-# OEM EV Warranty Management System - API Documentation
+# 📚 API Documentation - OEM EV Warranty Management System
 
-## Base URL
+## 🏗️ Architecture Overview
 
-```
-http://localhost:3000
-```
-
-## Authentication
-
-Most endpoints require JWT authentication. Include the access token in the Authorization header:
+Hệ thống sử dụng **Microservices Architecture** với **API Gateway** làm điểm truy cập duy nhất:
 
 ```
-Authorization: Bearer <access_token>
+Client → API Gateway (Port 3000) → Services
+                ├── User Service (Port 3001)
+                ├── Warranty Service (Port 3002) 
+                ├── Manufacturing Service (Port 3003)
+                └── Vehicle Service (Port 3004)
 ```
 
-## Response Format
+## 🔐 Authentication & Authorization
 
-All responses follow this format:
+### JWT Token System
+- **Access Token**: 30 phút, dùng cho API calls
+- **Refresh Token**: 7 ngày, lưu trong httpOnly cookie
+- **Header**: `Authorization: Bearer <access_token>`
 
-```json
+### User Roles
+- `admin`: Toàn quyền
+- `manufacturer_staff`: Quản lý sản xuất
+- `service_staff`: Quản lý trung tâm bảo hành
+- `technician`: Kỹ thuật viên
+- `customer`: Khách hàng
+
+## 🌐 API Gateway Routes
+
+**Base URL**: `http://localhost:3000`
+
+### Health Check
+```http
+GET /health
+```
+
+### Route Mapping
+- `/api/auth/*` → User Service (No auth required)
+- `/api/users/*` → User Service (Auth required)
+- `/api/manufacturing/*` → Manufacturing Service (Auth required)
+- `/api/warranty/*` → Warranty Service (Auth required)
+- `/api/vehicle/*` → Vehicle Service (Auth required)
+
+## 👤 User Service APIs
+
+### Authentication Endpoints
+
+#### Register User
+```http
+POST /api/auth/register
+Content-Type: application/json
+
 {
-  "success": true/false,
-  "message": "Description",
-  "data": {}, // Response data
-  "error": "Error message" // Only on errors
+  "username": "string",
+  "email": "string",
+  "password": "string",
+  "role": "admin|manufacturer_staff|service_staff|technician|customer",
+  "fullName": "string",
+  "phone": "string (required for customer)",
+  "fullAddress": "string (required for customer)"
 }
 ```
 
----
+#### Login
+```http
+POST /api/auth/login
+Content-Type: application/json
 
-## 🔐 Authentication APIs
-
-### 1. Register New Account
-
-**POST** `/api/auth/register`
-
-**Body:**
-
-For **admin, service_staff, technician, manufacturer_staff**:
-
-```json
 {
-  "username": "testuser",
-  "email": "test@example.com",
-  "password": "Test123!",
-  "role": "admin" // admin, service_staff, technician, manufacturer_staff
+  "email": "string",
+  "password": "string"
 }
 ```
 
-For **customer** (requires additional fields):
+#### Refresh Token
+```http
+POST /api/auth/refresh
+```
 
-```json
+#### Logout
+```http
+POST /api/auth/logout
+```
+
+#### Get Current User
+```http
+GET /api/auth/me
+Authorization: Bearer <token>
+```
+
+#### Force Logout User (Admin only)
+```http
+POST /api/auth/force-logout/:userId
+Authorization: Bearer <token>
+```
+
+### User Management Endpoints
+
+#### Get All Users (Admin only)
+```http
+GET /api/users
+Authorization: Bearer <token>
+```
+
+#### Get Available Technicians
+```http
+GET /api/users/technicians/available
+Authorization: Bearer <token>
+Roles: admin, service_staff
+```
+
+#### Get User by ID
+```http
+GET /api/users/:id
+Authorization: Bearer <token>
+```
+
+#### Update User
+```http
+PUT /api/users/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+
 {
-  "username": "testuser",
-  "email": "test@example.com",
-  "password": "Test123!",
-  "role": "customer",
-  "phone": "0123456789", // Required for customer
-  "fullAddress": "123 Main St, City, Country" // Required for customer
+  "fullName": "string",
+  "phone": "string",
+  "fullAddress": "string"
 }
 ```
 
-**Response:**
+#### Delete User (Admin only)
+```http
+DELETE /api/users/:id
+Authorization: Bearer <token>
+```
 
+## 🏭 Manufacturing Service APIs
+
+### Vehicle Model Management
+
+#### Create Vehicle Model
+```http
+POST /api/manufacturing/models
+Authorization: Bearer <token>
+Roles: admin, manufacturer_staff
+Content-Type: application/json
+
+{
+  "modelName": "string",
+  "modelCode": "string",
+  "manufacturer": "string",
+  "year": "number",
+  "category": "sedan|suv|hatchback|truck|van",
+  "batteryCapacity": "number",
+  "motorPower": "number",
+  "range": "number",
+  "vehicleWarrantyMonths": "number",
+  "batteryWarrantyMonths": "number",
+  "basePrice": "number (min: 100000000 VND)",
+  "description": "string"
+}
+```
+
+#### Get All Vehicle Models
+```http
+GET /api/manufacturing/models
+Authorization: Bearer <token>
+```
+
+#### Get Vehicle Model by ID
+```http
+GET /api/manufacturing/models/:id
+Authorization: Bearer <token>
+```
+
+#### Update Vehicle Model
+```http
+PUT /api/manufacturing/models/:id
+Authorization: Bearer <token>
+Roles: admin, manufacturer_staff
+```
+
+#### Delete Vehicle Model
+```http
+DELETE /api/manufacturing/models/:id
+Authorization: Bearer <token>
+Roles: admin, manufacturer_staff
+```
+
+### Vehicle Production
+
+#### Create Produced Vehicle
+```http
+POST /api/manufacturing/production
+Authorization: Bearer <token>
+Roles: admin, manufacturer_staff
+Content-Type: application/json
+
+{
+  "vin": "string",
+  "modelId": "string",
+  "productionDate": "ISO date",
+  "batterySerialNumber": "string",
+  "motorSerialNumber": "string",
+  "qualityCheckStatus": "passed|failed|pending"
+}
+```
+
+#### Get All Produced Vehicles
+```http
+GET /api/manufacturing/production
+Authorization: Bearer <token>
+```
+
+#### Get Vehicle by VIN
+```http
+GET /api/manufacturing/production/:vin
+Authorization: Bearer <token>
+```
+
+#### Update Produced Vehicle
+```http
+PUT /api/manufacturing/production/:vin
+Authorization: Bearer <token>
+Roles: admin, manufacturer_staff
+```
+
+### Statistics
+
+#### Get Production Statistics
+```http
+GET /api/manufacturing/statistics/production
+Authorization: Bearer <token>
+```
+
+#### Get Model Statistics
+```http
+GET /api/manufacturing/statistics/models
+Authorization: Bearer <token>
+```
+
+## 🔧 Warranty Service APIs
+
+### Warranty Management
+
+#### Register Warranty
+```http
+POST /api/warranty/warranty/register
+Authorization: Bearer <token>
+Roles: admin, service_staff
+Content-Type: application/json
+
+{
+  "vin": "string",
+  "warrantyStartDate": "ISO date",
+  "vehicleWarrantyEndDate": "ISO date",
+  "batteryWarrantyEndDate": "ISO date"
+}
+```
+
+#### Get Warranty by VIN
+```http
+GET /api/warranty/warranty/:vin
+Authorization: Bearer <token>
+```
+
+#### Get All Warranties
+```http
+GET /api/warranty/warranty
+Authorization: Bearer <token>
+```
+
+#### Update Warranty
+```http
+PUT /api/warranty/warranty/:vin
+Authorization: Bearer <token>
+Roles: admin, service_staff
+```
+
+#### Activate Warranty
+```http
+POST /api/warranty/warranty/:vin/activate
+Authorization: Bearer <token>
+Roles: admin, service_staff
+```
+
+#### Void Warranty
+```http
+POST /api/warranty/warranty/:vin/void
+Authorization: Bearer <token>
+Roles: admin, service_staff
+```
+
+### Parts Management
+
+#### Create Part
+```http
+POST /api/warranty/parts
+Authorization: Bearer <token>
+Roles: admin, service_staff
+Content-Type: application/json
+
+{
+  "partName": "string",
+  "partCode": "string",
+  "partNumber": "string",
+  "category": "battery|motor|bms|inverter|charger|brake|suspension|body|electronics|other",
+  "cost": "number",
+  "description": "string",
+  "supplier": "string",
+  "warrantyPeriod": "number"
+}
+```
+
+#### Get All Parts
+```http
+GET /api/warranty/parts
+Authorization: Bearer <token>
+```
+
+#### Get Part by ID
+```http
+GET /api/warranty/parts/:id
+Authorization: Bearer <token>
+```
+
+#### Update Part
+```http
+PUT /api/warranty/parts/:id
+Authorization: Bearer <token>
+Roles: admin, service_staff
+```
+
+#### Delete Part
+```http
+DELETE /api/warranty/parts/:id
+Authorization: Bearer <token>
+Roles: admin, service_staff
+```
+
+#### Get Low Stock Parts
+```http
+GET /api/warranty/parts/low-stock
+Authorization: Bearer <token>
+```
+
+### Vehicle Parts Management
+
+#### Add Part to Vehicle
+```http
+POST /api/warranty/vehicle-parts
+Authorization: Bearer <token>
+Roles: admin, service_staff, technician
+Content-Type: application/json
+
+{
+  "vin": "string",
+  "partId": "string",
+  "serialNumber": "string",
+  "installationDate": "ISO date",
+  "installedBy": "string",
+  "position": "string",
+  "notes": "string"
+}
+```
+
+#### Get Vehicle Parts
+```http
+GET /api/warranty/vehicle-parts/:vin
+Authorization: Bearer <token>
+```
+
+### Service History
+
+#### Add Service History
+```http
+POST /api/warranty/service-history
+Authorization: Bearer <token>
+Roles: admin, service_staff, technician
+Content-Type: application/json
+
+{
+  "vin": "string",
+  "serviceType": "maintenance|repair|inspection|recall",
+  "description": "string",
+  "serviceDate": "ISO date",
+  "technicianId": "string",
+  "partsUsed": ["partId1", "partId2"],
+  "laborHours": "number",
+  "cost": "number",
+  "notes": "string"
+}
+```
+
+#### Get Service History by VIN
+```http
+GET /api/warranty/service-history/:vin
+Authorization: Bearer <token>
+```
+
+#### Get All Service Histories
+```http
+GET /api/warranty/service-history
+Authorization: Bearer <token>
+```
+
+#### Update Service History
+```http
+PUT /api/warranty/service-history/:id
+Authorization: Bearer <token>
+Roles: admin, service_staff, technician
+```
+
+#### Get Service Statistics
+```http
+GET /api/warranty/service-history/statistics
+Authorization: Bearer <token>
+```
+
+## 🚗 Vehicle Service APIs
+
+### Vehicle Management
+
+#### Register Vehicle
+```http
+POST /api/vehicle/vehicles/register
+Authorization: Bearer <token>
+Roles: service_staff, admin
+Content-Type: application/json
+
+{
+  "vin": "string",
+  "modelName": "string",
+  "modelCode": "string",
+  "manufacturer": "string",
+  "year": "number",
+  "color": "string",
+  "ownerName": "string",
+  "ownerPhone": "string",
+  "ownerAddress": "string",
+  "serviceCenterName": "string",
+  "productionDate": "ISO date (optional)",
+  "notes": "string (optional)"
+}
+```
+
+#### Get Vehicle by VIN
+```http
+GET /api/vehicle/vehicles/vin/:vin
+Authorization: Bearer <token>
+Roles: service_staff, admin, technician
+```
+
+#### Get All Vehicles
+```http
+GET /api/vehicle/vehicles
+Authorization: Bearer <token>
+Roles: service_staff, admin
+```
+
+#### Update Vehicle
+```http
+PUT /api/vehicle/vehicles/:id
+Authorization: Bearer <token>
+Roles: service_staff, admin
+```
+
+#### Search Vehicles
+```http
+GET /api/vehicle/vehicles/search?q=<query>
+Authorization: Bearer <token>
+Roles: service_staff, admin, technician
+```
+
+#### Get Vehicle Statistics
+```http
+GET /api/vehicle/statistics/vehicles
+Authorization: Bearer <token>
+Roles: service_staff, admin
+```
+
+## 🔒 Security Features
+
+### Rate Limiting
+- **General API**: 1000 requests/hour per IP
+- **Login**: 10 attempts/15 minutes per IP
+- **Register**: 5 attempts/hour per IP
+- **Sensitive operations**: 20 requests/hour per IP
+
+### Input Validation
+- XSS protection middleware
+- SQL injection prevention
+- Input sanitization
+- Schema validation
+
+### CORS Configuration
+- Configurable allowed origins
+- Credentials support
+- Preflight handling
+
+## 📊 Response Format
+
+### Success Response
 ```json
 {
   "success": true,
-  "message": "Đăng ký thành công",
-  "data": {
-    "user": {
-      "id": "user_id",
-      "username": "testuser",
-      "email": "test@example.com",
-      "role": "customer"
-    }
-  }
+  "message": "Operation successful",
+  "data": { ... },
+  "cached": false
 }
 ```
 
-### 2. Login
-
-**POST** `/api/auth/login`
-
-**Body:**
-
+### Error Response
 ```json
 {
-  "email": "test@example.com",
-  "password": "Test123!"
+  "success": false,
+  "message": "Error description",
+  "error": "Detailed error info"
 }
 ```
 
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Đăng nhập thành công",
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "expiresIn": 1800,
-  "tokenType": "Bearer",
-  "user": {
-    "id": "user_id",
-    "username": "testuser",
-    "email": "test@example.com",
-    "role": "customer"
-  }
-}
-```
-
-### 3. Refresh Token
-
-**POST** `/api/auth/refresh`
-
-**Note:** Requires refresh token in httpOnly cookie
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Token làm mới thành công",
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "expiresIn": 1800,
-  "tokenType": "Bearer"
-}
-```
-
-### 4. Logout
-
-**POST** `/api/auth/logout`
-
-**Note:** Uses refresh token from httpOnly cookie
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Đăng xuất thành",
-  "data": {
-    "id": "user_id",
-    "username": "testuser",
-    "email": "test@example.com",
-    "role": "customer",
-    "status": "active"
-  }
-}
-```
-
-### 6. Force Logout User (Admin Only)
-
-**POST** `/api/auth/force-logout/:userId`
-
-**Headers:** `Authorization: Bearer <admin_token>`
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "User đã được đăng xuất khỏi tất cả thiết bị công"
-}
-```
-
-### 5. Get Current User Info
-
-**GET** `/api/auth/me`
-
-**Headers:** `Authorization: Bearer <token>`
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Lấy thông tin user thành công",
-  "data": {
-    "id": "user_id",
-    "username": "testuser",
-    "email": "test@example.com",
-    "role": "customer",
-    "status": "active"
-  }
-}
-```
-
-### 6. Force Logout User (Admin Only)
-
-**POST** `/api/auth/force-logout/:userId`
-
-**Headers:** `Authorization: Bearer <admin_token>`
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "User đã được đăng xuất khỏi tất cả thiết bị"
-}
-```
-
----
-
-## 👥 User Management APIs
-
-### 1. Get All Users
-
-**GET** `/api/users`
-
-**Auth:** Admin only
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Lấy danh sách users thành công",
-  "data": [
-    {
-      "id": "user_id",
-      "username": "testuser",
-      "email": "test@example.com",
-      "role": "customer",
-      "status": "active"
-    }
-  ],
-  "count": 1
-}
-```
-
-### 2. Get User by ID
-
-**GET** `/api/users/:id`
-
-**Auth:** Admin or self
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Lấy thông tin user thành công",
-  "data": {
-    "id": "user_id",
-    "username": "testuser",
-    "email": "test@example.com",
-    "role": "customer",
-    "status": "active"
-  }
-}
-```
-
-### 3. Update User
-
-**PUT** `/api/users/:id`
-
-**Auth:** Admin or self
-
-**Body:**
-
-```json
-{
-  "username": "newusername",
-  "email": "newemail@example.com",
-  "phone": "0123456789",
-  "address": "New Address"
-}
-```
-
-### 4. Get Available Technicians
-
-**GET** `/api/users/technicians/available`
-
-**Auth:** Admin, Service Staff
-
-**Query Parameters:**
-
-- `specialization` (optional): Filter by specialization
-- `serviceCenter` (optional): Filter by service center
-
-### 5. Delete User
-
-**DELETE** `/api/users/:id`
-
-**Auth:** Admin only
-
----
-
-## 🚗 Vehicle Management APIs
-
-### 1. Register Vehicle
-
-**POST** `/api/vehicles/register`
-
-**Auth:** Admin, Service Staff
-
-**Body:**
-
-```json
-{
-  "vin": "TEST123456789ABCD",
-  "model": "EV Model X",
-  "year": 2024,
-  "color": "White",
-  "batteryCapacity": 75,
-  "motorPower": 300,
-  "ownerName": "John Doe",
-  "ownerPhone": "0123456789",
-  "ownerEmail": "john@example.com",
-  "ownerAddress": "123 Main St",
-  "purchaseDate": "2024-01-15",
-  "warrantyStartDate": "2024-01-15",
-  "warrantyEndDate": "2027-01-15",
-  "assignedServiceCenter": "Service Center A"
-}
-```
-
-### 2. Get Vehicle by VIN
-
-**GET** `/api/vehicles/vin/:vin`
-
-**Auth:** Required
-
-### 3. Search Vehicles
-
-**GET** `/api/vehicles/search`
-
-**Auth:** Required
-
-**Query Parameters:**
-
-- `q`: Search query
-- `type`: Search type (vin, owner, model)
-- `page`: Page number (default: 1)
-- `limit`: Items per page (default: 10)
-
-### 4. Update Vehicle
-
-**PUT** `/api/vehicles/:id`
-
-**Auth:** Admin, Service Staff
-
-### 5. Get Vehicles by Service Center
-
-**GET** `/api/vehicles/service-center/:centerName`
-
-**Auth:** Admin, Service Staff
-
----
-
-## 🔧 Parts Management APIs
-
-### 1. Add Part to Vehicle
-
-**POST** `/api/vehicles/:vehicleId/parts`
-
-**Auth:** Admin, Service Staff, Technician
-
-**Body:**
-
-```json
-{
-  "serialNumber": "PART123456789",
-  "partType": "battery",
-  "partName": "Lithium Battery Pack",
-  "manufacturer": "Tesla",
-  "installationDate": "2024-01-15",
-  "warrantyEndDate": "2026-01-15",
-  "cost": 5000
-}
-```
-
-### 2. Get Vehicle Parts
-
-**GET** `/api/vehicles/:vehicleId/parts`
-
-**Auth:** Required
-
-### 3. Update Part Status
-
-**PUT** `/api/vehicles/:vehicleId/parts/:partId`
-
-**Auth:** Admin, Service Staff, Technician
-
-**Body:**
-
-```json
-{
-  "status": "replaced", // active, replaced, defective, recalled
-  "notes": "Part replaced due to defect",
-  "replacedDate": "2024-06-15"
-}
-```
-
-### 4. Search Part by Serial Number
-
-**GET** `/api/vehicles/parts/serial/:serialNumber`
-
-**Auth:** Required
-
-### 5. Get Parts Statistics
-
-**GET** `/api/vehicles/stats/parts`
-
-**Auth:** Admin, Service Staff
-
----
-
-## 📋 Service History APIs
-
-### 1. Add Service History
-
-**POST** `/api/vehicles/:vehicleId/service-history`
-
-**Auth:** Admin, Service Staff, Technician
-
-**Body:**
-
-```json
-{
-  "serviceType": "maintenance",
-  "description": "Regular maintenance check",
-  "serviceDate": "2024-06-15",
-  "mileage": 5000,
-  "serviceCenter": "Service Center A",
-  "cost": 200,
-  "partsReplaced": []
-}
-```
-
-### 2. Get Service History
-
-**GET** `/api/vehicles/:vehicleId/service-history`
-
-**Auth:** Required
-
-**Query Parameters:**
-
-- `page`: Page number (default: 1)
-- `limit`: Items per page (default: 10)
-
-### 3. Update Service History
-
-**PUT** `/api/vehicles/:vehicleId/service-history/:recordId`
-
-**Auth:** Admin, Service Staff, Technician
-
-### 4. Get Service Center History
-
-**GET** `/api/vehicles/service-center/:centerName/history`
-
-**Auth:** Admin, Service Staff
-
----
-
-## 📊 Statistics APIs
-
-### 1. Get Vehicle Overview Statistics
-
-**GET** `/api/vehicles/stats/overview`
-
-**Auth:** Admin, Service Staff
-
-**Query Parameters:**
-
-- `serviceCenter` (optional): Filter by service center
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "vehicles": {
-      "totalVehicles": 100,
-      "activeVehicles": 95,
-      "avgMileage": 15000,
-      "totalMileage": 1500000
-    },
-    "warranty": {
-      "underWarranty": 80,
-      "expiredWarranty": 20
-    },
-    "services": {
-      "totalServices": 500,
-      "totalServiceCost": 100000,
-      "avgServiceCost": 200
-    }
-  }
-}
-```
-
----
-
-## 🔒 Role-Based Access Control
-
-### Roles:
-
-- **admin**: Full access to all endpoints
-- **service_staff**: Vehicle and service management
-- **technician**: Service operations and parts management
-- **manufacturer_staff**: Vehicle and parts data access
-- **customer**: Limited access to own data
-
-### Common HTTP Status Codes:
-
-- `200`: Success
-- `201`: Created
-- `400`: Bad Request
-- `401`: Unauthorized
-- `403`: Forbidden
-- `404`: Not Found
-- `429`: Too Many Requests
-- `500`: Internal Server Error
+## 🚀 Getting Started
+
+1. **Start Services**:
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Health Check**:
+   ```bash
+   curl http://localhost:3000/health
+   ```
+
+3. **Register User**:
+   ```bash
+   curl -X POST http://localhost:3000/api/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin","email":"admin@test.com","password":"Admin123!","role":"admin","fullName":"Admin User"}'
+   ```
+
+4. **Login**:
+   ```bash
+   curl -X POST http://localhost:3000/api/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"admin@test.com","password":"Admin123!"}'
+   ```
+
+## 📝 Notes
+
+- All timestamps are in ISO 8601 format
+- All monetary values are in VND
+- VIN must be unique across the system
+- Passwords must meet complexity requirements
+- Redis caching is enabled for performance
+- MongoDB TTL indexes handle token cleanup
+- Docker networking enables service communication

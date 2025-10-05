@@ -9,18 +9,15 @@ class RedisService {
     async connect() {
         try {
             const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-            console.log(`🔄 Attempting to connect to Redis: ${redisUrl}`);
 
             this.client = redis.createClient({
                 url: redisUrl,
                 socket: {
                     reconnectStrategy: (retries) => {
                         if (retries > 10) {
-                            console.error('Redis: Max reconnection attempts reached');
                             return false; // Stop reconnecting
                         }
                         const delay = Math.min(retries * 100, 3000);
-                        console.log(`Redis: Reconnecting in ${delay}ms (attempt ${retries})`);
                         return delay;
                     },
                     connectTimeout: 10000,
@@ -28,29 +25,21 @@ class RedisService {
                 }
             });
 
-            this.client.on('error', (err) => {
-                console.error('Redis Client Error:', err);
+            this.client.on('error', () => {
                 this.isConnected = false;
             });
 
             this.client.on('connect', () => {
-                console.log('✅ Redis connected successfully');
                 this.isConnected = true;
             });
 
             this.client.on('disconnect', () => {
-                console.log('❌ Redis disconnected');
                 this.isConnected = false;
             });
 
-            console.log('🔄 Calling client.connect()...');
             await this.client.connect();
-            console.log('✅ client.connect() completed successfully');
             return true;
         } catch (error) {
-            console.error('❌ Redis connection failed:', error);
-            console.error('Error details:', error.message);
-            console.error('Error stack:', error.stack);
             this.isConnected = false;
             return false;
         }
@@ -72,7 +61,6 @@ class RedisService {
             await this.client.setEx(key, ttl, JSON.stringify(userData));
             return true;
         } catch (error) {
-            console.error('Cache user error:', error);
             return false;
         }
     }
@@ -85,7 +73,6 @@ class RedisService {
             const data = await this.client.get(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Get cached user error:', error);
             return null;
         }
     }
@@ -100,7 +87,6 @@ class RedisService {
             await this.client.setEx(key, ttl, JSON.stringify(technicians));
             return true;
         } catch (error) {
-            console.error('Cache technicians error:', error);
             return false;
         }
     }
@@ -114,7 +100,6 @@ class RedisService {
             const data = await this.client.get(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Get cached technicians error:', error);
             return null;
         }
     }
@@ -126,10 +111,8 @@ class RedisService {
         try {
             const key = `vehicle:model:${model}`;
             await this.client.setEx(key, ttl, JSON.stringify(modelData));
-            console.log(`📦 Cached vehicle model: ${model}`);
             return true;
         } catch (error) {
-            console.error('Cache vehicle model error:', error);
             return false;
         }
     }
@@ -142,7 +125,6 @@ class RedisService {
             const data = await this.client.get(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Get cached vehicle model error:', error);
             return null;
         }
     }
@@ -154,10 +136,8 @@ class RedisService {
         try {
             const key = `vehicle:vin:${vin}`;
             await this.client.setEx(key, ttl, JSON.stringify(vehicleData));
-            console.log(`🚗 Cached vehicle: ${vin}`);
             return true;
         } catch (error) {
-            console.error('Cache vehicle by VIN error:', error);
             return false;
         }
     }
@@ -170,7 +150,6 @@ class RedisService {
             const data = await this.client.get(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Get cached vehicle by VIN error:', error);
             return null;
         }
     }
@@ -182,10 +161,8 @@ class RedisService {
         try {
             const key = `user:${userId}`;
             await this.client.del(key);
-            console.log(`🗑️ Invalidated user cache: ${userId}`);
             return true;
         } catch (error) {
-            console.error('Invalidate user cache error:', error);
             return false;
         }
     }
@@ -196,10 +173,8 @@ class RedisService {
         try {
             const key = `vehicle:vin:${vin}`;
             await this.client.del(key);
-            console.log(`🗑️ Invalidated vehicle cache: ${vin}`);
             return true;
         } catch (error) {
-            console.error('Invalidate vehicle cache error:', error);
             return false;
         }
     }
@@ -210,10 +185,8 @@ class RedisService {
         try {
             const key = `parts:${vehicleId}`;
             await this.client.del(key);
-            console.log(`🗑️ Invalidated vehicle parts cache: ${vehicleId}`);
             return true;
         } catch (error) {
-            console.error('Invalidate vehicle parts cache error:', error);
             return false;
         }
     }
@@ -242,12 +215,8 @@ class RedisService {
                 }
             } while (cursor !== '0');
 
-            if (deletedCount > 0) {
-                console.log(`🗑️ Invalidated ${deletedCount} technician cache entries`);
-            }
             return true;
         } catch (error) {
-            console.error('Invalidate technicians cache error:', error);
             return false;
         }
     }
@@ -260,7 +229,6 @@ class RedisService {
             await this.client.setEx(key, ttl, JSON.stringify(value));
             return true;
         } catch (error) {
-            console.error('Redis set error:', error);
             return false;
         }
     }
@@ -272,7 +240,6 @@ class RedisService {
             const data = await this.client.get(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Redis get error:', error);
             return null;
         }
     }
@@ -284,7 +251,6 @@ class RedisService {
             await this.client.del(key);
             return true;
         } catch (error) {
-            console.error('Redis del error:', error);
             return false;
         }
     }
@@ -296,10 +262,8 @@ class RedisService {
         try {
             const key = `servicecenter:${centerId}`;
             await this.client.setEx(key, ttl, JSON.stringify(centerData));
-            console.log(`🏢 Cached service center: ${centerId}`);
             return true;
         } catch (error) {
-            console.error('Cache service center error:', error);
             return false;
         }
     }
@@ -312,7 +276,6 @@ class RedisService {
             const data = await this.client.get(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Get cached service center error:', error);
             return null;
         }
     }
@@ -324,10 +287,8 @@ class RedisService {
         try {
             const key = `policy:warranty:${policyId}`;
             await this.client.setEx(key, ttl, JSON.stringify(policyData));
-            console.log(`📋 Cached warranty policy: ${policyId}`);
             return true;
         } catch (error) {
-            console.error('Cache warranty policy error:', error);
             return false;
         }
     }
@@ -340,7 +301,6 @@ class RedisService {
             const data = await this.client.get(key);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Get cached warranty policy error:', error);
             return null;
         }
     }
@@ -353,7 +313,6 @@ class RedisService {
             const result = await this.client.ping();
             return result === 'PONG';
         } catch (error) {
-            console.error('Redis ping error:', error);
             return false;
         }
     }
@@ -361,7 +320,6 @@ class RedisService {
     // Delete keys matching pattern (safe wildcard deletion)
     async deletePattern(pattern) {
         if (!this.isConnected) {
-            console.warn('Redis not connected, skipping pattern deletion');
             return 0;
         }
 
@@ -381,10 +339,8 @@ class RedisService {
                 deletedCount += result;
             }
 
-            console.log(`🗑️ Deleted ${deletedCount} keys matching pattern: ${pattern}`);
             return deletedCount;
         } catch (error) {
-            console.error('Redis delete pattern error:', error);
             return 0;
         }
     }
@@ -392,7 +348,6 @@ class RedisService {
     // Alternative using SCAN for better performance (non-blocking)
     async deletePatternScan(pattern) {
         if (!this.isConnected) {
-            console.warn('Redis not connected, skipping pattern deletion');
             return 0;
         }
 
@@ -416,10 +371,8 @@ class RedisService {
                 }
             } while (cursor !== 0);
 
-            console.log(`🗑️ Deleted ${deletedCount} keys matching pattern: ${pattern} (SCAN)`);
             return deletedCount;
         } catch (error) {
-            console.error('Redis delete pattern scan error:', error);
             return 0;
         }
     }

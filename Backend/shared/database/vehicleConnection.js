@@ -14,9 +14,7 @@ let vehicleConnection = null;
 const connectToVehicleDatabase = async () => {
     try {
         const mongoUri = process.env.VEHICLE_MONGODB_URI;
-        console.log("🚗 Connecting to Vehicle Database...");
-        console.log("URI:", mongoUri ? mongoUri.replace(/\/\/.*@/, '//***:***@') : 'undefined');
-        
+
         if (!mongoUri) {
             throw new Error("VEHICLE_MONGODB_URI is not defined in environment variables");
         }
@@ -36,26 +34,22 @@ const connectToVehicleDatabase = async () => {
             vehicleConnection.once('error', reject);
         });
 
-        console.log("✅ Connected to Vehicle MongoDB database");
-        console.log(`📍 Database: ${mongoUri.split('@')[1]?.split('/')[0] || 'Railway'}`);
-        
         // Handle connection events
-        vehicleConnection.on('error', (err) => {
-            console.error('❌ Vehicle Database connection error:', err);
+        vehicleConnection.on('error', () => {
+            // Connection error
         });
 
         vehicleConnection.on('disconnected', () => {
-            console.warn('⚠️ Vehicle Database disconnected');
+            // Disconnected
         });
 
         vehicleConnection.on('reconnected', () => {
-            console.log('🔄 Vehicle Database reconnected');
+            // Reconnected
         });
 
         return vehicleConnection;
 
     } catch (err) {
-        console.error("❌ Error connecting to Vehicle database:", err.message);
         process.exit(1);
     }
 };

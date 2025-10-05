@@ -11,7 +11,6 @@ const getAllUsers = async (req, res) => {
         try {
             cachedUsers = await redisService.get(cacheKey);
             if (cachedUsers) {
-                console.log(`🚀 Cache hit for all users`);
                 const users = JSON.parse(cachedUsers);
                 return res.json({
                     success: true,
@@ -22,7 +21,6 @@ const getAllUsers = async (req, res) => {
                 });
             }
         } catch (cacheError) {
-            console.warn(`⚠️ Cache read failed for all users`, cacheError.message);
             // Continue without cache - fail-safe approach
         }
 
@@ -31,9 +29,7 @@ const getAllUsers = async (req, res) => {
         // Cache for 10 minutes (with error handling)
         try {
             await redisService.set(cacheKey, JSON.stringify(users), 600);
-            console.log(`📦 Cached all users`);
         } catch (cacheError) {
-            console.warn(`⚠️ Cache write failed for all users`, cacheError.message);
             // Continue without caching - fail-safe approach
         }
 
@@ -71,7 +67,6 @@ const getUserById = async (req, res) => {
         try {
             cachedUser = await redisService.getUser(id);
             if (cachedUser) {
-                console.log(`🚀 Cache hit for user: ${id}`);
                 return res.json({
                     success: true,
                     message: "Lấy thông tin user thành công (cached)",
@@ -80,7 +75,6 @@ const getUserById = async (req, res) => {
                 });
             }
         } catch (cacheError) {
-            console.warn(`⚠️ Cache read failed for user: ${id}`, cacheError.message);
             // Continue without cache - fail-safe approach
         }
 
@@ -95,9 +89,7 @@ const getUserById = async (req, res) => {
         // Cache for 1 hour (with error handling)
         try {
             await redisService.cacheUser(id, user, 3600);
-            console.log(`📦 Cached user: ${id}`);
         } catch (cacheError) {
-            console.warn(`⚠️ Cache write failed for user: ${id}`, cacheError.message);
             // Continue without caching - fail-safe approach
         }
 
@@ -190,9 +182,7 @@ const updateUser = async (req, res) => {
                 await redisService.invalidateTechnicians();
             }
 
-            console.log(`🗑️ Smart cache invalidation completed for user: ${id}`);
         } catch (cacheError) {
-            console.warn(`⚠️ Cache invalidation failed for user: ${id}`, cacheError.message);
             // Continue without cache invalidation - fail-safe approach
         }
 
@@ -222,7 +212,6 @@ const getAvailableTechnicians = async (req, res) => {
         try {
             cachedTechnicians = await redisService.getTechnicians(filters);
             if (cachedTechnicians) {
-                console.log(`🚀 Cache hit for technicians: ${JSON.stringify(filters)}`);
                 return res.json({
                     success: true,
                     message: "Lấy danh sách technicians thành công (cached)",
@@ -232,7 +221,6 @@ const getAvailableTechnicians = async (req, res) => {
                 });
             }
         } catch (cacheError) {
-            console.warn(`⚠️ Cache read failed for technicians`, cacheError.message);
             // Continue without cache - fail-safe approach
         }
 
@@ -257,9 +245,7 @@ const getAvailableTechnicians = async (req, res) => {
         // Cache for 5 minutes (with error handling)
         try {
             await redisService.cacheTechnicians(filters, technicians, 300);
-            console.log(`📦 Cached technicians: ${JSON.stringify(filters)}`);
         } catch (cacheError) {
-            console.warn(`⚠️ Cache write failed for technicians`, cacheError.message);
             // Continue without caching - fail-safe approach
         }
 

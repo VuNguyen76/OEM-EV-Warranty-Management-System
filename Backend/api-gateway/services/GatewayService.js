@@ -11,7 +11,47 @@ class GatewayService {
         // Cấu hình URL của các microservice
         this.services = {
             user: process.env.USER_SERVICE_URL,
+            manufacturing: process.env.MANUFACTURING_SERVICE_URL,
+            warranty: process.env.WARRANTY_SERVICE_URL,
             vehicle: process.env.VEHICLE_SERVICE_URL,
+        };
+
+        // Environment variables loaded
+    }
+
+    /**
+     * Create generic proxy middleware
+     */
+    createProxyConfig(target, pathRewrite, requiresAuth = false) {
+        return {
+            target,
+            changeOrigin: true,
+            timeout: 30000,
+            proxyTimeout: 30000,
+            pathRewrite,
+            onProxyReq: (proxyReq, req, res) => {
+                // Forward Authorization header if required
+                if (requiresAuth && req.headers.authorization) {
+                    proxyReq.setHeader('Authorization', req.headers.authorization);
+                }
+
+                // Fix body forwarding for POST/PUT/PATCH requests
+                if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
+                    const bodyData = JSON.stringify(req.body);
+                    proxyReq.setHeader('Content-Type', 'application/json');
+                    proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                    proxyReq.write(bodyData);
+                }
+            },
+            onError: (err, req, res) => {
+                if (!res.headersSent) {
+                    res.status(500).json({
+                        success: false,
+                        message: 'Lỗi kết nối đến service',
+                        error: err.message
+                    });
+                }
+            }
         };
     }
 
@@ -19,8 +59,6 @@ class GatewayService {
      * Khởi tạo tất cả các routes
      */
     initRoutes() {
-        console.log('Initializing API Gateway routes...');
-
         // Health check
         this.setupHealthCheck();
 
@@ -30,13 +68,17 @@ class GatewayService {
         // User routes (cần token)
         this.setupUserRoutes();
 
+        // Manufacturing routes (cần token)
+        this.setupManufacturingRoutes();
+
+        // Warranty routes (cần token)
+        this.setupWarrantyRoutes();
+
         // Vehicle routes (cần token)
         this.setupVehicleRoutes();
 
         // 404 handler
         this.setup404Handler();
-
-        console.log('Routes initialized successfully!');
     }
 
     /**
@@ -51,7 +93,6 @@ class GatewayService {
                 services: this.services
             });
         });
-        console.log('  ✓ Health check: GET /health');
     }
 
     /**
@@ -60,37 +101,12 @@ class GatewayService {
     setupAuthRoutes() {
         this.app.use(
             '/api/auth',
-            createProxyMiddleware({
-                target: this.services.user,
-                changeOrigin: true,
-                timeout: 30000,
-                proxyTimeout: 30000,
-                pathRewrite: {
-                    '^/api/auth': '/auth',
-                },
-                onProxyReq: (proxyReq, req, res) => {
-                    // Fix body forwarding for POST requests
-                    if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
-                        const bodyData = JSON.stringify(req.body);
-                        proxyReq.setHeader('Content-Type', 'application/json');
-                        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-                        proxyReq.write(bodyData);
-                    }
-                    console.log(`→ Proxy: ${req.method} ${req.originalUrl} → ${this.services.user}`);
-                },
-                onError: (err, req, res) => {
-                    console.error('✗ Proxy error:', err.message);
-                    if (!res.headersSent) {
-                        res.status(500).json({
-                            success: false,
-                            message: 'Lỗi kết nối đến service',
-                            error: err.message
-                        });
-                    }
-                }
-            })
+            createProxyMiddleware(this.createProxyConfig(
+                this.services.user,
+                { '^/api/auth': '/auth' },
+                false
+            ))
         );
-        console.log('  ✓ Auth routes: /api/auth/* → User Service');
     }
 
     /**
@@ -99,43 +115,40 @@ class GatewayService {
     setupUserRoutes() {
         this.app.use(
             '/api/users',
-            createProxyMiddleware({
-                target: this.services.user,
-                changeOrigin: true,
-                timeout: 30000,
-                proxyTimeout: 30000,
-                pathRewrite: {
-                    '^/api/users': '/users',
-                },
-                onProxyReq: (proxyReq, req, res) => {
-                    // Forward Authorization header to User Service
-                    if (req.headers.authorization) {
-                        proxyReq.setHeader('Authorization', req.headers.authorization);
-                    }
-
-                    // Fix body forwarding for POST/PUT requests
-                    if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
-                        const bodyData = JSON.stringify(req.body);
-                        proxyReq.setHeader('Content-Type', 'application/json');
-                        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-                        proxyReq.write(bodyData);
-                    }
-
-                    console.log(`→ Proxy: ${req.method} ${req.originalUrl} → ${this.services.user}`);
-                },
-                onError: (err, req, res) => {
-                    console.error('✗ Proxy error:', err.message);
-                    if (!res.headersSent) {
-                        res.status(500).json({
-                            success: false,
-                            message: 'Lỗi kết nối đến user service',
-                            error: err.message
-                        });
-                    }
-                }
-            })
+            createProxyMiddleware(this.createProxyConfig(
+                this.services.user,
+                { '^/api/users': '/users' },
+                true
+            ))
         );
-        console.log('  ✓ User routes: /api/users/* → User Service (Auth required)');
+    }
+
+    /**
+     * Manufacturing routes (cần token)
+     */
+    setupManufacturingRoutes() {
+        this.app.use(
+            '/api/manufacturing',
+            createProxyMiddleware(this.createProxyConfig(
+                this.services.manufacturing,
+                { '^/api/manufacturing': '' },
+                true
+            ))
+        );
+    }
+
+    /**
+     * Warranty routes (cần token)
+     */
+    setupWarrantyRoutes() {
+        this.app.use(
+            '/api/warranty',
+            createProxyMiddleware(this.createProxyConfig(
+                this.services.warranty,
+                { '^/api/warranty': '' },
+                true
+            ))
+        );
     }
 
     /**
@@ -143,44 +156,13 @@ class GatewayService {
      */
     setupVehicleRoutes() {
         this.app.use(
-            '/api/vehicles',
-            createProxyMiddleware({
-                target: this.services.vehicle,
-                changeOrigin: true,
-                timeout: 30000,
-                proxyTimeout: 30000,
-                pathRewrite: {
-                    '^/api/vehicles': '/vehicles',
-                },
-                onProxyReq: (proxyReq, req, res) => {
-                    // Forward Authorization header to Vehicle Service
-                    if (req.headers.authorization) {
-                        proxyReq.setHeader('Authorization', req.headers.authorization);
-                    }
-
-                    // Fix body forwarding for POST/PUT requests
-                    if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
-                        const bodyData = JSON.stringify(req.body);
-                        proxyReq.setHeader('Content-Type', 'application/json');
-                        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-                        proxyReq.write(bodyData);
-                    }
-
-                    console.log(`→ Proxy: ${req.method} ${req.originalUrl} → ${this.services.vehicle}`);
-                },
-                onError: (err, req, res) => {
-                    console.error('✗ Proxy error:', err.message);
-                    if (!res.headersSent) {
-                        res.status(500).json({
-                            success: false,
-                            message: 'Lỗi kết nối đến vehicle service',
-                            error: err.message
-                        });
-                    }
-                }
-            })
+            '/api/vehicle',
+            createProxyMiddleware(this.createProxyConfig(
+                this.services.vehicle,
+                { '^/api/vehicle': '' },
+                true
+            ))
         );
-        console.log('  ✓ Vehicle routes: /api/vehicles/* → Vehicle Service (Auth required)');
     }
 
     /**

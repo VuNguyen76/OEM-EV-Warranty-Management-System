@@ -93,11 +93,7 @@ const UserSchema = new mongoose.Schema({
     refreshToken: String
 });
 
-// Indexes for performance
-UserSchema.index({ email: 1 });
-UserSchema.index({ username: 1 });
-UserSchema.index({ role: 1 });
-UserSchema.index({ status: 1 });
+// Indexes for performance (non-unique)
 UserSchema.index({ "serviceCenter.id": 1 });
 UserSchema.index({ specialization: 1 });
 UserSchema.index({ availability: 1 });
