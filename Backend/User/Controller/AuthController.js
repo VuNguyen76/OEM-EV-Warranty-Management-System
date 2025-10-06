@@ -1,7 +1,6 @@
 const express = require("express");
 const User = require("../Model/User");
 const RefreshToken = require("../Model/RefreshToken");
-const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("../../shared/middleware/AuthMiddleware");
 const { validate, validationRules } = require("../../shared/middleware/ValidationMiddleware");
@@ -55,13 +54,11 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
             });
         }
 
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-
+        // Password will be hashed by pre-save hook in User model
         const newUser = new User({
             username,
             email: email.toLowerCase(),
-            password: hashedPassword,
+            password: password, // Pass plain password, will be hashed by pre-save hook
             role: role || "customer",
             status: "active",
             loginAttempts: 0,
@@ -135,7 +132,7 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
             });
         }
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+        const isPasswordValid = await user.comparePassword(password);
 
         if (!isPasswordValid) {
             // Use the model method instead of manual implementation

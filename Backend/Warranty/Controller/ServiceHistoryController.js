@@ -8,10 +8,9 @@ let ServiceHistory, WarrantyVehicle, VehiclePart;
 function initializeModels() {
     try {
         if (!ServiceHistory || !WarrantyVehicle || !VehiclePart) {
-            const warrantyConnection = require('../../shared/database/warrantyConnection');
-            ServiceHistory = require('../Model/ServiceHistory')(warrantyConnection);
-            WarrantyVehicle = require('../Model/WarrantyVehicle')(warrantyConnection);
-            VehiclePart = require('../Model/VehiclePart')(warrantyConnection);
+            ServiceHistory = require('../Model/ServiceHistory')();
+            WarrantyVehicle = require('../Model/WarrantyVehicle')();
+            VehiclePart = require('../Model/VehiclePart')();
         }
     } catch (error) {
         throw error;

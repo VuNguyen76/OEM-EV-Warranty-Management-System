@@ -8,8 +8,7 @@ let WarrantyVehicle;
 
 function initializeModels() {
     if (!WarrantyVehicle) {
-        const warrantyConnection = require('../../shared/database/warrantyConnection');
-        WarrantyVehicle = require('../Model/WarrantyVehicle')(warrantyConnection);
+        WarrantyVehicle = require('../Model/WarrantyVehicle')();
     }
 }
 

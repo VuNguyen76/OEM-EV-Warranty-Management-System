@@ -9,10 +9,9 @@ let Part, VehiclePart, WarrantyVehicle;
 // Initialize models
 function initializeModels() {
     if (!Part || !VehiclePart || !WarrantyVehicle) {
-        const warrantyConnection = require('../../shared/database/warrantyConnection');
-        Part = require('../Model/Part')(warrantyConnection);
-        VehiclePart = require('../Model/VehiclePart')(warrantyConnection);
-        WarrantyVehicle = require('../Model/WarrantyVehicle')(warrantyConnection);
+        Part = require('../Model/Part')();
+        VehiclePart = require('../Model/VehiclePart')();
+        WarrantyVehicle = require('../Model/WarrantyVehicle')();
     }
 }
 

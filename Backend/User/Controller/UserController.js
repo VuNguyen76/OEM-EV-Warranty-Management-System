@@ -274,10 +274,85 @@ const deleteUser = async (req, res) => {
     }
 };
 
+const changePassword = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { oldPassword, newPassword } = req.body;
+        const userId = req.user.sub || req.user.userId;
+
+        // Check permission - only admin or own user
+        if (req.user.role !== "admin" && userId !== id) {
+            return res.status(403).json({
+                success: false,
+                message: "Không có quyền thay đổi mật khẩu của user này"
+            });
+        }
+
+        // Validate input
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Mật khẩu mới phải có ít nhất 6 ký tự"
+            });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy user"
+            });
+        }
+
+        // If not admin, verify old password
+        if (req.user.role !== "admin") {
+            if (!oldPassword) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Cần nhập mật khẩu cũ"
+                });
+            }
+
+            const isOldPasswordValid = await user.comparePassword(oldPassword);
+            if (!isOldPasswordValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Mật khẩu cũ không đúng"
+                });
+            }
+        }
+
+        // Update password
+        user.password = newPassword;
+        await user.save();
+
+        // Clear cache
+        try {
+            await redisService.del("users:*");
+            await redisService.del(`user:${id}`);
+        } catch (cacheError) {
+            console.error("Cache clear error:", cacheError);
+        }
+
+        res.json({
+            success: true,
+            message: "Đổi mật khẩu thành công"
+        });
+    } catch (err) {
+        console.error("Change password error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi đổi mật khẩu",
+            error: err.message
+        });
+    }
+};
+
 module.exports = {
     getAllUsers,
     getUserById,
     updateUser,
     getAvailableTechnicians,
-    deleteUser
+    deleteUser,
+    changePassword
 };

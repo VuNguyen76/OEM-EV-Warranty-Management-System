@@ -12,6 +12,7 @@ const { connectToWarrantyDB } = require('../shared/database/warrantyConnection')
 const WarrantyController = require('./Controller/WarrantyController');
 const PartsController = require('./Controller/PartsController');
 const ServiceHistoryController = require('./Controller/ServiceHistoryController');
+const WarrantyClaimController = require('./Controller/WarrantyClaimController');
 
 const app = express();
 const PORT = process.env.PORT || process.env.WARRANTY_PORT || 3002;
@@ -71,6 +72,16 @@ app.get('/service-history/statistics', authenticateToken, ServiceHistoryControll
 app.get('/service-history/:vin', authenticateToken, ServiceHistoryController.getServiceHistoryByVIN);
 app.get('/service-history', authenticateToken, ServiceHistoryController.getAllServiceHistories);
 app.put('/service-history/:id', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), ServiceHistoryController.updateServiceHistory);
+
+// Warranty Claims (specific routes first)
+app.post('/claims', authenticateToken, WarrantyClaimController.createWarrantyClaim);
+app.get('/claims/statistics', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyClaimController.getClaimStatistics);
+app.get('/claims/vehicle/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);
+app.get('/claims/:id', authenticateToken, WarrantyClaimController.getClaimById);
+app.get('/claims', authenticateToken, WarrantyClaimController.getAllClaims);
+app.put('/claims/:id/status', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyClaimController.updateClaimStatus);
+app.post('/claims/:id/approve', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyClaimController.approveClaim);
+app.post('/claims/:id/reject', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyClaimController.rejectClaim);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -135,17 +146,17 @@ const initializeServices = async () => {
 
         // Initialize controllers
         process.stderr.write('Initializing controllers...\n');
-        WarrantyController.initializeModels();
-        PartsController.initializeModels();
-        ServiceHistoryController.initializeModels();
+        await WarrantyController.initializeModels();
+        await PartsController.initializeModels();
+        await ServiceHistoryController.initializeModels();
+        await WarrantyClaimController.initializeModels();
         process.stderr.write('✅ Controllers initialized\n');
 
         // Initialize warranty expiration job
         process.stderr.write('Initializing jobs...\n');
         const { initializeWarrantyExpirationJob } = require('../shared/jobs/WarrantyExpirationJob');
         const { initializeReservationReleaseJob } = require('../shared/jobs/ReservationReleaseJob');
-        const warrantyConnection = require('../shared/database/warrantyConnection');
-        const WarrantyVehicle = require('./Model/WarrantyVehicle')(warrantyConnection);
+        const WarrantyVehicle = require('./Model/WarrantyVehicle')();
         const Reservation = require('./Model/Reservation')();
 
         const warrantyJob = initializeWarrantyExpirationJob(WarrantyVehicle);
