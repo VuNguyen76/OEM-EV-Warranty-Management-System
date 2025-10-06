@@ -7,8 +7,10 @@ const redisService = require("../../shared/services/RedisService");
 let Part, VehiclePart, WarrantyVehicle;
 
 // Initialize models
-function initializeModels() {
+async function initializeModels() {
     if (!Part || !VehiclePart || !WarrantyVehicle) {
+        const { connectToWarrantyDB } = require('../../shared/database/warrantyConnection');
+        await connectToWarrantyDB();
         Part = require('../Model/Part')();
         VehiclePart = require('../Model/VehiclePart')();
         WarrantyVehicle = require('../Model/WarrantyVehicle')();

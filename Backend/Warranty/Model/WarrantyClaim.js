@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const BaseEntity = require("../../shared/Base/BaseEntity");
 
 const WarrantyClaimSchema = new mongoose.Schema({
-    ...BaseEntity,
+    ...BaseEntity.BaseEntity,
 
     // Claim Information
     claimNumber: {
