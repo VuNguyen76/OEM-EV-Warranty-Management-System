@@ -42,9 +42,7 @@ const validationRules = {
 
         body('password')
             .isLength({ min: 6 })
-            .withMessage('Password phải ít nhất 6 ký tự')
-            .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-            .withMessage('Password phải chứa ít nhất 1 chữ thường, 1 chữ hoa và 1 số'),
+            .withMessage('Password phải ít nhất 6 ký tự'),
 
         body('role')
             .optional()
@@ -83,27 +81,13 @@ const validationRules = {
 
         body('phone')
             .optional()
-            .matches(/^[0-9+\-\s()]+$/)
-            .withMessage('Số điện thoại không hợp lệ'),
+            .isLength({ min: 10, max: 15 })
+            .withMessage('Số điện thoại phải từ 10-15 ký tự'),
 
         body('role')
             .optional()
             .isIn(['admin', 'service_staff', 'technician', 'manufacturer_staff', 'customer'])
             .withMessage('Role không hợp lệ'),
-
-        // Phone validation for customer role
-        body('phone')
-            .custom((value, { req }) => {
-                if (req.body.role === 'customer') {
-                    if (!value) {
-                        throw new Error('Số điện thoại là bắt buộc cho customer');
-                    }
-                    if (!/^[0-9]{10,11}$/.test(value)) {
-                        throw new Error('Số điện thoại phải có 10-11 chữ số');
-                    }
-                }
-                return true;
-            }),
 
         // Full address validation for customer role
         body('fullAddress')
@@ -120,36 +104,31 @@ const validationRules = {
             })
     ],
 
-    // Vehicle registration validation
+    // Vehicle registration validation - Simplified
     vehicleRegister: [
         body('vin')
-            .isLength({ min: 17, max: 17 })
-            .withMessage('VIN phải có đúng 17 ký tự')
-            .matches(/^[A-HJ-NPR-Z0-9]{17}$/)
-            .withMessage('VIN không hợp lệ (không chứa I, O, Q)'),
+            .trim()
+            .isLength({ min: 10, max: 20 })
+            .withMessage('VIN phải từ 10-20 ký tự'),
 
-        body('make')
+        body('manufacturer')
             .trim()
             .notEmpty()
             .withMessage('Hãng xe không được để trống'),
 
-        body('model')
+        body('modelName')
             .trim()
             .notEmpty()
-            .withMessage('Model xe không được để trống'),
+            .withMessage('Tên model không được để trống'),
 
         body('year')
-            .isInt({ min: 2000, max: new Date().getFullYear() + 1 })
+            .isInt({ min: 2000, max: new Date().getFullYear() + 2 })
             .withMessage('Năm sản xuất không hợp lệ'),
 
-        body('ownerEmail')
-            .isEmail()
-            .withMessage('Email chủ xe không hợp lệ')
-            .normalizeEmail(),
-
-        body('ownerPhone')
-            .matches(/^[0-9+\-\s()]+$/)
-            .withMessage('Số điện thoại chủ xe không hợp lệ')
+        body('ownerName')
+            .trim()
+            .notEmpty()
+            .withMessage('Tên chủ xe không được để trống')
     ]
 };
 

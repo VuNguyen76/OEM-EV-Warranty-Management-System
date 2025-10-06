@@ -1,278 +1,276 @@
-const createVehicleModels = require("../Model/Vehicle");
-const redisService = require("../../shared/services/RedisService");
-const { sendSuccess, sendError, sendPaginatedResponse, createPagination, asyncHandler } = require("../../shared/utils/responseHelper");
-const { parsePagination, buildSearchQuery } = require("../../shared/utils/queryHelper");
+const { createVehicleModel } = require('../Model/Vehicle');
+const responseHelper = require('../../shared/utils/responseHelper');
+const queryHelper = require('../../shared/utils/queryHelper');
+const redisService = require('../../shared/services/RedisService');
 
-// Initialize models
-let VehicleModel, Vehicle;
+let Vehicle = null;
 
-function initializeModels() {
-    if (!VehicleModel || !Vehicle) {
-        const models = createVehicleModels();
-        VehicleModel = models.VehicleModel;
-        Vehicle = models.Vehicle;
-        console.log("✅ Vehicle models initialized in Controller");
+const initializeModels = () => {
+    if (!Vehicle) {
+        Vehicle = createVehicleModel();
     }
-}
+};
 
-// ===========================================
-// MANUFACTURER PERSPECTIVE (Hãng sản xuất)
-// ===========================================
+const registerVehicle = async (req, res) => {
+    try {
+        const {
+            vin,
+            modelName,
+            modelCode,
+            manufacturer,
+            year,
+            color,
+            productionDate,
+            ownerName,
+            ownerPhone,
+            ownerEmail,
+            ownerAddress,
+            serviceCenterName,
+            serviceCenterCode,
+            serviceCenterAddress,
+            serviceCenterPhone,
+            notes
+        } = req.body;
 
-// Create Vehicle Model (for manufacturers)
-const createVehicleModel = asyncHandler(async (req, res) => {
-    const {
-        modelName, modelCode, manufacturer, category, year,
-        batteryCapacity, motorPower, range,
-        vehicleWarrantyMonths, batteryWarrantyMonths, basePrice
-    } = req.body;
+        initializeModels();
 
-    // Validation
-    if (!modelName || !modelCode || !manufacturer || !category || !year ||
-        !batteryCapacity || !motorPower || !range || !basePrice) {
-        return sendError(res, "Thiếu thông tin bắt buộc", 400);
-    }
-
-    // Check if model code already exists
-    const existingModel = await VehicleModel.findOne({ modelCode: modelCode.toUpperCase() });
-    if (existingModel) {
-        return sendError(res, "Mã model đã tồn tại", 400);
-    }
-
-    // Create new vehicle model
-    const newModel = new VehicleModel({
-        modelName,
-        modelCode: modelCode.toUpperCase(),
-        manufacturer,
-        category,
-        year,
-        batteryCapacity,
-        motorPower,
-        range,
-        vehicleWarrantyMonths: vehicleWarrantyMonths || 36,
-        batteryWarrantyMonths: batteryWarrantyMonths || 96,
-        basePrice,
-        status: "production",
-        createdBy: req.user.email
-    });
-
-    await newModel.save();
-
-    // Clear cache
-    await redisService.del("vehicle_models:*");
-
-    return sendSuccess(res, "Tạo model xe thành công", {
-        id: newModel._id,
-        modelName: newModel.modelName,
-        modelCode: newModel.modelCode,
-        manufacturer: newModel.manufacturer,
-        status: newModel.status
-    }, 201);
-});
-
-// Get All Vehicle Models
-const getAllVehicleModels = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
-    const cacheKey = `vehicle_models:page:${page}:limit:${limit}`;
-
-    // Try cache first
-    const cached = await redisService.get(cacheKey);
-    if (cached) {
-        return res.json(JSON.parse(cached));
-    }
-
-    const { skip } = parsePagination(req.query, { page, limit });
-    const searchQuery = buildSearchQuery(req.query.search, ['manufacturer', 'modelName', 'category']);
-
-    const models = await VehicleModel.find(searchQuery)
-        .select("modelName modelCode manufacturer category year batteryCapacity motorPower range basePrice status")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit));
-
-    const total = await VehicleModel.countDocuments(searchQuery);
-    const pagination = createPagination(page, limit, total);
-
-    // Cache models data for 10 minutes
-    const cacheData = { models, pagination };
-    await redisService.set(cacheKey, JSON.stringify(cacheData), 600);
-
-    return sendPaginatedResponse(res, "Lấy danh sách model xe thành công", models, pagination);
-});
-
-// Create Vehicle (for manufacturers - production)
-const createVehicle = asyncHandler(async (req, res) => {
-    const {
-        vin, modelId, productionDate, productionBatch, color
-    } = req.body;
-
-    // Validation
-    if (!vin || !color) {
-        return sendError(res, "Thiếu thông tin bắt buộc: VIN và màu sắc", 400);
-    }
-
-    // Check if VIN already exists
-    const existingVehicle = await Vehicle.findOne({ vin: vin.toUpperCase() });
-    if (existingVehicle) {
-        return sendError(res, "VIN đã tồn tại", 400);
-    }
-
-    // Validate model if provided
-    if (modelId) {
-        const model = await VehicleModel.findById(modelId);
-        if (!model) {
-            return sendError(res, "Model xe không tồn tại", 404);
+        const existingVehicle = await Vehicle.findByVIN(vin);
+        if (existingVehicle) {
+            return responseHelper.error(res, "VIN này đã được đăng ký", 400);
         }
+
+        const vehicle = new Vehicle({
+            vin: vin.toUpperCase(),
+            modelName,
+            modelCode: modelCode.toUpperCase(),
+            manufacturer,
+            year,
+            color,
+            productionDate: productionDate ? new Date(productionDate) : null,
+            ownerName,
+            ownerPhone,
+            ownerEmail,
+            ownerAddress,
+            serviceCenterName: serviceCenterName || req.user.serviceCenterName || 'Default Service Center',
+            serviceCenterCode: serviceCenterCode || req.user.serviceCenterCode || 'SC001',
+            serviceCenterAddress,
+            serviceCenterPhone,
+            registeredBy: req.user.email,
+            registeredByRole: req.user.role,
+            createdBy: req.user.email,
+            notes
+        });
+
+        await vehicle.save();
+
+        await redisService.del("vehicles:*");
+
+        return responseHelper.success(res, {
+            id: vehicle._id,
+            vin: vehicle.vin,
+            modelName: vehicle.modelName,
+            ownerName: vehicle.ownerName,
+            serviceCenterName: vehicle.serviceCenterName,
+            status: vehicle.status
+        }, "Đăng ký xe thành công", 201);
+    } catch (error) {
+        return responseHelper.error(res, "Lỗi khi đăng ký xe", 500);
     }
+};
 
-    // Create new vehicle
-    const newVehicle = new Vehicle({
-        vin: vin.toUpperCase(),
-        modelId: modelId || null,
-        productionDate: productionDate || new Date(),
-        productionBatch,
-        color,
-        status: "manufactured",
-        createdBy: req.user.email,
-        createdByRole: req.user.role
-    });
+const getVehicleByVIN = async (req, res) => {
+    try {
+        const { vin } = req.params;
+        const cacheKey = `vehicles:vin:${vin.toUpperCase()}`;
 
-    await newVehicle.save();
+        initializeModels();
 
-    // Clear cache
-    await redisService.del("vehicles:*");
+        const cachedData = await redisService.get(cacheKey);
+        if (cachedData) {
+            return responseHelper.success(res, JSON.parse(cachedData), "Lấy thông tin xe thành công (từ cache)");
+        }
 
-    return sendSuccess(res, "Tạo xe thành công", {
-        id: newVehicle._id,
-        vin: newVehicle.vin,
-        color: newVehicle.color,
-        status: newVehicle.status,
-        productionDate: newVehicle.productionDate
-    }, 201);
-});
+        const vehicle = await Vehicle.findByVIN(vin);
+        if (!vehicle) {
+            return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
+        }
 
-// ===========================================
-// SERVICE CENTER PERSPECTIVE (Trung tâm bảo hành)
-// ===========================================
+        await redisService.set(cacheKey, JSON.stringify(vehicle), 600);
 
-// Register Vehicle for Warranty (by service center)
-const registerVehicleWarranty = asyncHandler(async (req, res) => {
-    const {
-        vin, ownerName, ownerPhone, ownerEmail, ownerAddress,
-        serviceCenterId, serviceCenterName, warrantyStartDate
-    } = req.body;
-
-    // Validation
-    if (!vin || !ownerName || !ownerPhone || !serviceCenterId || !serviceCenterName) {
-        return sendError(res, "Thiếu thông tin bắt buộc", 400);
+        return responseHelper.success(res, vehicle, "Lấy thông tin xe thành công");
+    } catch (error) {
+        return responseHelper.error(res, "Lỗi khi lấy thông tin xe", 500);
     }
+};
 
-    // Find vehicle by VIN
-    const vehicle = await Vehicle.findOne({ vin: vin.toUpperCase() }).populate('modelId');
-    if (!vehicle) {
-        return sendError(res, "Không tìm thấy xe với VIN này", 404);
+const getAllVehicles = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, search, status, serviceCenterCode } = req.query;
+        const cacheKey = `vehicles:all:${page}:${limit}:${search || ''}:${status || ''}:${serviceCenterCode || ''}`;
+
+        initializeModels();
+
+        const cachedData = await redisService.get(cacheKey);
+        if (cachedData) {
+            return responseHelper.success(res, JSON.parse(cachedData), "Lấy danh sách xe thành công (từ cache)");
+        }
+
+        let query = {};
+
+        if (search) {
+            query = queryHelper.buildSearchQuery(search, ['vin', 'ownerName', 'ownerPhone', 'modelName']);
+        }
+
+        if (status) {
+            query.status = status;
+        }
+
+        if (serviceCenterCode) {
+            query.serviceCenterCode = serviceCenterCode.toUpperCase();
+        }
+
+        const { skip, limitNum } = queryHelper.parsePagination({ page, limit });
+
+        const vehicles = await Vehicle.find(query)
+            .select("vin modelName modelCode manufacturer year color ownerName ownerPhone serviceCenterName status registrationDate")
+            .sort({ registrationDate: -1 })
+            .skip(skip)
+            .limit(limitNum);
+
+        const total = await Vehicle.countDocuments(query);
+        const pagination = responseHelper.createPagination(page, limit, total);
+
+        const result = { vehicles, pagination };
+
+        await redisService.set(cacheKey, JSON.stringify(result), 300);
+
+        return responseHelper.success(res, result, "Lấy danh sách xe thành công");
+    } catch (error) {
+        return responseHelper.error(res, "Lỗi khi lấy danh sách xe", 500);
     }
+};
 
-    // Check if already registered
-    if (vehicle.status === 'registered' || vehicle.warrantyStatus === 'active') {
-        return sendError(res, "Xe đã được đăng ký bảo hành", 400);
+const updateVehicle = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateData = req.body;
+
+        initializeModels();
+
+        delete updateData.vin;
+        delete updateData.createdBy;
+        delete updateData.registeredBy;
+
+        updateData.updatedBy = req.user.email;
+
+        const vehicle = await Vehicle.findByIdAndUpdate(id, updateData, { new: true });
+        if (!vehicle) {
+            return responseHelper.error(res, "Không tìm thấy xe", 404);
+        }
+
+        await redisService.del("vehicles:*");
+
+        return responseHelper.success(res, vehicle, "Cập nhật thông tin xe thành công");
+    } catch (error) {
+        return responseHelper.error(res, "Lỗi khi cập nhật xe", 500);
     }
+};
 
-    // Calculate warranty end date based on model
-    let warrantyEndDate = new Date(warrantyStartDate || new Date());
-    if (vehicle.modelId && vehicle.modelId.vehicleWarrantyMonths) {
-        warrantyEndDate.setMonth(warrantyEndDate.getMonth() + vehicle.modelId.vehicleWarrantyMonths);
-    } else {
-        // Default 36 months if no model
-        warrantyEndDate.setMonth(warrantyEndDate.getMonth() + 36);
+const searchVehicles = async (req, res) => {
+    try {
+        const { q, type = 'all', page = 1, limit = 10 } = req.query;
+
+        if (!q) {
+            return responseHelper.error(res, "Thiếu từ khóa tìm kiếm", 400);
+        }
+
+        initializeModels();
+
+        let query = {};
+
+        switch (type) {
+            case 'vin':
+                query.vin = { $regex: q, $options: 'i' };
+                break;
+            case 'owner':
+                query.$or = [
+                    { ownerName: { $regex: q, $options: 'i' } },
+                    { ownerPhone: { $regex: q, $options: 'i' } }
+                ];
+                break;
+            case 'model':
+                query.$or = [
+                    { modelName: { $regex: q, $options: 'i' } },
+                    { modelCode: { $regex: q, $options: 'i' } }
+                ];
+                break;
+            default:
+                query = queryHelper.buildSearchQuery(q, ['vin', 'ownerName', 'ownerPhone', 'modelName', 'modelCode']);
+        }
+
+        const { skip, limitNum } = queryHelper.parsePagination({ page, limit });
+
+        const vehicles = await Vehicle.find(query)
+            .select("vin modelName modelCode manufacturer year color ownerName ownerPhone serviceCenterName status")
+            .sort({ registrationDate: -1 })
+            .skip(skip)
+            .limit(limitNum);
+
+        const total = await Vehicle.countDocuments(query);
+        const pagination = responseHelper.createPagination(page, limit, total);
+
+        return responseHelper.success(res, { vehicles, pagination }, "Tìm kiếm xe thành công");
+    } catch (error) {
+        return responseHelper.error(res, "Lỗi khi tìm kiếm xe", 500);
     }
+};
 
-    // Activate warranty
-    await vehicle.activateWarranty(
-        warrantyStartDate,
-        { name: ownerName, phone: ownerPhone, email: ownerEmail, address: ownerAddress },
-        { id: serviceCenterId, name: serviceCenterName },
-        req.user.email
-    );
+const getVehicleStatistics = async (req, res) => {
+    try {
+        const cacheKey = 'vehicle_statistics';
 
-    // Set warranty end date
-    vehicle.warrantyEndDate = warrantyEndDate;
-    await vehicle.save();
+        const cachedStats = await redisService.get(cacheKey);
+        if (cachedStats) {
+            return responseHelper.success(res, cachedStats, 'Thống kê xe (từ cache)');
+        }
 
-    // Clear cache
-    await redisService.del("vehicles:*");
+        const totalVehicles = await Vehicle.countDocuments();
+        const activeVehicles = await Vehicle.countDocuments({ status: 'active' });
+        const inactiveVehicles = await Vehicle.countDocuments({ status: 'inactive' });
 
-    return sendSuccess(res, "Đăng ký bảo hành thành công", {
-        vin: vehicle.vin,
-        ownerName: vehicle.ownerName,
-        warrantyStatus: vehicle.warrantyStatus,
-        warrantyStartDate: vehicle.warrantyStartDate,
-        warrantyEndDate: vehicle.warrantyEndDate,
-        serviceCenterName: vehicle.serviceCenterName
-    });
-});
+        const brandStats = await Vehicle.aggregate([
+            { $group: { _id: '$manufacturer', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
 
-// Get Vehicle by VIN
-const getVehicleByVIN = asyncHandler(async (req, res) => {
-    const { vin } = req.params;
-    const cacheKey = `vehicle:vin:${vin.toUpperCase()}`;
+        const yearStats = await Vehicle.aggregate([
+            { $group: { _id: '$year', count: { $sum: 1 } } },
+            { $sort: { _id: -1 } }
+        ]);
 
-    // Try cache first
-    const cached = await redisService.get(cacheKey);
-    if (cached) {
-        return res.json(JSON.parse(cached));
+        const statistics = {
+            totalVehicles,
+            activeVehicles,
+            inactiveVehicles,
+            brandDistribution: brandStats,
+            yearDistribution: yearStats,
+            lastUpdated: new Date()
+        };
+
+        await redisService.set(cacheKey, statistics, 300);
+
+        responseHelper.success(res, statistics, 'Lấy thống kê xe thành công');
+    } catch (error) {
+        responseHelper.error(res, 'Lỗi khi lấy thống kê xe', 500);
     }
-
-    const vehicle = await Vehicle.findOne({ vin: vin.toUpperCase() }).populate('modelId');
-    if (!vehicle) {
-        return sendError(res, "Không tìm thấy xe", 404);
-    }
-
-    // Cache vehicle data for 5 minutes
-    await redisService.set(cacheKey, JSON.stringify(vehicle), 300);
-
-    return sendSuccess(res, "Lấy thông tin xe thành công", vehicle);
-});
-
-// Get All Vehicles
-const getAllVehicles = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
-    const cacheKey = `vehicles:page:${page}:limit:${limit}`;
-
-    // Try cache first
-    const cached = await redisService.get(cacheKey);
-    if (cached) {
-        return res.json(JSON.parse(cached));
-    }
-
-    const { skip } = parsePagination(req.query, { page, limit });
-    const searchQuery = buildSearchQuery(req.query.search, ['vin', 'ownerName', 'ownerPhone', 'status']);
-
-    const vehicles = await Vehicle.find(searchQuery)
-        .populate('modelId', 'modelName manufacturer')
-        .select("vin modelId color status warrantyStatus ownerName ownerPhone serviceCenterName createdAt")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit));
-
-    const total = await Vehicle.countDocuments(searchQuery);
-    const pagination = createPagination(page, limit, total);
-
-    // Cache vehicles data for 5 minutes
-    const cacheData = { vehicles, pagination };
-    await redisService.set(cacheKey, JSON.stringify(cacheData), 300);
-
-    return sendPaginatedResponse(res, "Lấy danh sách xe thành công", vehicles, pagination);
-});
+};
 
 module.exports = {
     initializeModels,
-    // Manufacturer functions
-    createVehicleModel,
-    getAllVehicleModels,
-    createVehicle,
-    // Service Center functions
-    registerVehicleWarranty,
+    registerVehicle,
     getVehicleByVIN,
-    getAllVehicles
+    getAllVehicles,
+    updateVehicle,
+    searchVehicles,
+    getVehicleStatistics
 };

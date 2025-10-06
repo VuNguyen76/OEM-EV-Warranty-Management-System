@@ -77,17 +77,6 @@ const createPagination = (page, limit, total) => {
 };
 
 /**
- * Handle async route errors
- * @param {Function} fn - Async route handler
- * @returns {Function} Express middleware
- */
-const asyncHandler = (fn) => {
-    return (req, res, next) => {
-        Promise.resolve(fn(req, res, next)).catch(next);
-    };
-};
-
-/**
  * Standard error handler middleware
  * @param {Error} err - Error object
  * @param {Object} req - Express request object
@@ -95,8 +84,6 @@ const asyncHandler = (fn) => {
  * @param {Function} next - Express next function
  */
 const errorHandler = (err, req, res, next) => {
-    console.error('Error:', err);
-
     // Mongoose validation error
     if (err.name === 'ValidationError') {
         const errors = Object.values(err.errors).map(e => e.message);
@@ -150,7 +137,6 @@ module.exports = {
     sendError,
     sendPaginatedResponse,
     createPagination,
-    asyncHandler,
     errorHandler,
     notFoundHandler,
     // Aliases

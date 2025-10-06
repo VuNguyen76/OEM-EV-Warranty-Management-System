@@ -76,3 +76,6 @@ coverage/
 
 #file md
 *.md
+
+tests/
+*.*.js

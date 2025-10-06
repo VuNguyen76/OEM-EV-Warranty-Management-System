@@ -1,13 +1,12 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
 const validator = require("validator");
 const BaseEntity = require("../../shared/Base/BaseEntity");
 const Enum = require("../../shared/Enum/Enum");
 
 const UserSchema = new mongoose.Schema({
-    // Base fields
     ...BaseEntity.BaseEntity,
 
-    // Basic info
     username: {
         type: String,
         required: true,
@@ -28,7 +27,6 @@ const UserSchema = new mongoose.Schema({
         validate: [validator.isEmail, "Email không hợp lệ"]
     },
 
-    // Contact info
     phone: {
         type: String,
         trim: true,
@@ -47,7 +45,6 @@ const UserSchema = new mongoose.Schema({
         zipCode: String
     },
 
-    // Role & Organization
     role: {
         type: String,
         enum: Enum.getValues(),
@@ -62,7 +59,7 @@ const UserSchema = new mongoose.Schema({
         location: String
     },
 
-    // Technician specific fields
+    // Các trường dành riêng cho technician
     specialization: [{
         type: String,
         enum: ["battery", "motor", "bms", "inverter", "charger", "general"]
@@ -78,7 +75,6 @@ const UserSchema = new mongoose.Schema({
         default: true
     },
 
-    // Performance metrics (for technicians)
     performanceMetrics: {
         averageCompletionTime: { type: Number, default: 0 },
         qualityScore: { type: Number, default: 5.0, min: 0, max: 10 },
@@ -86,30 +82,21 @@ const UserSchema = new mongoose.Schema({
         customerRating: { type: Number, default: 5.0, min: 0, max: 5 }
     },
 
-    // Security fields
     lastLoginAt: Date,
     loginAttempts: { type: Number, default: 0 },
-    lockedUntil: Date,
-    refreshToken: String
+    lockedUntil: Date
 });
 
-// Indexes for performance
-UserSchema.index({ email: 1 });
-UserSchema.index({ username: 1 });
-UserSchema.index({ role: 1 });
-UserSchema.index({ status: 1 });
 UserSchema.index({ "serviceCenter.id": 1 });
 UserSchema.index({ specialization: 1 });
 UserSchema.index({ availability: 1 });
 
-// Virtual for full name
 UserSchema.virtual('fullAddress').get(function () {
     if (!this.address) return '';
     const { street, city, province, country } = this.address;
     return [street, city, province, country].filter(Boolean).join(', ');
 });
 
-// Methods
 UserSchema.methods.isLocked = function () {
     return !!(this.lockedUntil && this.lockedUntil > Date.now());
 };
@@ -123,20 +110,36 @@ UserSchema.methods.incrementLoginAttempts = function () {
 
     const updates = { $inc: { loginAttempts: 1 } };
     if (this.loginAttempts + 1 >= 5 && !this.isLocked()) {
-        updates.$set = { lockedUntil: Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
+        updates.$set = { lockedUntil: Date.now() + 2 * 60 * 60 * 1000 }; // Khóa 2 giờ
     }
     return this.updateOne(updates);
 };
 
-// Ensure virtual fields are serialized
+// Hash password before saving
+UserSchema.pre('save', async function (next) {
+    if (!this.isModified('password')) return next();
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Compare password method
+UserSchema.methods.comparePassword = async function (candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
+};
+
 UserSchema.set('toJSON', { virtuals: true });
 UserSchema.set('toObject', { virtuals: true });
 
-// Create indexes for performance
-UserSchema.index({ email: 1 }, { unique: true }); // Index for email lookups
-UserSchema.index({ username: 1 }, { unique: true }); // Index for username lookups
-UserSchema.index({ role: 1 }); // Index for role-based queries
-UserSchema.index({ status: 1 }); // Index for status queries
+UserSchema.index({ email: 1 }, { unique: true });
+UserSchema.index({ username: 1 }, { unique: true });
+UserSchema.index({ role: 1 });
+UserSchema.index({ status: 1 });
 
 const User = mongoose.model("User", UserSchema);
 

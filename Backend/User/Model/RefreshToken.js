@@ -11,29 +11,24 @@ const RefreshTokenSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        required: true
     },
     expiresAt: {
         type: Date,
-        required: true,
-        index: true
+        required: true
     },
     isRevoked: {
         type: Boolean,
-        default: false,
-        index: true
+        default: false
     }
 }, {
     timestamps: true
 });
 
-// Indexes for performance
 RefreshTokenSchema.index({ userId: 1, isRevoked: 1 });
-RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // Auto cleanup expired tokens
+RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 RefreshTokenSchema.index({ token: 1, isRevoked: 1 });
 
-// Static methods
 RefreshTokenSchema.statics.generateToken = function () {
     return crypto.randomBytes(32).toString('hex');
 };
@@ -44,7 +39,7 @@ RefreshTokenSchema.statics.createRefreshToken = async function (userId) {
     const refreshToken = new this({
         token,
         userId,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
 
     await refreshToken.save();
@@ -73,7 +68,6 @@ RefreshTokenSchema.statics.revokeAllUserTokens = async function (userId) {
     );
 };
 
-// Instance methods
 RefreshTokenSchema.methods.isValid = function () {
     return !this.isRevoked && this.expiresAt > new Date();
 };

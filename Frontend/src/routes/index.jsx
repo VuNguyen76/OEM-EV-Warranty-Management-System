@@ -8,7 +8,8 @@ import ForgotPassword from "../page/auth/ForgotPassword";
 import SearchVIN from "../page/Home/SC/SearchVIN";
 import CreateClaim from "../page/Home/SC/CreateClaim";
 import ManageClaim from "../page/Home/SC/ManageClaim";
-import Assign from "../page/Home/SC/Assign";
+import ManageCustomer from "../page/Home/SC/ManageCustomer";
+import ManageCampaign from "../page/Home/SC/ManageCampaign";
 
 const router = createBrowserRouter([
   {
@@ -46,8 +47,12 @@ const router = createBrowserRouter([
         element: <ManageClaim />,
       },
       {
-        path: "assign",
-        element: <Assign />,
+        path: "manage-customer",
+        element: <ManageCustomer />,
+      },
+      {
+        path: "manage-campaign",
+        element: <ManageCampaign />,
       },
     ],
   },

@@ -27,9 +27,14 @@ const sideBarSC = [
     path: "/sc/manage-claim",
   },
   {
-    label: "Phân công sửa chữa",
+    label: "Quản lý Khách hàng",
     icon: "fa-regular fa-id-badge",
-    path: "/sc/assign",
+    path: "/sc/manage-customer",
+  },
+  {
+    label: "Quản lý chiến dịch",
+    icon: "fa-solid fa-triangle-exclamation",
+    path: "/sc/manage-campaign",
   },
 ];
 const SideBar = () => {
