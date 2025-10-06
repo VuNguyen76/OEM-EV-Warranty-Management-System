@@ -83,8 +83,7 @@ const UserSchema = new mongoose.Schema({
 
     lastLoginAt: Date,
     loginAttempts: { type: Number, default: 0 },
-    lockedUntil: Date,
-    refreshToken: String
+    lockedUntil: Date
 });
 
 UserSchema.index({ "serviceCenter.id": 1 });

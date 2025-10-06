@@ -47,8 +47,9 @@ const getAllUsers = async (req, res) => {
 const getUserById = async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = req.user.sub || req.user.userId;
 
-        if (req.user.role !== "admin" && req.user.userId !== id) {
+        if (req.user.role !== "admin" && userId !== id) {
             return res.status(403).json({
                 success: false,
                 message: "Không có quyền truy cập thông tin user này"
@@ -104,8 +105,9 @@ const updateUser = async (req, res) => {
             username, email, role, status, note, phone, address,
             serviceCenter, specialization, skills, availability
         } = req.body;
+        const userId = req.user.sub || req.user.userId;
 
-        if (req.user.role !== "admin" && req.user.userId !== id) {
+        if (req.user.role !== "admin" && userId !== id) {
             return res.status(403).json({
                 success: false,
                 message: "Không có quyền cập nhật user này"
@@ -123,7 +125,7 @@ const updateUser = async (req, res) => {
             updateData.availability = availability;
         }
 
-        if (req.user.role === "technician" && req.user.userId === id) {
+        if (req.user.role === "technician" && userId === id) {
             updateData.specialization = specialization;
             updateData.skills = skills;
             updateData.availability = availability;
@@ -240,8 +242,9 @@ const getAvailableTechnicians = async (req, res) => {
 const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = req.user.sub || req.user.userId;
 
-        if (req.user.userId === id) {
+        if (userId === id) {
             return res.status(400).json({
                 success: false,
                 message: "Không thể xóa chính mình"

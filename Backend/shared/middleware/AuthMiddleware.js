@@ -21,7 +21,7 @@ const authenticateToken = async (req, res, next) => {
         });
 
         // Validate required claims
-        if (!decoded.sub && !decoded.userId) {
+        if (!decoded.sub) {
             return res.status(401).json({
                 success: false,
                 message: "Token thiếu thông tin user ID"
@@ -44,7 +44,11 @@ const authenticateToken = async (req, res, next) => {
             });
         }
 
-        req.user = decoded;
+        // Add userId alias for backward compatibility
+        req.user = {
+            ...decoded,
+            userId: decoded.sub
+        };
         next();
     } catch (error) {
         console.error('❌ Auth middleware error:', {
@@ -161,7 +165,8 @@ const authorizeUserModification = (req, res, next) => {
 // Middleware kiểm tra user còn active không
 const checkUserStatus = async (req, res, next) => {
     try {
-        if (!req.user || !req.user.userId) {
+        const userId = req.user.sub || req.user.userId;
+        if (!req.user || !userId) {
             return res.status(401).json({
                 success: false,
                 message: "Token không hợp lệ"
@@ -171,7 +176,7 @@ const checkUserStatus = async (req, res, next) => {
         // Import User model dynamically to avoid circular dependency
         const User = require("../../User/Model/User");
 
-        const user = await User.findById(req.user.userId);
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({
                 success: false,

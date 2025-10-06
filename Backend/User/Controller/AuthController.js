@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("../../shared/middleware/AuthMiddleware");
 const { validate, validationRules } = require("../../shared/middleware/ValidationMiddleware");
+const redisService = require("../../shared/services/RedisService");
 
 const router = express.Router();
 
@@ -137,32 +138,8 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
         if (!isPasswordValid) {
-            // Use atomic operation to prevent race condition
-            const result = await User.findOneAndUpdate(
-                {
-                    _id: user._id,
-                    $or: [
-                        { lockedUntil: { $exists: false } },
-                        { lockedUntil: { $lt: new Date() } }
-                    ]
-                },
-                {
-                    $inc: { loginAttempts: 1 }
-                },
-                { new: true }
-            );
-
-            // Check if should lock account after atomic increment
-            if (result && result.loginAttempts >= 5) {
-                await User.updateOne(
-                    { _id: user._id },
-                    {
-                        $set: {
-                            lockedUntil: new Date(Date.now() + 15 * 60 * 1000)
-                        }
-                    }
-                );
-            }
+            // Use the model method instead of manual implementation
+            await user.incrementLoginAttempts();
 
             return res.status(401).json({
                 success: false,

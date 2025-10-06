@@ -239,12 +239,12 @@ const getVehicleStatistics = async (req, res) => {
         const inactiveVehicles = await Vehicle.countDocuments({ status: 'inactive' });
 
         const brandStats = await Vehicle.aggregate([
-            { $group: { _id: '$brand', count: { $sum: 1 } } },
+            { $group: { _id: '$manufacturer', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
         ]);
 
         const yearStats = await Vehicle.aggregate([
-            { $group: { _id: '$modelYear', count: { $sum: 1 } } },
+            { $group: { _id: '$year', count: { $sum: 1 } } },
             { $sort: { _id: -1 } }
         ]);
 

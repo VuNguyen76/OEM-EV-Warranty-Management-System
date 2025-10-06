@@ -34,12 +34,18 @@ const initializeServices = async () => {
 };
 
 // Vehicle Management (root paths for API Gateway compatibility)
-app.post('/register', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.registerVehicle);
+// Specific routes FIRST (no params)
 app.get('/search', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.searchVehicles);
-app.get('/vin/:vin', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.getVehicleByVIN);
 app.get('/statistics', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getVehicleStatistics);
-app.get('/:id', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getVehicleByVIN);
+
+// Root route for getAllVehicles
 app.get('/', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getAllVehicles);
+
+// Parameterized routes LAST
+app.get('/vin/:vin', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.getVehicleByVIN);
+
+// POST/PUT routes
+app.post('/register', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.registerVehicle);
 app.put('/:id', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.updateVehicle);
 
 const startServer = async () => {

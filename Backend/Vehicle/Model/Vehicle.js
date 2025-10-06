@@ -134,7 +134,7 @@ const VehicleSchema = new mongoose.Schema({
     collection: "vehicles"
 });
 
-VehicleSchema.index({ vin: 1 });
+// Note: vin already has unique index from schema definition
 VehicleSchema.index({ modelCode: 1, year: 1 });
 VehicleSchema.index({ serviceCenterCode: 1, status: 1 });
 VehicleSchema.index({ ownerPhone: 1 });
