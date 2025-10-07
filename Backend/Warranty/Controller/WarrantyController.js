@@ -1,5 +1,6 @@
 const responseHelper = require('../../shared/utils/responseHelper');
 const WarrantyActivationModel = require('../Model/WarrantyActivation');
+const { normalizeVIN } = require('../../shared/services/VehicleServiceHelper');
 
 /**
  * Lấy thông tin bảo hành theo VIN
@@ -7,7 +8,7 @@ const WarrantyActivationModel = require('../Model/WarrantyActivation');
 const getWarrantyByVIN = async (req, res) => {
     try {
         const { vin } = req.params;
-        const vinUpper = vin.toUpperCase();
+        const vinUpper = normalizeVIN(vin);
 
         const WarrantyActivation = WarrantyActivationModel();
         const warranty = await WarrantyActivation.findOne({ vin: vinUpper });
@@ -53,7 +54,7 @@ const getWarrantiesByServiceCenter = async (req, res) => {
 const checkWarrantyStatus = async (req, res) => {
     try {
         const { vin } = req.params;
-        const vinUpper = vin.toUpperCase();
+        const vinUpper = normalizeVIN(vin);
 
         const WarrantyActivation = WarrantyActivationModel();
         const warranty = await WarrantyActivation.findActiveByVIN(vinUpper);

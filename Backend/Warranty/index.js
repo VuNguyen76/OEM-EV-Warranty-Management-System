@@ -61,20 +61,26 @@ app.get('/parts/:id', authenticateToken, PartsController.getPartById);
 app.put('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.updatePart);
 app.delete('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.deletePart);
 
-// Gắn phụ tùng vào xe (UC2)
+// ✅ IMPORT MULTER MIDDLEWARE FIRST (before using)
+const WarrantyClaimController = require('./Controller/WarrantyClaimController');
+const { uploadMultipleFiles, handleMulterError } = require('../shared/middleware/MulterMiddleware');
+
+// UC2: Gắn phụ tùng vào xe
 app.post('/vehicle-parts', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), PartsController.addPartToVehicle);
 app.get('/vehicle-parts/:vin', authenticateToken, PartsController.getVehicleParts);
 
-// Lịch sử dịch vụ (UC3)
-app.post('/service-history', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), ServiceHistoryController.addServiceHistory);
+// UC3: Lịch sử dịch vụ - with file upload support
+app.post('/service-history',
+    authenticateToken,
+    authorizeRole('admin', 'service_staff', 'technician'),
+    uploadMultipleFiles,
+    handleMulterError,
+    ServiceHistoryController.addServiceHistory
+);
 app.get('/service-history/statistics', authenticateToken, ServiceHistoryController.getServiceStatistics);
 app.get('/service-history/:vin', authenticateToken, ServiceHistoryController.getServiceHistoryByVIN);
 app.get('/service-history', authenticateToken, ServiceHistoryController.getAllServiceHistories);
 app.put('/service-history/:id', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), ServiceHistoryController.updateServiceHistory);
-
-// Yêu cầu bảo hành (UC4 & UC5)
-const WarrantyClaimController = require('./Controller/WarrantyClaimController');
-const { uploadMultipleFiles, handleMulterError } = require('../shared/middleware/MulterMiddleware');
 
 // UC7: Phê Duyệt/Từ Chối Yêu Cầu (MUST be FIRST - before ANY other claims routes)
 app.get('/claims/for-approval', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.getClaimsForApproval);
@@ -98,6 +104,21 @@ app.get('/claims/:claimId/status-history', authenticateToken, WarrantyClaimContr
 app.put('/claims/:claimId/approve', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.approveWarrantyClaim);
 app.put('/claims/:claimId/reject', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.rejectWarrantyClaim);
 app.post('/claims/:claimId/notes', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.addApprovalNotes);
+
+// UC9: Quản Lý Kho Linh Kiện (Parts Management)
+app.post('/claims/:claimId/parts/ship', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.shipParts);
+app.post('/claims/:claimId/parts/receive', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.receiveParts);
+app.get('/claims/:claimId/parts/shipment', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.getPartsShipmentStatus);
+
+// UC10: Repair Progress Management
+app.post('/claims/:claimId/repair/start', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.startRepair);
+app.post('/claims/:claimId/repair/progress', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.updateProgressStep);
+app.post('/claims/:claimId/repair/issue', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.reportIssue);
+app.post('/claims/:claimId/repair/issue/:issueId/resolve', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.resolveIssue);
+app.post('/claims/:claimId/repair/quality-check', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.performQualityCheck);
+app.post('/claims/:claimId/repair/complete', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.completeRepair);
+app.get('/claims/:claimId/repair/progress', authenticateToken, authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'), WarrantyClaimController.getRepairProgress);
+app.get('/claims/:claimId/repair/history', authenticateToken, authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'), WarrantyClaimController.getRepairHistory);
 
 // Get claims - specific routes first
 app.get('/claims/vin/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);

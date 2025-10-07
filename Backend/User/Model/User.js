@@ -48,7 +48,7 @@ const UserSchema = new mongoose.Schema({
     role: {
         type: String,
         enum: Enum.getValues(),
-        default: "customer"
+        default: "service_staff" // ✅ Default role for new staff accounts
     },
     serviceCenter: {
         id: {

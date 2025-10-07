@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 const { getWarrantyConnection } = require('../../shared/database/warrantyConnection');
+const { BaseEntity } = require('../../shared/Base/BaseEntity');
+const { ServiceCenterMixin } = require('../../shared/Base/ServiceCenterMixin');
+const { AuditableMixin } = require('../../shared/Base/AuditableMixin');
+const { VINMixin } = require('../../shared/Base/VINMixin');
 
 /**
  * WarrantyActivation Model
@@ -7,21 +11,16 @@ const { getWarrantyConnection } = require('../../shared/database/warrantyConnect
  * Separate from WarrantyClaim (UC4 - multiple claims during warranty period)
  */
 const warrantyActivationSchema = new mongoose.Schema({
-    // Vehicle identification
+    // ✅ INHERIT BASE PATTERNS
+    ...BaseEntity,
+    ...VINMixin,
+    ...ServiceCenterMixin,
+    ...AuditableMixin,
+
+    // ✅ VIN is unique in WarrantyActivation collection (one warranty per VIN)
     vin: {
-        type: String,
-        required: true,
-        unique: true, // One warranty activation per VIN
-        uppercase: true,
-        trim: true,
-        minlength: 17,
-        maxlength: 17,
-        validate: {
-            validator: function (v) {
-                return /^[A-HJ-NPR-Z0-9]{17}$/.test(v);
-            },
-            message: 'VIN must be exactly 17 characters (excluding I, O, Q)'
-        }
+        ...VINMixin.vin,
+        unique: true // One warranty activation per VIN
     },
 
     // Warranty period information
@@ -58,15 +57,7 @@ const warrantyActivationSchema = new mongoose.Schema({
         default: 'active'
     },
 
-    // Service center information (who activated the warranty)
-    serviceCenterId: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        ref: 'User'
-    },
-
-    // serviceCenterName and serviceCenterCode removed - can be looked up from serviceCenterId
-    // as per GIẢI_THÍCH_TRƯỜNG_TÙY_CHỌN_ĐĂNG_KÝ_VIN.md
+    // ✅ SERVICE CENTER FIELDS INHERITED FROM ServiceCenterMixin
 
     // Activation information
     activatedBy: {
@@ -87,35 +78,15 @@ const warrantyActivationSchema = new mongoose.Schema({
         default: Date.now
     },
 
-    // Additional information
+    // Additional information (extends BaseEntity.note)
     notes: {
         type: String,
         trim: true,
         maxlength: 1000
-    },
-
-    // System fields
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    },
-
-    createdBy: {
-        type: String,
-        required: true,
-        trim: true
-    },
-
-    createdByRole: {
-        type: String,
-        required: true,
-        enum: ['admin', 'service_staff', 'technician', 'manufacturer_staff']
     }
+
+    // ✅ TIMESTAMPS INHERITED FROM BaseEntity
+    // ✅ AUDIT FIELDS INHERITED FROM AuditableMixin
 }, {
     timestamps: true,
     collection: 'warranty_activations'

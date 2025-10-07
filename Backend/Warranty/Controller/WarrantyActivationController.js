@@ -1,6 +1,6 @@
-const responseHelper = require('../../shared/helpers/responseHelper');
+const responseHelper = require('../../shared/utils/responseHelper');
 const WarrantyActivation = require('../Model/WarrantyActivation')();
-const axios = require('axios');
+const { verifyVINInVehicleService, normalizeVIN } = require('../../shared/services/VehicleServiceHelper');
 
 /**
  * WarrantyActivationController
@@ -12,6 +12,9 @@ class WarrantyActivationController {
     /**
      * Activate warranty for a vehicle (one-time only)
      * Vehicle must already exist in Vehicle Service (UC1)
+     * 
+     * FLOW: Customer comes to Service Center → Staff activates warranty on behalf of customer
+     * Actor: Service Center Staff (not customer)
      */
     static async activateWarranty(req, res) {
         try {
@@ -22,7 +25,7 @@ class WarrantyActivationController {
                 return responseHelper.error(res, "VIN là bắt buộc", 400);
             }
 
-            const vinUpper = vin.toUpperCase();
+            const vinUpper = normalizeVIN(vin);
 
             // Step 1: Check if warranty already activated for this VIN
             const existingWarranty = await WarrantyActivation.findOne({ vin: vinUpper });
@@ -31,24 +34,13 @@ class WarrantyActivationController {
             }
 
             // Step 2: Verify VIN exists in Vehicle Service
-            const vehicleServiceUrl = process.env.VEHICLE_SERVICE_URL || 'http://warranty_vehicle_service:3004';
-            let vehicleData = null;
-
+            let vehicleData;
             try {
-                const authToken = req.headers.authorization?.replace('Bearer ', '');
-                const headers = {};
-                if (authToken) {
-                    headers.Authorization = `Bearer ${authToken}`;
-                }
-
-                const response = await axios.get(`${vehicleServiceUrl}/vin/${vinUpper}`, { headers });
-                vehicleData = response.data.data;
-
-                if (!vehicleData) {
-                    return responseHelper.error(res, "VIN không tồn tại trong hệ thống. Vui lòng đăng ký xe trước (UC1)", 400);
-                }
+                vehicleData = await verifyVINInVehicleService(vin, req.headers.authorization);
             } catch (error) {
-                console.error('❌ Error verifying VIN in Vehicle Service:', error.message);
+                if (error.message === 'VEHICLE_NOT_FOUND') {
+                    return responseHelper.error(res, "VIN không tồn tại trong hệ thống. Vui lòng đăng ký xe trước (UC1)", 404);
+                }
                 return responseHelper.error(res, "Không thể xác minh VIN trong hệ thống xe. Vui lòng đăng ký xe trước (UC1)", 400);
             }
 
@@ -65,7 +57,11 @@ class WarrantyActivationController {
             const endDate = new Date(startDate);
             endDate.setMonth(endDate.getMonth() + warrantyMonths);
 
-            // Step 5: Create warranty activation
+            // Step 5: Get consistent service center info
+            const VINLookupService = require('../../Vehicle/services/VINLookupService');
+            const serviceCenterInfo = await VINLookupService.getServiceCenterInfo(req.user.serviceCenterId || req.user.sub);
+
+            // Step 6: Create warranty activation
             const warrantyActivation = new WarrantyActivation({
                 vin: vinUpper,
                 warrantyStartDate: startDate,
@@ -74,10 +70,10 @@ class WarrantyActivationController {
                 warrantySource: warrantySource,
                 warrantyStatus: 'active',
 
-                // Service center information (who activated the warranty)
-                serviceCenterId: req.user.sub,
-                serviceCenterName: `Service Center ${req.user.sub}`,
-                serviceCenterCode: `SC-${req.user.sub.slice(-6)}`,
+                // Service center information (consistent with Vehicle model)
+                serviceCenterId: serviceCenterInfo.id,
+                serviceCenterName: serviceCenterInfo.name,
+                serviceCenterCode: serviceCenterInfo.code,
 
                 // Activation information
                 activatedBy: req.user.email,
@@ -103,11 +99,11 @@ class WarrantyActivationController {
                 warrantyMonths: warrantyActivation.warrantyMonths,
                 warrantySource: warrantyActivation.warrantySource,
                 serviceCenterName: warrantyActivation.serviceCenterName,
-                activatedBy: warrantyActivation.activatedBy,
+                activatedBy: warrantyActivation.activatedBy, // Staff who activated
                 activatedDate: warrantyActivation.activatedDate,
                 remainingDays: warrantyActivation.remainingDays,
                 isValid: warrantyActivation.isValid
-            }, "Kích hoạt bảo hành thành công", 201);
+            }, `Kích hoạt bảo hành thành công bởi ${req.user.email}`, 201);
 
         } catch (error) {
             console.error('Error in activateWarranty:', error);
@@ -126,7 +122,7 @@ class WarrantyActivationController {
                 return responseHelper.error(res, "VIN là bắt buộc", 400);
             }
 
-            const warranty = await WarrantyActivation.findOne({ vin: vin.toUpperCase() });
+            const warranty = await WarrantyActivation.findOne({ vin: normalizeVIN(vin) });
 
             if (!warranty) {
                 return responseHelper.error(res, "Không tìm thấy thông tin bảo hành cho VIN này", 404);
@@ -217,7 +213,7 @@ class WarrantyActivationController {
             const warranty = await WarrantyActivation.findActiveByVIN(vin);
 
             return responseHelper.success(res, {
-                vin: vin.toUpperCase(),
+                vin: normalizeVIN(vin),
                 hasActiveWarranty: !!hasWarranty,
                 warranty: warranty ? {
                     id: warranty._id,

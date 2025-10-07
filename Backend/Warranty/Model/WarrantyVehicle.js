@@ -225,7 +225,6 @@ const WarrantyVehicleSchema = new mongoose.Schema({
 });
 
 // Indexes
-WarrantyVehicleSchema.index({ serviceCenterId: 1, warrantyStatus: 1 });
 WarrantyVehicleSchema.index({ warrantyEndDate: 1 });
 WarrantyVehicleSchema.index({ ownerPhone: 1 });
 WarrantyVehicleSchema.index({ createdAt: -1 });

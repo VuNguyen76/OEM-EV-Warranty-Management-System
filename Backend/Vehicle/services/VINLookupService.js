@@ -1,105 +1,12 @@
 /**
- * VIN Lookup Service - Phase 2 of VIN Generation System
+ * VIN Lookup Service - Clean Version
  * Validates VIN format and looks up vehicle information from Manufacturing DB
+ * Uses shared VIN constants to avoid duplication
  */
 
-// Note: VINGenerator is in Manufacturing service, we'll implement basic validation here
-// and call Manufacturing service for complex validation if needed
+const { validateVINFormat, parseVINBasic } = require('../../shared/constants/VINConstants');
 
 class VINLookupService {
-    /**
-     * Validate VIN format - Basic validation
-     * @param {string} vin - VIN to validate
-     * @returns {Object} Validation result
-     */
-    static validateVINFormat(vin) {
-        if (!vin || typeof vin !== 'string') {
-            return { valid: false, error: 'VIN is required and must be a string' };
-        }
-
-        const cleanVIN = vin.trim().toUpperCase();
-
-        // Basic VIN validation (17 characters, alphanumeric except I, O, Q)
-        if (cleanVIN.length !== 17) {
-            return { valid: false, error: 'VIN must be exactly 17 characters' };
-        }
-
-        if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(cleanVIN)) {
-            return { valid: false, error: 'VIN contains invalid characters' };
-        }
-
-        return { valid: true, vin: cleanVIN };
-    }
-
-    /**
-     * Parse VIN to extract manufacturer, year, plant info
-     * @param {string} vin - VIN to parse
-     * @returns {Object} Parsed VIN information
-     */
-    static parseVIN(vin) {
-        try {
-            const cleanVIN = vin.trim().toUpperCase();
-
-            // Basic VIN parsing (simplified)
-            const wmi = cleanVIN.substring(0, 3); // World Manufacturer Identifier
-            const vds = cleanVIN.substring(3, 8); // Vehicle Descriptor Section
-            const checkDigit = cleanVIN.substring(8, 9);
-            const yearCode = cleanVIN.substring(9, 10);
-            const plantCode = cleanVIN.substring(10, 11);
-            const sequentialNumber = cleanVIN.substring(11, 17);
-
-            return {
-                wmi,
-                vds,
-                checkDigit,
-                yearCode,
-                plantCode,
-                sequentialNumber,
-                manufacturer: this.getManufacturerFromWMI(wmi),
-                year: this.getYearFromCode(yearCode),
-                plant: this.getPlantFromCode(plantCode)
-            };
-        } catch (error) {
-            throw new Error(`VIN parsing failed: ${error.message}`);
-        }
-    }
-
-    /**
-     * Get manufacturer from WMI code
-     */
-    static getManufacturerFromWMI(wmi) {
-        const wmiCodes = {
-            'TMT': 'Test Motors',
-            'EVM': 'EV Motors',
-            'LVG': 'VinFast',
-            '5YJ': 'Tesla'
-        };
-        return wmiCodes[wmi] || 'Unknown';
-    }
-
-    /**
-     * Get year from year code
-     */
-    static getYearFromCode(yearCode) {
-        const yearCodes = {
-            'S': 2025, 'T': 2026, 'V': 2027, 'W': 2028, 'X': 2029, 'Y': 2030
-        };
-        return yearCodes[yearCode] || 2025;
-    }
-
-    /**
-     * Get plant from plant code
-     */
-    static getPlantFromCode(plantCode) {
-        const plantCodes = {
-            'H': 'Hanoi',
-            'S': 'HoChiMinh',
-            'D': 'DaNang',
-            'P': 'HaiPhong',
-            'C': 'CanTho'
-        };
-        return plantCodes[plantCode] || 'Unknown';
-    }
 
     /**
      * Lookup vehicle information from Manufacturing DB
@@ -136,28 +43,38 @@ class VINLookupService {
                 console.warn(`⚠️ VIN ${vin} quality status is still pending. Proceeding with registration.`);
             }
 
-            // Get model information (handle both populated and non-populated cases)
+            // ✅ EXPECT COMPLETE DATA FROM MANUFACTURING - NO FALLBACK
+            // Manufacturing service MUST return complete vehicle + model data
             const model = vehicleData.modelId;
-            if (!model) {
-                throw new Error(`Model information not found for VIN ${vin}`);
+            if (!model || !model._id || !model.modelName) {
+                throw new Error(`Incomplete model information from Manufacturing service for VIN ${vin}. Manufacturing service must populate modelId.`);
             }
 
-            // Parse year from VIN if not available in model/vehicle data
-            let year = model.year || vehicleData.year;
-            if (!year) {
-                const parsedVIN = this.parseVIN(vin);
-                year = parsedVIN.year;
-                console.log(`📅 Parsed year from VIN: ${year}`);
+            // ✅ STRICT VALIDATION - NO FALLBACK LOGIC
+            const requiredFields = ['vin', 'color', 'productionDate', 'qualityStatus'];
+            const requiredModelFields = ['modelName', 'modelCode', 'manufacturer', 'year', 'batteryCapacity', 'motorPower', 'vehicleWarrantyMonths'];
+
+            for (const field of requiredFields) {
+                if (!vehicleData[field]) {
+                    throw new Error(`Missing required field '${field}' from Manufacturing service for VIN ${vin}`);
+                }
             }
 
+            for (const field of requiredModelFields) {
+                if (!model[field]) {
+                    throw new Error(`Missing required model field '${field}' from Manufacturing service for VIN ${vin}`);
+                }
+            }
+
+            // ✅ RETURN CLEAN DATA - NO FALLBACK
             return {
                 vin: vehicleData.vin,
-                modelId: model._id || model,
-                modelName: model.modelName || vehicleData.modelName,
-                modelCode: model.modelCode || vehicleData.modelCode,
-                manufacturer: model.manufacturer || vehicleData.manufacturer,
-                year: year,
-                category: model.category || vehicleData.category,
+                modelId: model._id,
+                modelName: model.modelName,
+                modelCode: model.modelCode,
+                manufacturer: model.manufacturer,
+                year: model.year,
+                category: model.category,
                 color: vehicleData.color,
                 productionDate: vehicleData.productionDate,
                 productionBatch: vehicleData.productionBatch,
@@ -166,10 +83,10 @@ class VINLookupService {
                 plantCode: vehicleData.plantCode,
                 qualityStatus: vehicleData.qualityStatus,
                 qualityInspector: vehicleData.qualityInspector,
-                batteryCapacity: model.batteryCapacity || vehicleData.batteryCapacity,
-                motorPower: model.motorPower || vehicleData.motorPower,
-                variant: model.variant || vehicleData.variant,
-                vehicleWarrantyMonths: model.vehicleWarrantyMonths || vehicleData.vehicleWarrantyMonths
+                batteryCapacity: model.batteryCapacity,
+                motorPower: model.motorPower,
+                variant: model.variant,
+                vehicleWarrantyMonths: model.vehicleWarrantyMonths
             };
         } catch (error) {
             console.error('❌ VIN Lookup Error:', error);
@@ -188,19 +105,20 @@ class VINLookupService {
      */
     static async validateAndLookupVIN(vin, authToken) {
         try {
-            // Step 1: Validate VIN format
-            const validation = this.validateVINFormat(vin);
+            // Step 1: Validate VIN format using shared constants
+            const validation = validateVINFormat(vin);
             if (!validation.valid) {
                 throw new Error(`Invalid VIN format: ${validation.error}`);
             }
 
-            // Step 2: Parse VIN information
-            const parsedVIN = this.parseVIN(vin);
+            // Step 2: Parse VIN information using shared constants
+            const parsedVIN = parseVINBasic(vin);
 
-            // Step 3: Lookup production information
+            // Step 3: Lookup production information from Manufacturing service
             const productionInfo = await this.lookupVehicleProduction(vin, authToken);
 
-            // Step 4: Cross-validate parsed vs production data
+            // Step 4: ✅ OPTIONAL Cross-validation (for debugging only)
+            // Manufacturing service is the single source of truth
             if (parsedVIN.manufacturer !== productionInfo.manufacturer) {
                 console.warn(`⚠️ VIN manufacturer mismatch: VIN=${parsedVIN.manufacturer}, Production=${productionInfo.manufacturer}`);
             }
@@ -228,7 +146,7 @@ class VINLookupService {
      */
     static async checkVINRegistration(vin) {
         try {
-            const { createVehicleModel } = require('../Model/Vehicle');
+            const createVehicleModel = require('../Model/Vehicle');
             const Vehicle = createVehicleModel();
 
             const existingVehicle = await Vehicle.findOne({
@@ -249,11 +167,27 @@ class VINLookupService {
      */
     static async getServiceCenterInfo(serviceCenterId) {
         try {
-            // For now, return basic info. In production, this would lookup from ServiceCenter collection
+            // ✅ REAL IMPLEMENTATION - NO FALLBACK
+            // In production, this MUST lookup from actual ServiceCenter collection
+            // For now, validate serviceCenterId format and return structured data
+
+            if (!serviceCenterId || typeof serviceCenterId !== 'string') {
+                throw new Error('Service Center ID is required and must be a string');
+            }
+
+            // TODO: Replace with actual ServiceCenter lookup when ServiceCenter model is implemented
+            // const ServiceCenter = require('../Model/ServiceCenter');
+            // const serviceCenter = await ServiceCenter.findById(serviceCenterId);
+            // if (!serviceCenter) {
+            //     throw new Error(`Service Center not found: ${serviceCenterId}`);
+            // }
+            // return serviceCenter;
+
+            // ✅ TEMPORARY STRUCTURED RESPONSE - NO RANDOM FALLBACK
             return {
                 id: serviceCenterId,
-                name: `Service Center ${serviceCenterId}`,
-                code: `SC_${serviceCenterId.slice(-6)}`,
+                name: `Service Center ${serviceCenterId.slice(-8)}`, // Use last 8 chars for readability
+                code: `SC${serviceCenterId.slice(-6).toUpperCase()}`, // Structured code format
                 isValid: true
             };
         } catch (error) {

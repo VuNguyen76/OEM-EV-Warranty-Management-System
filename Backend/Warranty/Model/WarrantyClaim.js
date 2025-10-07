@@ -1,7 +1,15 @@
 const mongoose = require('mongoose');
 const { getWarrantyConnection } = require('../../shared/database/warrantyConnection');
+const { BaseEntity } = require('../../shared/Base/BaseEntity');
+const { ServiceCenterMixin } = require('../../shared/Base/ServiceCenterMixin');
+const { VINMixin } = require('../../shared/Base/VINMixin');
 
 const warrantyClaimSchema = new mongoose.Schema({
+    // ✅ INHERIT BASE PATTERNS
+    ...BaseEntity,
+    ...VINMixin,
+    ...ServiceCenterMixin,
+
     // Claim identification
     claimNumber: {
         type: String,
@@ -10,17 +18,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         // Format: WC-YYYY-XXXXX
     },
 
-    vin: {
-        type: String,
-        required: true,
-        uppercase: true,
-        validate: {
-            validator: function (v) {
-                return /^[A-HJ-NPR-Z0-9]{17}$/.test(v);
-            },
-            message: 'VIN phải có 17 ký tự và không chứa I, O, Q'
-        }
-    },
+    // ✅ VIN FIELD INHERITED FROM VINMixin
 
     // Warranty reference
     warrantyActivationId: {
@@ -98,7 +96,13 @@ const warrantyClaimSchema = new mongoose.Schema({
             "under_review",
             "approved",
             "rejected",
-            "in_progress",
+            "parts_shipped",        // UC9: Parts have been shipped
+            "parts_received",       // UC9: Parts received and verified
+            "parts_rejected",       // UC9: Parts rejected due to quality issues
+            "repair_in_progress",   // UC10: Repair work is in progress
+            "repair_on_hold",       // UC10: Repair work is on hold due to issues
+            "repair_completed",     // UC10: Repair work completed, awaiting final check
+            "in_progress",          // Legacy status
             "completed",
             "cancelled",
         ],
@@ -114,7 +118,13 @@ const warrantyClaimSchema = new mongoose.Schema({
                 "under_review",
                 "approved",
                 "rejected",
-                "in_progress",
+                "parts_shipped",        // UC9: Parts have been shipped
+                "parts_received",       // UC9: Parts received and verified
+                "parts_rejected",       // UC9: Parts rejected due to quality issues
+                "repair_in_progress",   // UC10: Repair work is in progress
+                "repair_on_hold",       // UC10: Repair work is on hold due to issues
+                "repair_completed",     // UC10: Repair work completed, awaiting final check
+                "in_progress",          // Legacy status
                 "completed",
                 "cancelled",
             ],
@@ -167,16 +177,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         }
     }],
 
-    // Service center info
-    serviceCenterId: {
-        type: String,
-        required: true
-    },
-
-    serviceCenterName: {
-        type: String,
-        required: false // Can be looked up from serviceCenterId
-    },
+    // ✅ SERVICE CENTER FIELDS INHERITED FROM ServiceCenterMixin
 
     requestedBy: {
         type: String,
@@ -204,22 +205,13 @@ const warrantyClaimSchema = new mongoose.Schema({
         min: 0
     },
 
-    // Additional notes
+    // Additional notes (extends BaseEntity.note)
     notes: {
         type: String,
         maxlength: 2000
     },
 
-    // Timestamps
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    },
+    // ✅ TIMESTAMPS INHERITED FROM BaseEntity
 
     completedAt: {
         type: Date,
@@ -268,7 +260,215 @@ const warrantyClaimSchema = new mongoose.Schema({
             type: Date,
             default: Date.now
         }
-    }]
+    }],
+
+    // UC9: Parts Shipment Management
+    partsShipment: {
+        status: {
+            type: String,
+            enum: ['pending', 'shipped', 'received', 'rejected'],
+            default: 'pending'
+        },
+        shippedDate: {
+            type: Date,
+            required: false
+        },
+        receivedDate: {
+            type: Date,
+            required: false
+        },
+        trackingNumber: {
+            type: String,
+            required: false,
+            maxlength: 100
+        },
+        receivedBy: {
+            type: String,
+            required: false
+        },
+        qualityCheckNotes: {
+            type: String,
+            required: false,
+            maxlength: 1000
+        },
+        parts: [{
+            partId: {
+                type: mongoose.Schema.Types.ObjectId,
+                required: false
+            },
+            partName: {
+                type: String,
+                required: true
+            },
+            serialNumber: {
+                type: String,
+                required: false
+            },
+            condition: {
+                type: String,
+                enum: ['good', 'damaged', 'defective'],
+                required: true
+            },
+            receivedQuantity: {
+                type: Number,
+                required: true,
+                min: 0
+            },
+            notes: {
+                type: String,
+                required: false,
+                maxlength: 500
+            }
+        }]
+    },
+
+    // UC10: Repair Progress Management
+    repairProgress: {
+        status: {
+            type: String,
+            enum: ['not_started', 'in_progress', 'on_hold', 'completed'],
+            default: 'not_started'
+        },
+        assignedTechnician: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: false,
+            ref: 'User'
+        },
+        startDate: {
+            type: Date,
+            required: false
+        },
+        estimatedCompletionDate: {
+            type: Date,
+            required: false
+        },
+        actualCompletionDate: {
+            type: Date,
+            required: false
+        },
+        steps: [{
+            stepType: {
+                type: String,
+                enum: ['diagnosis', 'removal', 'installation', 'testing', 'quality_check'],
+                required: true
+            },
+            status: {
+                type: String,
+                enum: ['pending', 'in_progress', 'completed', 'skipped'],
+                default: 'pending'
+            },
+            startedAt: {
+                type: Date,
+                required: false
+            },
+            completedAt: {
+                type: Date,
+                required: false
+            },
+            notes: {
+                type: String,
+                required: false,
+                maxlength: 1000
+            },
+            performedBy: {
+                type: String,
+                required: false
+            }
+        }],
+        issues: [{
+            issueType: {
+                type: String,
+                enum: ['parts_mismatch', 'additional_damage', 'parts_defective', 'other'],
+                required: true
+            },
+            severity: {
+                type: String,
+                enum: ['low', 'medium', 'high', 'critical'],
+                required: true
+            },
+            description: {
+                type: String,
+                required: true,
+                maxlength: 1000
+            },
+            reportedAt: {
+                type: Date,
+                default: Date.now
+            },
+            reportedBy: {
+                type: String,
+                required: true
+            },
+            status: {
+                type: String,
+                enum: ['open', 'in_progress', 'resolved', 'escalated'],
+                default: 'open'
+            },
+            resolvedAt: {
+                type: Date,
+                required: false
+            },
+            resolvedBy: {
+                type: String,
+                required: false
+            },
+            resolution: {
+                type: String,
+                required: false,
+                maxlength: 1000
+            }
+        }],
+        qualityCheck: {
+            performed: {
+                type: Boolean,
+                default: false
+            },
+            performedAt: {
+                type: Date,
+                required: false
+            },
+            performedBy: {
+                type: String,
+                required: false
+            },
+            passed: {
+                type: Boolean,
+                required: false
+            },
+            notes: {
+                type: String,
+                required: false,
+                maxlength: 1000
+            },
+            checklist: [{
+                item: {
+                    type: String,
+                    required: true
+                },
+                status: {
+                    type: String,
+                    enum: ['pass', 'fail', 'na'],
+                    required: true
+                },
+                notes: {
+                    type: String,
+                    required: false
+                }
+            }]
+        },
+        totalLaborHours: {
+            type: Number,
+            required: false,
+            min: 0,
+            default: 0
+        },
+        totalCost: {
+            type: Number,
+            required: false,
+            min: 0,
+            default: 0
+        }
+    }
 }, {
     timestamps: true // This will automatically manage createdAt and updatedAt
 });
@@ -279,6 +479,12 @@ warrantyClaimSchema.index({ claimNumber: 1 });
 warrantyClaimSchema.index({ serviceCenterId: 1 });
 warrantyClaimSchema.index({ claimStatus: 1 });
 warrantyClaimSchema.index({ createdAt: -1 });
+
+// UC10: Repair Progress indexes
+warrantyClaimSchema.index({ 'repairProgress.status': 1 });
+warrantyClaimSchema.index({ 'repairProgress.assignedTechnician': 1 });
+warrantyClaimSchema.index({ 'repairProgress.startDate': 1 });
+warrantyClaimSchema.index({ claimStatus: 1, 'repairProgress.status': 1 });
 
 // Pre-save middleware to update updatedAt and track status changes
 warrantyClaimSchema.pre('save', function (next) {

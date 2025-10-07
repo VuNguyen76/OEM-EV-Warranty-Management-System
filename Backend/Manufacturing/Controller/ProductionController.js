@@ -1,6 +1,6 @@
 const responseHelper = require('../../shared/utils/responseHelper');
 const queryHelper = require('../../shared/utils/queryHelper');
-const redisService = require('../../shared/services/RedisService');
+const { getCached, setCached, clearCachePatterns } = require('../../shared/services/CacheHelper');
 const VINGenerator = require('../utils/VINGenerator');
 
 let ProducedVehicle, VehicleModel;
@@ -113,7 +113,7 @@ const createVehicle = async (req, res) => {
             }
         }
 
-        await redisService.deletePatternScan("manufacturing:production:*");
+        await clearCachePatterns(["manufacturing:production:*"]);
 
         return responseHelper.success(res, {
             id: producedVehicle._id,
@@ -135,9 +135,9 @@ const getAllProducedVehicles = async (req, res) => {
         const { page = 1, limit = 10, status, qualityStatus, batch, search, startDate, endDate } = req.query;
         const cacheKey = `manufacturing:production:list:${JSON.stringify(req.query)}`;
 
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            const { vehicles, pagination } = JSON.parse(cachedData);
+            const { vehicles, pagination } = cachedData;
             return responseHelper.sendPaginatedResponse(res, "Lấy danh sách xe sản xuất thành công (cached)", vehicles, pagination);
         }
 
@@ -184,7 +184,7 @@ const getAllProducedVehicles = async (req, res) => {
         const pagination = responseHelper.createPagination(page, limitNum, total);
 
         const cacheData = { vehicles, pagination };
-        await redisService.set(cacheKey, JSON.stringify(cacheData), 300);
+        await setCached(cacheKey, cacheData, 300);
 
         return responseHelper.sendPaginatedResponse(res, "Lấy danh sách xe sản xuất thành công", vehicles, pagination);
     } catch (error) {
@@ -199,9 +199,9 @@ const getVehicleByVIN = async (req, res) => {
         const { vin } = req.params;
         const cacheKey = `manufacturing:production:vin:${vin}`;
 
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            return responseHelper.success(res, JSON.parse(cachedData), "Lấy thông tin xe thành công (cached)");
+            return responseHelper.success(res, cachedData, "Lấy thông tin xe thành công (cached)");
         }
 
         const vehicle = await ProducedVehicle.findOne({ vin: vin.toUpperCase() })
@@ -211,7 +211,7 @@ const getVehicleByVIN = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
         }
 
-        await redisService.set(cacheKey, JSON.stringify(vehicle), 600);
+        await setCached(cacheKey, vehicle, 600);
 
         return responseHelper.success(res, vehicle, "Lấy thông tin xe thành công");
     } catch (error) {
@@ -236,7 +236,7 @@ const updateVehicle = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy xe", 404);
         }
 
-        await redisService.del("manufacturing:production:*");
+        await clearCachePatterns(["manufacturing:production:*"]);
 
         return responseHelper.success(res, vehicle, "Cập nhật thông tin xe thành công");
     } catch (error) {
@@ -250,9 +250,9 @@ const getProductionStatistics = async (req, res) => {
 
         const cacheKey = 'manufacturing:production:statistics';
 
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            return responseHelper.success(res, JSON.parse(cachedData), "Lấy thống kê sản xuất thành công (cached)");
+            return responseHelper.success(res, cachedData, "Lấy thống kê sản xuất thành công (cached)");
         }
 
         const [totalVehicles, byStatus, byQualityStatus, byBatch] = await Promise.all([
@@ -283,7 +283,7 @@ const getProductionStatistics = async (req, res) => {
             topBatches: byBatch
         };
 
-        await redisService.set(cacheKey, JSON.stringify(statistics), 1800);
+        await setCached(cacheKey, statistics, 1800);
 
         return responseHelper.success(res, statistics, "Lấy thống kê sản xuất thành công");
     } catch (error) {
@@ -311,7 +311,7 @@ const passQualityCheck = async (req, res) => {
             await vehicle.passQualityCheck(checkType, checkedBy, notes);
 
             // Clear cache
-            await redisService.deletePatternScan("manufacturing:production:*");
+            await clearCachePatterns(["manufacturing:production:*"]);
 
             return responseHelper.success(res, {
                 vin: vehicle.vin,
@@ -353,7 +353,7 @@ const failQualityCheck = async (req, res) => {
         await vehicle.failQualityCheck(checkType, checkedBy, notes);
 
         // Clear cache
-        await redisService.deletePatternScan("manufacturing:production:*");
+        await clearCachePatterns(["manufacturing:production:*"]);
 
         return responseHelper.success(res, {
             vin: vehicle.vin,

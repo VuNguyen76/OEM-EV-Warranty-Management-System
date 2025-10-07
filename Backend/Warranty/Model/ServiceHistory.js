@@ -1,15 +1,12 @@
 const mongoose = require('mongoose');
 const { BaseEntity } = require('../../shared/Base/BaseEntity');
+const { VINMixin } = require('../../shared/Base/VINMixin');
 
 const serviceHistorySchema = new mongoose.Schema({
   ...BaseEntity,
+  ...VINMixin,
 
-  // Liên kết
-  vehicleId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'WarrantyVehicle',
-    required: true
-  },
+  // ✅ CORE UC3 FIELDS
 
   // Thông tin dịch vụ
   serviceType: {
@@ -37,9 +34,9 @@ const serviceHistorySchema = new mongoose.Schema({
 
   // Thông tin thực hiện
   performedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    type: String, // ✅ Staff email who performed the service
+    required: true,
+    trim: true
   },
 
   supervisedBy: {

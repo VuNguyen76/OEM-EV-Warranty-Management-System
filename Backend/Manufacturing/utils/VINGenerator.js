@@ -1,66 +1,12 @@
 /**
  * VIN Generator Utility - ISO 3779 Compliant
  * Generates Vehicle Identification Numbers according to international standards
+ * Uses shared VIN constants to maintain consistency
  */
 
+const { WMI_CODES, YEAR_CODES, PLANT_CODES, WMI_REVERSE, YEAR_REVERSE, PLANT_REVERSE, validateVINFormat } = require('../../shared/constants/VINConstants');
+
 class VINGenerator {
-    // World Manufacturer Identifier codes (WMI)
-    static WMI_CODES = {
-        'VinFast': 'LVG',
-        'Tesla': '5YJ',
-        'Tesla Inc': '5YJ',
-        'BYD': 'LGB',
-        'BMW': 'WBA',
-        'Mercedes': 'WDD',
-        'Audi': 'WAU',
-        'Toyota': 'JTD',
-        'Honda': 'JHM',
-        'Hyundai': 'KMH',
-        'Kia': 'KNA',
-        'Ford': '1FA',
-        'GM': '1G1',
-        'Volkswagen': 'WVW',
-        'Nissan': 'JN1',
-        'Mazda': 'JM1',
-        'Test Motors': 'TMT',
-        'EV Motors': 'EVM'
-    };
-
-    // Model year codes (ISO 3779)
-    static YEAR_CODES = {
-        2020: 'L',
-        2021: 'M',
-        2022: 'N',
-        2023: 'P',
-        2024: 'R',
-        2025: 'S',
-        2026: 'T',
-        2027: 'V',
-        2028: 'W',
-        2029: 'X',
-        2030: 'Y',
-        2031: '1',
-        2032: '2',
-        2033: '3',
-        2034: '4',
-        2035: '5',
-        2036: '6',
-        2037: '7',
-        2038: '8',
-        2039: '9'
-    };
-
-    // Plant codes
-    static PLANT_CODES = {
-        'Hanoi': 'H',
-        'HoChiMinh': 'S',
-        'DaNang': 'D',
-        'HaiPhong': 'P',
-        'CanTho': 'C',
-        'Hue': 'U',
-        'NhaTrang': 'N',
-        'VungTau': 'V'
-    };
 
     /**
      * Encode Vehicle Descriptor Section (VDS) - 5 characters
@@ -148,8 +94,8 @@ class VINGenerator {
                 throw new Error('Plant code is required');
             }
 
-            // Get WMI (World Manufacturer Identifier)
-            const wmi = this.WMI_CODES[vehicleModel.manufacturer];
+            // Get WMI (World Manufacturer Identifier) from shared constants
+            const wmi = WMI_CODES[vehicleModel.manufacturer];
             if (!wmi) {
                 throw new Error(`Unsupported manufacturer: ${vehicleModel.manufacturer}`);
             }
@@ -157,8 +103,8 @@ class VINGenerator {
             // Get VDS (Vehicle Descriptor Section)
             const vds = this.encodeVDS(vehicleModel);
 
-            // Get model year code
-            const yearCode = this.YEAR_CODES[vehicleModel.year];
+            // Get model year code from shared constants
+            const yearCode = YEAR_CODES[vehicleModel.year];
             if (!yearCode) {
                 throw new Error(`Unsupported model year: ${vehicleModel.year}`);
             }
@@ -213,14 +159,10 @@ class VINGenerator {
      */
     static validateVIN(vin) {
         try {
-            // Check length
-            if (!vin || vin.length !== 17) {
-                return { valid: false, error: 'VIN must be exactly 17 characters' };
-            }
-
-            // Check format (no I, O, Q allowed)
-            if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
-                return { valid: false, error: 'VIN contains invalid characters (I, O, Q not allowed)' };
+            // Use shared format validation
+            const formatValidation = validateVINFormat(vin);
+            if (!formatValidation.valid) {
+                return formatValidation;
             }
 
             // Validate check digit
@@ -259,20 +201,14 @@ class VINGenerator {
         const plantCode = vin[10];
         const sequential = vin.substring(11, 17);
 
-        // Find manufacturer
-        const manufacturer = Object.keys(this.WMI_CODES).find(
-            key => this.WMI_CODES[key] === wmi
-        ) || 'Unknown';
+        // Find manufacturer using shared reverse mapping
+        const manufacturer = WMI_REVERSE[wmi] || 'Unknown';
 
-        // Find year
-        const year = Object.keys(this.YEAR_CODES).find(
-            key => this.YEAR_CODES[key] === yearCode
-        ) || 'Unknown';
+        // Find year using shared reverse mapping
+        const year = YEAR_REVERSE[yearCode] || 'Unknown';
 
-        // Find plant
-        const plant = Object.keys(this.PLANT_CODES).find(
-            key => this.PLANT_CODES[key] === plantCode
-        ) || 'Unknown';
+        // Find plant using shared reverse mapping
+        const plant = PLANT_REVERSE[plantCode] || 'Unknown';
 
         return {
             vin,

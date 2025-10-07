@@ -1,6 +1,7 @@
 const responseHelper = require("../../shared/utils/responseHelper");
 const queryHelper = require("../../shared/utils/queryHelper");
-const redisService = require("../../shared/services/RedisService");
+const { getCached, setCached, clearCachePatterns } = require("../../shared/services/CacheHelper");
+const { verifyVINInVehicleService, normalizeVIN } = require("../../shared/services/VehicleServiceHelper");
 
 let ServiceHistory, WarrantyVehicle, VehiclePart;
 
@@ -19,7 +20,7 @@ async function initializeModels() {
     }
 }
 
-// Add Service History
+// UC3: Add Service History
 const addServiceHistory = async (req, res) => {
     try {
         const {
@@ -37,7 +38,7 @@ const addServiceHistory = async (req, res) => {
             notes
         } = req.body;
 
-        // Validate required fields
+        // ✅ UC3 VALIDATION: Required fields
         if (!vin || !serviceType || !description) {
             return responseHelper.error(res, "Thiếu thông tin bắt buộc: VIN, loại dịch vụ, mô tả", 400);
         }
@@ -47,19 +48,40 @@ const addServiceHistory = async (req, res) => {
             return responseHelper.error(res, "User ID không hợp lệ trong token", 401);
         }
 
-        // Check if vehicle exists
-        const vehicle = await WarrantyVehicle.findOne({ vin: vin.toUpperCase() });
-        if (!vehicle) {
-            return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
+        // ✅ Check if vehicle exists in Vehicle service
+        try {
+            await verifyVINInVehicleService(vin, req.headers.authorization);
+        } catch (error) {
+            if (error.message === 'VEHICLE_NOT_FOUND') {
+                return responseHelper.error(res, "Không tìm thấy xe với VIN này. Vui lòng đăng ký xe trước (UC1)", 404);
+            }
+            return responseHelper.error(res, "Không thể xác minh xe trong hệ thống. Vui lòng đăng ký xe trước (UC1)", 400);
+        }
+
+        // ✅ Process attachments if files uploaded (UC3 Step 4)
+        const attachments = [];
+        if (req.files && req.files.length > 0) {
+            const { generateFileUrl } = require('../../shared/middleware/MulterMiddleware');
+
+            for (const file of req.files) {
+                attachments.push({
+                    name: file.originalname,
+                    type: file.mimetype.startsWith('image/') ? 'image' : 'document',
+                    url: generateFileUrl(req, file.filename),
+                    description: `Service documentation for ${serviceType}`,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user.email
+                });
+            }
         }
 
         // Create service history record
         const serviceHistory = new ServiceHistory({
-            vehicleId: vehicle._id,
+            vin: normalizeVIN(vin), // ✅ Use VIN directly (no vehicleId needed)
             serviceType,
             title: `${serviceType} - ${description.substring(0, 50)}`,
             description,
-            performedBy: req.user.sub || req.user.userId,
+            performedBy: req.user.email, // ✅ Use email instead of ObjectId
             serviceCenter: {
                 name: serviceCenterInfo?.name || req.user.serviceCenterName || 'Default Service Center',
                 code: serviceCenterInfo?.code || req.user.serviceCenterCode || 'SC001',
@@ -70,11 +92,10 @@ const addServiceHistory = async (req, res) => {
             laborCost: laborCost !== undefined ? laborCost : 0,
             partsCost: partsCost !== undefined ? partsCost : 0,
             totalCost: totalCost !== undefined ? totalCost : (laborCost || 0) + (partsCost || 0),
-            laborHours: laborHours !== undefined ? laborHours : 0,
-            laborRate: laborRate !== undefined ? laborRate : 0,
             serviceDate: serviceDate ? new Date(serviceDate) : new Date(),
             nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
             odometerReading: mileage !== undefined ? mileage : 0,
+            attachments, // ✅ UC3 Step 4: Attach files
             notes,
             status: 'completed',
             createdBy: req.user.email
@@ -90,24 +111,18 @@ const addServiceHistory = async (req, res) => {
                 // Save service history
                 savedServiceHistory = await serviceHistory.save({ session });
 
-                // Update vehicle's last service info
-                vehicle.lastServiceDate = serviceHistory.serviceDate;
-
-                // Validate mileage - new mileage must be >= current mileage (prevent "chạy lùi")
-                if (mileage !== undefined && mileage !== null) {
-                    if (vehicle.currentMileage && mileage < vehicle.currentMileage) {
-                        throw new Error(`Số km mới (${mileage}) không thể nhỏ hơn số km hiện tại (${vehicle.currentMileage})`);
-                    }
-                    vehicle.currentMileage = mileage;
-                }
-
-                await vehicle.save({ session });
+                // ✅ No need to update WarrantyVehicle - Vehicle service handles vehicle data
+                // Service history is independent tracking
             });
 
             // Transaction successful - clear cache
-            await redisService.deletePatternScan("service-history:*");
+            await clearCachePatterns(["service-history:*"]);
 
-            return responseHelper.success(res, savedServiceHistory, "Thêm lịch sử bảo dưỡng thành công", 201);
+            return responseHelper.success(res, {
+                serviceHistory: savedServiceHistory,
+                message: `Ghi lịch sử ${serviceType} cho xe ${vin.toUpperCase()} thành công`,
+                attachmentsCount: attachments.length
+            }, "UC3: Lưu lịch sử dịch vụ thành công", 201);
         } catch (transactionError) {
             console.error('❌ Transaction failed in addServiceHistory:', {
                 error: transactionError.message,
@@ -144,19 +159,13 @@ const getServiceHistoryByVIN = async (req, res) => {
         const cacheKey = `service-history:${vin}:page:${page}:limit:${limit}:type:${serviceType || 'all'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
         // Try cache first
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            return responseHelper.success(res, JSON.parse(cachedData), "Lấy lịch sử bảo dưỡng thành công (từ cache)");
+            return responseHelper.success(res, cachedData, "Lấy lịch sử bảo dưỡng thành công (từ cache)");
         }
 
-        // Find vehicle first to get vehicleId
-        const vehicle = await WarrantyVehicle.findOne({ vin: vin.toUpperCase() });
-        if (!vehicle) {
-            return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
-        }
-
-        // Build search query using vehicleId
-        const searchQuery = { vehicleId: vehicle._id };
+        // ✅ Use VIN directly (no need to lookup vehicleId)
+        const searchQuery = { vin: normalizeVIN(vin) };
 
         if (serviceType) {
             searchQuery.serviceType = serviceType;
@@ -188,7 +197,7 @@ const getServiceHistoryByVIN = async (req, res) => {
         };
 
         // Cache for 5 minutes
-        await redisService.set(cacheKey, JSON.stringify(result), 300);
+        await setCached(cacheKey, result, 300);
 
         return responseHelper.success(res, result, "Lấy lịch sử bảo dưỡng thành công");
     } catch (error) {
@@ -205,9 +214,9 @@ const getAllServiceHistories = async (req, res) => {
         const cacheKey = `service-history:all:page:${page}:limit:${limit}:type:${serviceType || 'all'}:search:${search || 'none'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
         // Try cache first
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            return responseHelper.success(res, JSON.parse(cachedData), "Lấy tất cả lịch sử bảo dưỡng thành công (từ cache)");
+            return responseHelper.success(res, cachedData, "Lấy tất cả lịch sử bảo dưỡng thành công (từ cache)");
         }
 
         // Build search query
@@ -248,7 +257,7 @@ const getAllServiceHistories = async (req, res) => {
         };
 
         // Cache for 3 minutes
-        await redisService.set(cacheKey, JSON.stringify(result), 180);
+        await setCached(cacheKey, result, 180);
 
         return responseHelper.success(res, result, "Lấy tất cả lịch sử bảo dưỡng thành công");
     } catch (error) {
@@ -264,9 +273,9 @@ const getServiceHistoryById = async (req, res) => {
         const cacheKey = `service-history:${id}`;
 
         // Try cache first
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            return responseHelper.success(res, JSON.parse(cachedData), "Lấy chi tiết lịch sử bảo dưỡng thành công (từ cache)");
+            return responseHelper.success(res, cachedData, "Lấy chi tiết lịch sử bảo dưỡng thành công (từ cache)");
         }
 
         const serviceHistory = await ServiceHistory.findById(id);
@@ -275,7 +284,7 @@ const getServiceHistoryById = async (req, res) => {
         }
 
         // Cache for 10 minutes
-        await redisService.set(cacheKey, JSON.stringify(serviceHistory), 600);
+        await setCached(cacheKey, serviceHistory, 600);
 
         return responseHelper.success(res, serviceHistory, "Lấy chi tiết lịch sử bảo dưỡng thành công");
     } catch (error) {
@@ -296,7 +305,7 @@ const updateServiceHistory = async (req, res) => {
         }
 
         // Clear cache
-        await redisService.deletePatternScan("service-history:*");
+        await clearCachePatterns(["service-history:*"]);
 
         return responseHelper.success(res, serviceHistory, "Cập nhật lịch sử bảo dưỡng thành công");
     } catch (error) {
@@ -313,9 +322,9 @@ const getServiceStatistics = async (req, res) => {
         const cacheKey = `service-history:stats:type:${serviceType || 'all'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
         // Try cache first
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            return responseHelper.success(res, JSON.parse(cachedData), "Lấy thống kê bảo dưỡng thành công (từ cache)");
+            return responseHelper.success(res, cachedData, "Lấy thống kê bảo dưỡng thành công (từ cache)");
         }
 
         // Build date filter
@@ -379,7 +388,7 @@ const getServiceStatistics = async (req, res) => {
         };
 
         // Cache for 10 minutes
-        await redisService.set(cacheKey, JSON.stringify(statistics), 600);
+        await setCached(cacheKey, statistics, 600);
 
         return responseHelper.success(res, statistics, "Lấy thống kê bảo dưỡng thành công");
     } catch (error) {
