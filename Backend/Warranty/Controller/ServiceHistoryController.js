@@ -67,12 +67,14 @@ const addServiceHistory = async (req, res) => {
                 contact: serviceCenterInfo?.contact
             },
             partsUsed: partsUsed || [],
-            laborCost: laborCost || 0,
-            partsCost: partsCost || 0,
-            totalCost: totalCost || (laborCost || 0) + (partsCost || 0),
+            laborCost: laborCost !== undefined ? laborCost : 0,
+            partsCost: partsCost !== undefined ? partsCost : 0,
+            totalCost: totalCost !== undefined ? totalCost : (laborCost || 0) + (partsCost || 0),
+            laborHours: laborHours !== undefined ? laborHours : 0,
+            laborRate: laborRate !== undefined ? laborRate : 0,
             serviceDate: serviceDate ? new Date(serviceDate) : new Date(),
             nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
-            odometerReading: mileage || 0,
+            odometerReading: mileage !== undefined ? mileage : 0,
             notes,
             status: 'completed',
             createdBy: req.user.email

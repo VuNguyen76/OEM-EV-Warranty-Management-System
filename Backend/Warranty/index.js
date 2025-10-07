@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 // Import middleware
 const { authenticateToken, authorizeRole } = require('../shared/middleware/AuthMiddleware');
@@ -33,6 +34,9 @@ app.use(cors({
 app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Static file serving cho uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -70,10 +74,34 @@ app.put('/service-history/:id', authenticateToken, authorizeRole('admin', 'servi
 
 // Yêu cầu bảo hành (UC4 & UC5)
 const WarrantyClaimController = require('./Controller/WarrantyClaimController');
+const { uploadMultipleFiles, handleMulterError } = require('../shared/middleware/MulterMiddleware');
 
+// UC7: Phê Duyệt/Từ Chối Yêu Cầu (MUST be FIRST - before ANY other claims routes)
+app.get('/claims/for-approval', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.getClaimsForApproval);
+
+// UC4: Tạo yêu cầu bảo hành
 app.post('/claims', authenticateToken, authorizeRole('service_staff', 'technician', 'admin'), WarrantyClaimController.createWarrantyClaim);
-app.get('/claims/:claimId', authenticateToken, WarrantyClaimController.getClaimById);
+
+// UC5: Đính kèm báo cáo kiểm tra (với file upload)
+app.post('/claims/:claimId/attachments',
+    authenticateToken,
+    authorizeRole('service_staff', 'technician', 'admin'),
+    uploadMultipleFiles,
+    handleMulterError,
+    WarrantyClaimController.addClaimAttachment
+);
+
+// UC6: Theo Dõi Trạng Thái Yêu Cầu (MUST be before /claims/:claimId)
+app.get('/claims/:claimId/status-history', authenticateToken, WarrantyClaimController.getClaimStatusHistory);
+
+// UC7: Phê Duyệt/Từ Chối Yêu Cầu (specific claim actions)
+app.put('/claims/:claimId/approve', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.approveWarrantyClaim);
+app.put('/claims/:claimId/reject', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.rejectWarrantyClaim);
+app.post('/claims/:claimId/notes', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.addApprovalNotes);
+
+// Get claims - specific routes first
 app.get('/claims/vin/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);
+app.get('/claims/:claimId', authenticateToken, WarrantyClaimController.getClaimById);
 app.get('/claims', authenticateToken, WarrantyClaimController.getClaimsByServiceCenter);
 
 // Error handling middleware
@@ -147,6 +175,7 @@ const initializeServices = async () => {
         const { initializeWarrantyExpirationJob } = require('../shared/jobs/WarrantyExpirationJob');
         const { initializeReservationReleaseJob } = require('../shared/jobs/ReservationReleaseJob');
         const WarrantyVehicle = require('./Model/WarrantyVehicle')();
+        const WarrantyActivation = require('./Model/WarrantyActivation')();
         const Reservation = require('./Model/Reservation')();
 
         const warrantyJob = initializeWarrantyExpirationJob(WarrantyVehicle);

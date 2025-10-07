@@ -30,6 +30,11 @@ const createPart = async (req, res) => {
             return responseHelper.error(res, "Mã phụ tùng đã tồn tại", 400);
         }
 
+        // Validate required fields
+        if (!warrantyPeriod) {
+            return responseHelper.error(res, "Warranty period là bắt buộc", 400);
+        }
+
         const part = new Part({
             name: partName,
             partCode,
@@ -38,7 +43,7 @@ const createPart = async (req, res) => {
             description,
             cost: parseFloat(cost),
             supplier,
-            warrantyPeriod: warrantyPeriod || 12,
+            warrantyPeriod,
             createdBy: req.user.email
         });
 

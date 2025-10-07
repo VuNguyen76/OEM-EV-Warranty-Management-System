@@ -135,25 +135,24 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         default: "pending"
     },
 
-    // Vehicle Warranty Details
     warrantyMonths: {
         type: Number,
-        default: 36
+        required: true
     },
 
     warrantySource: {
         type: String,
-        default: 'default'
+        required: true
     },
 
     vehicleWarrantyMonths: {
         type: Number,
-        default: 36
+        required: true
     },
 
     batteryWarrantyMonths: {
         type: Number,
-        default: 96
+        required: true
     },
 
     // Registration Information
@@ -176,13 +175,13 @@ const WarrantyVehicleSchema = new mongoose.Schema({
     // Mileage tracking
     currentMileage: {
         type: Number,
-        default: 0,
+        required: true,
         min: 0
     },
 
     lastServiceMileage: {
         type: Number,
-        default: 0,
+        required: true,
         min: 0
     },
 

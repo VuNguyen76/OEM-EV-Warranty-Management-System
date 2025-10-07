@@ -111,6 +111,9 @@ services:
       - redis
     networks:
       - warranty_network
+    volumes:
+      - ./Warranty:/app/Warranty
+      - ./shared:/app/shared
 
   # Vehicle Service
   warranty_vehicle_service:

@@ -15,7 +15,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         required: true,
         uppercase: true,
         validate: {
-            validator: function(v) {
+            validator: function (v) {
                 return /^[A-HJ-NPR-Z0-9]{17}$/.test(v);
             },
             message: 'VIN phải có 17 ký tự và không chứa I, O, Q'
@@ -105,6 +105,39 @@ const warrantyClaimSchema = new mongoose.Schema({
         default: "pending",
     },
 
+    // UC6: Status History Tracking
+    statusHistory: [{
+        status: {
+            type: String,
+            enum: [
+                "pending",
+                "under_review",
+                "approved",
+                "rejected",
+                "in_progress",
+                "completed",
+                "cancelled",
+            ],
+            required: true
+        },
+        changedAt: {
+            type: Date,
+            default: Date.now
+        },
+        changedBy: {
+            type: String,
+            required: true
+        },
+        reason: {
+            type: String,
+            maxlength: 500
+        },
+        notes: {
+            type: String,
+            maxlength: 1000
+        }
+    }],
+
     // Attachments
     attachments: [{
         fileName: {
@@ -191,7 +224,51 @@ const warrantyClaimSchema = new mongoose.Schema({
     completedAt: {
         type: Date,
         required: false
-    }
+    },
+
+    // UC7: Approval/Rejection fields
+    approvedAt: {
+        type: Date,
+        required: false
+    },
+
+    approvedBy: {
+        type: String,
+        required: false
+    },
+
+    rejectedAt: {
+        type: Date,
+        required: false
+    },
+
+    rejectedBy: {
+        type: String,
+        required: false
+    },
+
+    rejectionReason: {
+        type: String,
+        maxlength: 1000,
+        required: false
+    },
+
+    // UC7: Approval notes array
+    approvalNotes: [{
+        note: {
+            type: String,
+            required: true,
+            maxlength: 1000
+        },
+        addedBy: {
+            type: String,
+            required: true
+        },
+        addedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }]
 }, {
     timestamps: true // This will automatically manage createdAt and updatedAt
 });
@@ -203,26 +280,55 @@ warrantyClaimSchema.index({ serviceCenterId: 1 });
 warrantyClaimSchema.index({ claimStatus: 1 });
 warrantyClaimSchema.index({ createdAt: -1 });
 
-// Pre-save middleware to update updatedAt
-warrantyClaimSchema.pre('save', function(next) {
+// Pre-save middleware to update updatedAt and track status changes
+warrantyClaimSchema.pre('save', function (next) {
     this.updatedAt = new Date();
+
+    // UC6: Track status changes in statusHistory
+    if (this.isModified('claimStatus')) {
+        // Initialize statusHistory if it doesn't exist
+        if (!this.statusHistory) {
+            this.statusHistory = [];
+        }
+
+        // Add new status to history
+        // Note: changedBy should be set by the controller before saving
+        const statusEntry = {
+            status: this.claimStatus,
+            changedAt: new Date(),
+            changedBy: this._statusChangedBy || 'system',
+            reason: this._statusChangeReason || '',
+            notes: this._statusChangeNotes || ''
+        };
+
+        this.statusHistory.push(statusEntry);
+
+        // Clean up temporary fields
+        this._statusChangedBy = undefined;
+        this._statusChangeReason = undefined;
+        this._statusChangeNotes = undefined;
+    }
+
     next();
 });
 
 // Virtual for calculating estimated total cost
-warrantyClaimSchema.virtual('estimatedTotalCost').get(function() {
+warrantyClaimSchema.virtual('estimatedTotalCost').get(function () {
+    if (!this.partsToReplace || !Array.isArray(this.partsToReplace)) {
+        return 0;
+    }
     return this.partsToReplace.reduce((total, part) => {
         return total + (part.estimatedCost || 0) * part.quantity;
     }, 0);
 });
 
 // Virtual for checking if claim is still editable
-warrantyClaimSchema.virtual('isEditable').get(function() {
+warrantyClaimSchema.virtual('isEditable').get(function () {
     return ['pending', 'under_review'].includes(this.claimStatus);
 });
 
 // Virtual for checking if claim is closed
-warrantyClaimSchema.virtual('isClosed').get(function() {
+warrantyClaimSchema.virtual('isClosed').get(function () {
     return ['completed', 'cancelled', 'rejected'].includes(this.claimStatus);
 });
 

@@ -97,10 +97,9 @@ const VehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    // ✅ Warranty Information (from Model)
     vehicleWarrantyMonths: {
         type: Number,
-        default: 36
+        required: true
     },
 
     // ✅ VIN Validation Timestamp

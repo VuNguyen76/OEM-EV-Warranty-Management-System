@@ -34,15 +34,26 @@ const createVehicleModel = async (req, res) => {
             return responseHelper.error(res, "Mã model đã tồn tại", 400);
         }
 
+        // Validate required fields
+        if (!range) {
+            return responseHelper.error(res, "Range là bắt buộc", 400);
+        }
+        if (!vehicleWarrantyMonths) {
+            return responseHelper.error(res, "Vehicle warranty months là bắt buộc", 400);
+        }
+        if (!batteryWarrantyMonths) {
+            return responseHelper.error(res, "Battery warranty months là bắt buộc", 400);
+        }
+
         const newModel = new VehicleModel({
             modelName,
             modelCode: modelCode.toUpperCase(),
             manufacturer,
             batteryCapacity,
             motorPower,
-            range: range || 400,
-            vehicleWarrantyMonths: vehicleWarrantyMonths || 36,
-            batteryWarrantyMonths: batteryWarrantyMonths || 96,
+            range,
+            vehicleWarrantyMonths,
+            batteryWarrantyMonths,
             basePrice,
             description,
             category: category || 'sedan',

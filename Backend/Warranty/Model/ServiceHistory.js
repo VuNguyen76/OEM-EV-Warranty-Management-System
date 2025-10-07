@@ -101,26 +101,26 @@ const serviceHistorySchema = new mongoose.Schema({
   // Chi phí
   laborHours: {
     type: Number,
-    min: 0,
-    default: 0
+    required: true,
+    min: 0
   },
 
   laborRate: {
     type: Number,
-    min: 0,
-    default: 0
+    required: true,
+    min: 0
   },
 
   laborCost: {
     type: Number,
-    min: 0,
-    default: 0
+    required: true,
+    min: 0
   },
 
   partsCost: {
     type: Number,
-    min: 0,
-    default: 0
+    required: true,
+    min: 0
   },
 
   additionalCosts: [{
@@ -130,8 +130,8 @@ const serviceHistorySchema = new mongoose.Schema({
 
   totalCost: {
     type: Number,
-    min: 0,
-    default: 0
+    required: true,
+    min: 0
   },
 
   currency: {
@@ -234,6 +234,7 @@ const serviceHistorySchema = new mongoose.Schema({
   // Odometer/Mileage
   odometerReading: {
     type: Number,
+    required: true,
     min: 0
   },
 

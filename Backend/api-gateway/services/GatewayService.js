@@ -63,7 +63,10 @@ class GatewayService {
             '/api/auth',
             createProxyMiddleware(this.createProxyConfig(
                 this.services.user,
-                { '^/api/auth': '/auth' },
+                {
+                    '^/api/auth/health': '/health',
+                    '^/api/auth': '/auth'
+                },
                 false
             ))
         );

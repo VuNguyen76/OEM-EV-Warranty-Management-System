@@ -38,7 +38,7 @@ const VINCounterSchema = new mongoose.Schema({
 
     currentSequence: {
         type: Number,
-        default: 0,
+        required: true,
         min: 0
     },
 
@@ -81,6 +81,12 @@ VINCounterSchema.statics.getNextSequence = async function (manufacturerCode, mod
             setDefaultsOnInsert: true
         }
     );
+
+    // If this is the first time (counter was just created), set to 1
+    if (counter.currentSequence === 0) {
+        counter.currentSequence = 1;
+        await counter.save();
+    }
 
     return counter.currentSequence;
 };

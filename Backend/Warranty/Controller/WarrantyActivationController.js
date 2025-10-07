@@ -8,7 +8,7 @@ const axios = require('axios');
  * Separate from WarrantyClaim (UC4 - multiple claims during warranty period)
  */
 class WarrantyActivationController {
-    
+
     /**
      * Activate warranty for a vehicle (one-time only)
      * Vehicle must already exist in Vehicle Service (UC1)
@@ -33,17 +33,17 @@ class WarrantyActivationController {
             // Step 2: Verify VIN exists in Vehicle Service
             const vehicleServiceUrl = process.env.VEHICLE_SERVICE_URL || 'http://warranty_vehicle_service:3004';
             let vehicleData = null;
-            
+
             try {
                 const authToken = req.headers.authorization?.replace('Bearer ', '');
                 const headers = {};
                 if (authToken) {
                     headers.Authorization = `Bearer ${authToken}`;
                 }
-                
+
                 const response = await axios.get(`${vehicleServiceUrl}/vin/${vinUpper}`, { headers });
                 vehicleData = response.data.data;
-                
+
                 if (!vehicleData) {
                     return responseHelper.error(res, "VIN không tồn tại trong hệ thống. Vui lòng đăng ký xe trước (UC1)", 400);
                 }
@@ -52,24 +52,13 @@ class WarrantyActivationController {
                 return responseHelper.error(res, "Không thể xác minh VIN trong hệ thống xe. Vui lòng đăng ký xe trước (UC1)", 400);
             }
 
-            // Step 3: Get warranty period from model code
-            let warrantyMonths = 36; // Default fallback
-            let warrantySource = 'default';
-
-            if (vehicleData.modelCode) {
-                try {
-                    const VehicleModel = require('../../Manufacturing/Model/VehicleModel')();
-                    const model = await VehicleModel.findOne({ modelCode: vehicleData.modelCode.toUpperCase() });
-                    
-                    if (model && model.vehicleWarrantyMonths) {
-                        warrantyMonths = model.vehicleWarrantyMonths;
-                        warrantySource = `model:${vehicleData.modelCode}`;
-                    }
-                } catch (error) {
-                    console.error('❌ Error fetching warranty period from Manufacturing DB:', error);
-                    // Continue with default warranty period
-                }
+            // Step 3: Get warranty period from vehicle data
+            if (!vehicleData.vehicleWarrantyMonths) {
+                return responseHelper.error(res, "Xe này không có thông tin thời gian bảo hành. Vui lòng liên hệ hãng sản xuất", 400);
             }
+
+            const warrantyMonths = vehicleData.vehicleWarrantyMonths;
+            const warrantySource = `model:${vehicleData.modelCode}`;
 
             // Step 4: Calculate warranty dates
             const startDate = warrantyStartDate ? new Date(warrantyStartDate) : new Date();
@@ -84,27 +73,27 @@ class WarrantyActivationController {
                 warrantyMonths: warrantyMonths,
                 warrantySource: warrantySource,
                 warrantyStatus: 'active',
-                
+
                 // Service center information (who activated the warranty)
                 serviceCenterId: req.user.sub,
                 serviceCenterName: `Service Center ${req.user.sub}`,
                 serviceCenterCode: `SC-${req.user.sub.slice(-6)}`,
-                
+
                 // Activation information
                 activatedBy: req.user.email,
                 activatedByRole: req.user.role,
                 activatedDate: new Date(),
-                
+
                 // Additional information
                 notes: notes || '',
-                
+
                 // System fields
                 createdBy: req.user.email,
                 createdByRole: req.user.role
             });
 
             await warrantyActivation.save();
-            
+
             return responseHelper.success(res, {
                 id: warrantyActivation._id,
                 vin: warrantyActivation.vin,
@@ -119,7 +108,7 @@ class WarrantyActivationController {
                 remainingDays: warrantyActivation.remainingDays,
                 isValid: warrantyActivation.isValid
             }, "Kích hoạt bảo hành thành công", 201);
-            
+
         } catch (error) {
             console.error('Error in activateWarranty:', error);
             return responseHelper.error(res, "Lỗi khi kích hoạt bảo hành", 500);
@@ -132,13 +121,13 @@ class WarrantyActivationController {
     static async getWarrantyByVIN(req, res) {
         try {
             const { vin } = req.params;
-            
+
             if (!vin) {
                 return responseHelper.error(res, "VIN là bắt buộc", 400);
             }
 
             const warranty = await WarrantyActivation.findOne({ vin: vin.toUpperCase() });
-            
+
             if (!warranty) {
                 return responseHelper.error(res, "Không tìm thấy thông tin bảo hành cho VIN này", 404);
             }
@@ -158,7 +147,7 @@ class WarrantyActivationController {
                 isValid: warranty.isValid,
                 notes: warranty.notes
             }, "Lấy thông tin bảo hành thành công");
-            
+
         } catch (error) {
             console.error('Error in getWarrantyByVIN:', error);
             return responseHelper.error(res, "Lỗi khi lấy thông tin bảo hành", 500);
@@ -179,7 +168,7 @@ class WarrantyActivationController {
             }
 
             const skip = (page - 1) * limit;
-            
+
             const warranties = await WarrantyActivation.find(query)
                 .sort({ activatedDate: -1 })
                 .skip(skip)
@@ -206,7 +195,7 @@ class WarrantyActivationController {
                     pages: Math.ceil(total / limit)
                 }
             }, "Lấy danh sách bảo hành thành công");
-            
+
         } catch (error) {
             console.error('Error in getWarrantiesByServiceCenter:', error);
             return responseHelper.error(res, "Lỗi khi lấy danh sách bảo hành", 500);
@@ -219,7 +208,7 @@ class WarrantyActivationController {
     static async checkWarrantyStatus(req, res) {
         try {
             const { vin } = req.params;
-            
+
             if (!vin) {
                 return responseHelper.error(res, "VIN là bắt buộc", 400);
             }
@@ -238,7 +227,7 @@ class WarrantyActivationController {
                     isValid: warranty.isValid
                 } : null
             }, "Kiểm tra trạng thái bảo hành thành công");
-            
+
         } catch (error) {
             console.error('Error in checkWarrantyStatus:', error);
             return responseHelper.error(res, "Lỗi khi kiểm tra trạng thái bảo hành", 500);
