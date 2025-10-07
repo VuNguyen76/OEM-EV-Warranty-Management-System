@@ -12,6 +12,11 @@ const WarrantyVehicleSchema = new mongoose.Schema({
     },
 
     // Vehicle Information (from Manufacturing Service)
+    modelId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'VehicleModel'
+    },
+
     modelName: {
         type: String,
         required: true,
@@ -36,6 +41,11 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         required: true
     },
 
+    category: {
+        type: String,
+        trim: true
+    },
+
     color: {
         type: String,
         required: true,
@@ -43,6 +53,20 @@ const WarrantyVehicleSchema = new mongoose.Schema({
     },
 
     productionDate: Date,
+
+    // Vehicle Specifications (from Model)
+    batteryCapacity: {
+        type: Number // kWh
+    },
+
+    motorPower: {
+        type: Number // kW
+    },
+
+    variant: {
+        type: String,
+        trim: true
+    },
 
     // Owner Information
     ownerName: {
@@ -71,16 +95,27 @@ const WarrantyVehicleSchema = new mongoose.Schema({
 
     // Service Center Information
     serviceCenterId: {
-        type: String,
+        type: mongoose.Schema.Types.ObjectId,
         required: true,
-        trim: true,
-
+        ref: 'ServiceCenter'
     },
 
     serviceCenterName: {
         type: String,
         required: true,
         trim: true
+    },
+
+    serviceCenterCode: {
+        type: String,
+        required: true,
+        trim: true
+    },
+
+    // Vehicle Reference
+    vehicleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Vehicle'
     },
 
     // Warranty Information
@@ -101,6 +136,16 @@ const WarrantyVehicleSchema = new mongoose.Schema({
     },
 
     // Vehicle Warranty Details
+    warrantyMonths: {
+        type: Number,
+        default: 36
+    },
+
+    warrantySource: {
+        type: String,
+        default: 'default'
+    },
+
     vehicleWarrantyMonths: {
         type: Number,
         default: 36

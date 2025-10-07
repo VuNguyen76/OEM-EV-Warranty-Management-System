@@ -1,588 +1,270 @@
-const redisService = require("../../shared/services/RedisService");
-const { connectToWarrantyDB } = require('../../shared/database/warrantyConnection');
+const axios = require('axios');
+const responseHelper = require('../../shared/utils/responseHelper');
+const WarrantyClaimModel = require('../Model/WarrantyClaim');
+const WarrantyActivationModel = require('../Model/WarrantyActivation');
 
-// Models
-let WarrantyClaim;
-let WarrantyVehicle;
-let isInitialized = false;
+// Service URLs
+const vehicleServiceUrl = process.env.VEHICLE_SERVICE_URL || 'http://host.docker.internal:3004';
 
-async function initializeModels() {
-    if (!isInitialized) {
-        try {
-            // Ensure connection is established
-            await connectToWarrantyDB();
-
-            // Initialize models
-            WarrantyClaim = require('../Model/WarrantyClaim')();
-            WarrantyVehicle = require('../Model/WarrantyVehicle')();
-
-            console.log('✅ WarrantyClaim model initialized:', typeof WarrantyClaim);
-            console.log('✅ WarrantyVehicle model initialized:', typeof WarrantyVehicle);
-            console.log('✅ WarrantyVehicle.findOne:', typeof WarrantyVehicle.findOne);
-
-            isInitialized = true;
-        } catch (error) {
-            console.error('Failed to initialize models:', error);
-            throw error;
-        }
-    }
-}
-
+/**
+ * UC4: Tạo Yêu Cầu Bảo Hành
+ * - Chọn xe cần bảo hành (VIN đã có warranty)
+ * - Mô tả vấn đề/lỗi
+ * - Chọn phụ tùng cần thay thế
+ * - Nhập thông tin chẩn đoán
+ * - Gửi yêu cầu lên hãng
+ * - NHIỀU LẦN trong warranty period
+ */
 const createWarrantyClaim = async (req, res) => {
     try {
-        console.log('🔧 Starting createWarrantyClaim...');
-        await initializeModels();
-        console.log('🔧 After initializeModels, WarrantyVehicle type:', typeof WarrantyVehicle);
         const {
             vin,
-            customerName,
-            customerEmail,
-            customerPhone,
             issueDescription,
             issueCategory,
-            severity,
-            incidentDate,
+            partsToReplace,
+            diagnosis,
             mileage,
-            serviceCenterName,
-            serviceCenterLocation,
-            warrantyType
+            priority,
+            requestedBy,
+            notes
         } = req.body;
 
         // Validate required fields
-        if (!vin || !customerName || !customerEmail || !issueDescription || !issueCategory || !incidentDate || !mileage) {
-            return res.status(400).json({
-                success: false,
-                message: "Thiếu thông tin bắt buộc"
-            });
+        if (!vin) {
+            return responseHelper.error(res, "VIN là bắt buộc", 400);
+        }
+        if (!issueDescription) {
+            return responseHelper.error(res, "Mô tả vấn đề là bắt buộc", 400);
+        }
+        if (!issueCategory) {
+            return responseHelper.error(res, "Loại vấn đề là bắt buộc", 400);
         }
 
-        // Check if vehicle has active warranty
-        const warrantyVehicle = await WarrantyVehicle.findOne({ vin });
-        if (!warrantyVehicle) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy thông tin bảo hành cho xe này"
-            });
+        const vinUpper = vin.toUpperCase();
+
+        // Step 1: Verify VIN has active warranty
+        const WarrantyActivation = WarrantyActivationModel();
+        const warrantyActivation = await WarrantyActivation.findOne({ 
+            vin: vinUpper, 
+            warrantyStatus: 'active' 
+        });
+
+        if (!warrantyActivation) {
+            return responseHelper.error(res, "VIN này không có bảo hành hoạt động. Vui lòng kích hoạt bảo hành trước", 400);
         }
 
-        // Check warranty validity
-        const now = new Date();
-        let warrantyEndDate;
-        let warrantyMileageLimit;
-
-        if (warrantyType === 'battery') {
-            warrantyEndDate = warrantyVehicle.batteryWarrantyEndDate;
-            warrantyMileageLimit = warrantyVehicle.batteryWarrantyMileage;
-        } else {
-            warrantyEndDate = warrantyVehicle.vehicleWarrantyEndDate;
-            warrantyMileageLimit = warrantyVehicle.vehicleWarrantyMileage;
+        // Step 2: Check if warranty is still valid
+        const currentDate = new Date();
+        if (currentDate > warrantyActivation.warrantyEndDate) {
+            return responseHelper.error(res, "Bảo hành đã hết hạn", 400);
         }
 
-        if (now > warrantyEndDate) {
-            return res.status(400).json({
-                success: false,
-                message: "Bảo hành đã hết hạn"
-            });
+        // Step 3: Verify VIN exists in Vehicle Service
+        const headers = {
+            'Authorization': req.headers.authorization,
+            'Content-Type': 'application/json'
+        };
+
+        let vehicleData;
+        try {
+            const response = await axios.get(`${vehicleServiceUrl}/vin/${vinUpper}`, { headers });
+            vehicleData = response.data?.data;
+        } catch (error) {
+            console.error('Error fetching vehicle data:', error.message);
+            return responseHelper.error(res, "Không thể xác minh thông tin xe", 500);
         }
 
-        if (mileage > warrantyMileageLimit) {
-            return res.status(400).json({
-                success: false,
-                message: "Xe đã vượt quá số km bảo hành"
-            });
+        // Step 4: Generate claim number
+        const currentYear = new Date().getFullYear();
+        const WarrantyClaim = WarrantyClaimModel();
+        
+        // Get next claim number for this year
+        const lastClaim = await WarrantyClaim.findOne({
+            claimNumber: { $regex: `^WC-${currentYear}-` }
+        }).sort({ claimNumber: -1 });
+
+        let nextNumber = 1;
+        if (lastClaim) {
+            const lastNumber = parseInt(lastClaim.claimNumber.split('-')[2]);
+            nextNumber = lastNumber + 1;
         }
 
-        // Generate claim number
-        const claimNumber = WarrantyClaim.generateClaimNumber();
+        const claimNumber = `WC-${currentYear}-${nextNumber.toString().padStart(5, '0')}`;
 
-        // Create warranty claim
-        const newClaim = new WarrantyClaim({
+        // Step 5: Create warranty claim
+        const warrantyClaim = new WarrantyClaim({
             claimNumber,
-            vin,
-            vehicleModel: warrantyVehicle.modelName,
-            vehicleYear: warrantyVehicle.year,
-            mileage,
-            customerName,
-            customerEmail,
-            customerPhone,
+            vin: vinUpper,
+            warrantyActivationId: warrantyActivation._id,
             issueDescription,
             issueCategory,
-            severity: severity || 'medium',
-            incidentDate: new Date(incidentDate),
-            serviceCenterName,
-            serviceCenterLocation,
-            warrantyType: warrantyType || 'vehicle',
-            warrantyStartDate: warrantyVehicle.warrantyStartDate,
-            warrantyEndDate,
-            warrantyMileageLimit,
-            priority: severity === 'critical' ? 'urgent' : severity === 'high' ? 'high' : 'normal'
+            partsToReplace: partsToReplace || [],
+            diagnosis: diagnosis || '',
+            mileage: mileage || 0,
+            priority: priority || 'medium',
+            claimStatus: 'pending',
+            serviceCenterId: req.user.sub,
+            serviceCenterName: req.user.serviceCenterName || '',
+            requestedBy: requestedBy || req.user.email,
+            notes: notes || '',
+            createdAt: new Date(),
+            updatedAt: new Date()
         });
 
-        await newClaim.save();
+        await warrantyClaim.save();
 
-        // Clear cache
-        try {
-            await redisService.del("warranty:claims:*");
-        } catch (cacheError) {
-            console.error("Cache clear error:", cacheError);
-        }
-
-        res.status(201).json({
-            success: true,
+        return responseHelper.success(res, {
             message: "Tạo yêu cầu bảo hành thành công",
-            data: newClaim
-        });
-    } catch (err) {
-        console.error("Create warranty claim error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi tạo yêu cầu bảo hành",
-            error: err.message
-        });
+            warrantyClaim: {
+                claimId: warrantyClaim._id,
+                claimNumber: warrantyClaim.claimNumber,
+                vin: warrantyClaim.vin,
+                claimStatus: warrantyClaim.claimStatus,
+                issueDescription: warrantyClaim.issueDescription,
+                issueCategory: warrantyClaim.issueCategory,
+                partsToReplace: warrantyClaim.partsToReplace,
+                priority: warrantyClaim.priority,
+                createdAt: warrantyClaim.createdAt
+            }
+        }, 201);
+
+    } catch (error) {
+        console.error('Error in createWarrantyClaim:', error);
+        return responseHelper.error(res, "Lỗi khi tạo yêu cầu bảo hành", 500);
     }
 };
 
-const getAllClaims = async (req, res) => {
+/**
+ * UC5: Đính Kèm Báo Cáo Kiểm Tra
+ * - Upload báo cáo kiểm tra kỹ thuật
+ * - Đính kèm hình ảnh minh chứng
+ * - Thêm ghi chú chẩn đoán
+ * - Cập nhật yêu cầu
+ */
+const addClaimAttachment = async (req, res) => {
     try {
-        await initializeModels();
-        const {
-            page = 1,
-            limit = 10,
-            status,
-            issueCategory,
-            priority,
-            serviceCenterName,
-            startDate,
-            endDate,
-            search
-        } = req.query;
+        const { claimId } = req.params;
+        const { notes, attachmentType } = req.body;
+        const files = req.files;
 
-        const cacheKey = `warranty:claims:${JSON.stringify(req.query)}`;
-
-        // Try to get from cache
-        try {
-            const cachedClaims = await redisService.get(cacheKey);
-            if (cachedClaims) {
-                return res.json({
-                    success: true,
-                    message: "Lấy danh sách yêu cầu bảo hành thành công (cached)",
-                    data: JSON.parse(cachedClaims),
-                    cached: true
-                });
-            }
-        } catch (cacheError) {
-            console.error("Cache get error:", cacheError);
+        if (!files || files.length === 0) {
+            return responseHelper.error(res, "Không có file nào được upload", 400);
         }
 
-        // Build filter
-        const filter = {};
-        if (status) filter.status = status;
-        if (issueCategory) filter.issueCategory = issueCategory;
-        if (priority) filter.priority = priority;
-        if (serviceCenterName) filter.serviceCenterName = serviceCenterName;
+        // Step 1: Find warranty claim
+        const WarrantyClaim = WarrantyClaimModel();
+        const warrantyClaim = await WarrantyClaim.findById(claimId);
 
-        if (startDate || endDate) {
-            filter.claimDate = {};
-            if (startDate) filter.claimDate.$gte = new Date(startDate);
-            if (endDate) filter.claimDate.$lte = new Date(endDate);
+        if (!warrantyClaim) {
+            return responseHelper.error(res, "Không tìm thấy yêu cầu bảo hành", 404);
         }
 
-        if (search) {
-            filter.$or = [
-                { claimNumber: { $regex: search, $options: 'i' } },
-                { vin: { $regex: search, $options: 'i' } },
-                { customerName: { $regex: search, $options: 'i' } },
-                { customerEmail: { $regex: search, $options: 'i' } }
-            ];
+        // Step 2: Check permission (only claim creator or admin can add attachments)
+        if (warrantyClaim.serviceCenterId !== req.user.sub && req.user.role !== 'admin') {
+            return responseHelper.error(res, "Không có quyền thêm attachment cho yêu cầu này", 403);
         }
 
-        // Get claims with pagination
-        const skip = (page - 1) * limit;
-        const claims = await WarrantyClaim.find(filter)
-            .sort({ claimDate: -1, priority: 1 })
-            .skip(skip)
-            .limit(parseInt(limit));
+        // Step 3: Process uploaded files
+        const attachments = files.map(file => ({
+            fileName: file.originalname,
+            fileUrl: `/uploads/warranty-claims/${claimId}/${file.filename}`,
+            fileType: file.mimetype,
+            uploadedAt: new Date(),
+            uploadedBy: req.user.email,
+            attachmentType: attachmentType || 'inspection_report'
+        }));
 
-        const total = await WarrantyClaim.countDocuments(filter);
-        const pages = Math.ceil(total / limit);
+        // Step 4: Add attachments to claim
+        warrantyClaim.attachments.push(...attachments);
+        warrantyClaim.updatedAt = new Date();
 
-        const result = {
-            claims,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                pages,
-                hasNext: page < pages,
-                hasPrev: page > 1
-            }
-        };
-
-        // Cache result
-        try {
-            await redisService.set(cacheKey, JSON.stringify(result), 300); // 5 minutes
-        } catch (cacheError) {
-            console.error("Cache set error:", cacheError);
+        if (notes) {
+            warrantyClaim.notes += `\n[${new Date().toISOString()}] ${req.user.email}: ${notes}`;
         }
 
-        res.json({
-            success: true,
-            message: "Lấy danh sách yêu cầu bảo hành thành công",
-            data: result,
-            cached: false
+        await warrantyClaim.save();
+
+        return responseHelper.success(res, {
+            message: "Đính kèm file thành công",
+            attachments: attachments,
+            claimId: warrantyClaim._id,
+            claimNumber: warrantyClaim.claimNumber
         });
-    } catch (err) {
-        console.error("Get all claims error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi lấy danh sách yêu cầu bảo hành",
-            error: err.message
-        });
+
+    } catch (error) {
+        console.error('Error in addClaimAttachment:', error);
+        return responseHelper.error(res, "Lỗi khi đính kèm file", 500);
     }
 };
 
+// Get claim by ID
 const getClaimById = async (req, res) => {
     try {
-        await initializeModels();
-        const { id } = req.params;
+        const { claimId } = req.params;
 
-        const claim = await WarrantyClaim.findById(id);
-        if (!claim) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy yêu cầu bảo hành"
-            });
+        const WarrantyClaim = WarrantyClaimModel();
+        const warrantyClaim = await WarrantyClaim.findById(claimId)
+            .populate('warrantyActivationId');
+
+        if (!warrantyClaim) {
+            return responseHelper.error(res, "Không tìm thấy yêu cầu bảo hành", 404);
         }
 
-        res.json({
-            success: true,
-            message: "Lấy thông tin yêu cầu bảo hành thành công",
-            data: claim
+        return responseHelper.success(res, {
+            warrantyClaim
         });
-    } catch (err) {
-        console.error("Get claim by ID error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi lấy thông tin yêu cầu bảo hành",
-            error: err.message
-        });
+
+    } catch (error) {
+        console.error('Error in getClaimById:', error);
+        return responseHelper.error(res, "Lỗi khi lấy thông tin yêu cầu bảo hành", 500);
     }
 };
 
-const updateClaimStatus = async (req, res) => {
-    try {
-        await initializeModels();
-        const { id } = req.params;
-        const { status, reason, reviewedBy } = req.body;
-
-        if (!status) {
-            return res.status(400).json({
-                success: false,
-                message: "Thiếu thông tin trạng thái"
-            });
-        }
-
-        const claim = await WarrantyClaim.findById(id);
-        if (!claim) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy yêu cầu bảo hành"
-            });
-        }
-
-        // Update status
-        claim.status = status;
-
-        if (reviewedBy) {
-            claim.reviewedBy = {
-                ...reviewedBy,
-                date: new Date()
-            };
-        }
-
-        if (status === 'approved') {
-            claim.approvalReason = reason;
-        } else if (status === 'rejected') {
-            claim.rejectionReason = reason;
-        } else if (status === 'completed') {
-            claim.resolutionDate = new Date();
-            claim.resolutionNotes = reason;
-        }
-
-        await claim.save();
-
-        // Clear cache
-        try {
-            await redisService.del("warranty:claims:*");
-        } catch (cacheError) {
-            console.error("Cache clear error:", cacheError);
-        }
-
-        res.json({
-            success: true,
-            message: "Cập nhật trạng thái yêu cầu bảo hành thành công",
-            data: claim
-        });
-    } catch (err) {
-        console.error("Update claim status error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi cập nhật trạng thái yêu cầu bảo hành",
-            error: err.message
-        });
-    }
-};
-
-const approveClaim = async (req, res) => {
-    try {
-        await initializeModels();
-        const { id } = req.params;
-        const { approvedAmount, assignedTechnician, reason, reviewedBy } = req.body;
-
-        const claim = await WarrantyClaim.findById(id);
-        if (!claim) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy yêu cầu bảo hành"
-            });
-        }
-
-        if (claim.status !== 'pending' && claim.status !== 'under_review') {
-            return res.status(400).json({
-                success: false,
-                message: "Chỉ có thể phê duyệt yêu cầu đang chờ xử lý"
-            });
-        }
-
-        // Update claim
-        claim.status = 'approved';
-        claim.approvedAmount = approvedAmount || claim.estimatedCost;
-        claim.approvalReason = reason;
-        claim.reviewedBy = {
-            ...reviewedBy,
-            date: new Date()
-        };
-
-        if (assignedTechnician) {
-            claim.assignedTechnician = assignedTechnician;
-        }
-
-        await claim.save();
-
-        // Clear cache
-        try {
-            await redisService.del("warranty:claims:*");
-        } catch (cacheError) {
-            console.error("Cache clear error:", cacheError);
-        }
-
-        res.json({
-            success: true,
-            message: "Phê duyệt yêu cầu bảo hành thành công",
-            data: claim
-        });
-    } catch (err) {
-        console.error("Approve claim error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi phê duyệt yêu cầu bảo hành",
-            error: err.message
-        });
-    }
-};
-
-const rejectClaim = async (req, res) => {
-    try {
-        await initializeModels();
-        const { id } = req.params;
-        const { reason, reviewedBy } = req.body;
-
-        if (!reason) {
-            return res.status(400).json({
-                success: false,
-                message: "Cần nhập lý do từ chối"
-            });
-        }
-
-        const claim = await WarrantyClaim.findById(id);
-        if (!claim) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy yêu cầu bảo hành"
-            });
-        }
-
-        if (claim.status !== 'pending' && claim.status !== 'under_review') {
-            return res.status(400).json({
-                success: false,
-                message: "Chỉ có thể từ chối yêu cầu đang chờ xử lý"
-            });
-        }
-
-        // Update claim
-        claim.status = 'rejected';
-        claim.rejectionReason = reason;
-        claim.reviewedBy = {
-            ...reviewedBy,
-            date: new Date()
-        };
-
-        await claim.save();
-
-        // Clear cache
-        try {
-            await redisService.del("warranty:claims:*");
-        } catch (cacheError) {
-            console.error("Cache clear error:", cacheError);
-        }
-
-        res.json({
-            success: true,
-            message: "Từ chối yêu cầu bảo hành thành công",
-            data: claim
-        });
-    } catch (err) {
-        console.error("Reject claim error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi từ chối yêu cầu bảo hành",
-            error: err.message
-        });
-    }
-};
-
+// Get claims by VIN
 const getClaimsByVIN = async (req, res) => {
     try {
-        await initializeModels();
         const { vin } = req.params;
+        const vinUpper = vin.toUpperCase();
 
-        const claims = await WarrantyClaim.find({ vin })
-            .sort({ claimDate: -1 });
+        const WarrantyClaim = WarrantyClaimModel();
+        const warrantyClaims = await WarrantyClaim.find({ vin: vinUpper })
+            .sort({ createdAt: -1 });
 
-        res.json({
-            success: true,
-            message: "Lấy danh sách yêu cầu bảo hành theo VIN thành công",
-            data: {
-                vin,
-                claims,
-                total: claims.length
-            }
+        return responseHelper.success(res, {
+            warrantyClaims,
+            total: warrantyClaims.length
         });
-    } catch (err) {
-        console.error("Get claims by VIN error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi lấy danh sách yêu cầu bảo hành theo VIN",
-            error: err.message
-        });
+
+    } catch (error) {
+        console.error('Error in getClaimsByVIN:', error);
+        return responseHelper.error(res, "Lỗi khi lấy danh sách yêu cầu bảo hành", 500);
     }
 };
 
-const getClaimStatistics = async (req, res) => {
+// Get claims by service center
+const getClaimsByServiceCenter = async (req, res) => {
     try {
-        await initializeModels();
-        const cacheKey = "warranty:claims:statistics";
+        const serviceCenterId = req.user.sub;
 
-        // Try to get from cache
-        try {
-            const cachedStats = await redisService.get(cacheKey);
-            if (cachedStats) {
-                return res.json({
-                    success: true,
-                    message: "Lấy thống kê yêu cầu bảo hành thành công (cached)",
-                    data: JSON.parse(cachedStats),
-                    cached: true
-                });
-            }
-        } catch (cacheError) {
-            console.error("Cache get error:", cacheError);
-        }
+        const WarrantyClaim = WarrantyClaimModel();
+        const warrantyClaims = await WarrantyClaim.find({ serviceCenterId })
+            .sort({ createdAt: -1 });
 
-        // Get statistics
-        const totalClaims = await WarrantyClaim.countDocuments();
-
-        const statusStats = await WarrantyClaim.aggregate([
-            { $group: { _id: '$status', count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
-        ]);
-
-        const categoryStats = await WarrantyClaim.aggregate([
-            { $group: { _id: '$issueCategory', count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
-        ]);
-
-        const priorityStats = await WarrantyClaim.aggregate([
-            { $group: { _id: '$priority', count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
-        ]);
-
-        const approvalRate = await WarrantyClaim.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: 1 },
-                    approved: {
-                        $sum: {
-                            $cond: [{ $eq: ['$status', 'approved'] }, 1, 0]
-                        }
-                    },
-                    rejected: {
-                        $sum: {
-                            $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0]
-                        }
-                    }
-                }
-            }
-        ]);
-
-        const avgClaimAmount = await WarrantyClaim.aggregate([
-            { $match: { approvedAmount: { $gt: 0 } } },
-            { $group: { _id: null, avgAmount: { $avg: '$approvedAmount' } } }
-        ]);
-
-        const result = {
-            totalClaims,
-            byStatus: statusStats,
-            byCategory: categoryStats,
-            byPriority: priorityStats,
-            approvalRate: approvalRate[0] || { total: 0, approved: 0, rejected: 0 },
-            averageClaimAmount: avgClaimAmount[0]?.avgAmount || 0,
-            lastUpdated: new Date()
-        };
-
-        // Cache result
-        try {
-            await redisService.set(cacheKey, JSON.stringify(result), 600); // 10 minutes
-        } catch (cacheError) {
-            console.error("Cache set error:", cacheError);
-        }
-
-        res.json({
-            success: true,
-            message: "Lấy thống kê yêu cầu bảo hành thành công",
-            data: result,
-            cached: false
+        return responseHelper.success(res, {
+            warrantyClaims,
+            total: warrantyClaims.length
         });
-    } catch (err) {
-        console.error("Get claim statistics error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Lỗi server khi lấy thống kê yêu cầu bảo hành",
-            error: err.message
-        });
+
+    } catch (error) {
+        console.error('Error in getClaimsByServiceCenter:', error);
+        return responseHelper.error(res, "Lỗi khi lấy danh sách yêu cầu bảo hành", 500);
     }
 };
-
-
 
 module.exports = {
     createWarrantyClaim,
-    getAllClaims,
+    addClaimAttachment,
     getClaimById,
-    updateClaimStatus,
-    approveClaim,
-    rejectClaim,
     getClaimsByVIN,
-    getClaimStatistics,
-    initializeModels
+    getClaimsByServiceCenter
 };

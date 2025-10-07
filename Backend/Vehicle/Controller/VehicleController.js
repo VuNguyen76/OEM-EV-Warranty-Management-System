@@ -11,73 +11,111 @@ const initializeModels = () => {
     }
 };
 
+/**
+ * UC1: Đăng ký xe theo VIN
+ * - Nhập VIN và thông tin chủ xe
+ * - Tự động lấy thông tin model từ Manufacturing
+ * - Lưu vào Vehicle DB
+ */
 const registerVehicle = async (req, res) => {
     try {
         const {
             vin,
-            modelName,
-            modelCode,
-            manufacturer,
-            year,
-            color,
-            productionDate,
             ownerName,
             ownerPhone,
             ownerEmail,
             ownerAddress,
-            serviceCenterName,
-            serviceCenterCode,
-            serviceCenterAddress,
-            serviceCenterPhone,
+            serviceCenterId,
             notes
         } = req.body;
 
+        if (!vin || !ownerName || !ownerPhone || !ownerAddress || !serviceCenterId) {
+            return responseHelper.error(res, "Thiếu thông tin bắt buộc: VIN, tên chủ xe, số điện thoại, địa chỉ, serviceCenterId", 400);
+        }
+
+        if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin.toUpperCase())) {
+            return responseHelper.error(res, "VIN không đúng định dạng (phải 17 ký tự, không chứa I, O, Q)", 400);
+        }
+
         initializeModels();
 
-        const existingVehicle = await Vehicle.findByVIN(vin);
+        const VINLookupService = require('../services/VINLookupService');
+
+        console.log(`🔍 Validating and looking up VIN: ${vin}`);
+        const authToken = req.headers.authorization?.replace('Bearer ', '');
+        const vehicleInfo = await VINLookupService.validateAndLookupVIN(vin, authToken);
+        console.log(`✅ VIN lookup successful:`, {
+            vin: vehicleInfo.vin,
+            modelName: vehicleInfo.modelName,
+            manufacturer: vehicleInfo.manufacturer,
+            year: vehicleInfo.year,
+            qualityStatus: vehicleInfo.qualityStatus
+        });
+
+        const existingVehicle = await VINLookupService.checkVINRegistration(vin);
         if (existingVehicle) {
             return responseHelper.error(res, "VIN này đã được đăng ký", 400);
         }
 
+        const serviceCenterInfo = await VINLookupService.getServiceCenterInfo(serviceCenterId);
+        console.log(`✅ Service center validated:`, serviceCenterInfo);
         const vehicle = new Vehicle({
-            vin: vin.toUpperCase(),
-            modelName,
-            modelCode: modelCode.toUpperCase(),
-            manufacturer,
-            year,
-            color,
-            productionDate: productionDate ? new Date(productionDate) : null,
+            vin: vehicleInfo.vin,
+            modelId: vehicleInfo.modelId,
+            modelName: vehicleInfo.modelName,
+            modelCode: vehicleInfo.modelCode,
+            manufacturer: vehicleInfo.manufacturer,
+            year: vehicleInfo.year,
+            category: vehicleInfo.category,
+            color: vehicleInfo.color,
+            productionDate: vehicleInfo.productionDate,
+            productionBatch: vehicleInfo.productionBatch,
+            productionLocation: vehicleInfo.productionLocation,
+            plantCode: vehicleInfo.plantCode,
+            batteryCapacity: vehicleInfo.batteryCapacity,
+            motorPower: vehicleInfo.motorPower,
+            variant: vehicleInfo.variant,
+            vehicleWarrantyMonths: vehicleInfo.vehicleWarrantyMonths,
             ownerName,
             ownerPhone,
             ownerEmail,
             ownerAddress,
-            serviceCenterName: serviceCenterName || req.user.serviceCenterName || 'Default Service Center',
-            serviceCenterCode: serviceCenterCode || req.user.serviceCenterCode || 'SC001',
-            serviceCenterAddress,
-            serviceCenterPhone,
+            serviceCenterId: serviceCenterInfo.id,
+            serviceCenterName: serviceCenterInfo.name,
+            serviceCenterCode: serviceCenterInfo.code,
             registeredBy: req.user.email,
             registeredByRole: req.user.role,
             createdBy: req.user.email,
-            notes
+            notes,
+            vinValidatedAt: vehicleInfo.validatedAt,
+            qualityStatus: vehicleInfo.qualityStatus
         });
 
         await vehicle.save();
-
         await redisService.del("vehicles:*");
+
+        console.log(`✅ Vehicle registered successfully: ${vehicle.vin}`);
 
         return responseHelper.success(res, {
             id: vehicle._id,
             vin: vehicle.vin,
             modelName: vehicle.modelName,
+            manufacturer: vehicle.manufacturer,
+            year: vehicle.year,
             ownerName: vehicle.ownerName,
             serviceCenterName: vehicle.serviceCenterName,
-            status: vehicle.status
+            status: vehicle.status,
+            qualityStatus: vehicle.qualityStatus
         }, "Đăng ký xe thành công", 201);
     } catch (error) {
-        return responseHelper.error(res, "Lỗi khi đăng ký xe", 500);
+        console.error('❌ Error in registerVehicle:', error);
+        return responseHelper.error(res, `Lỗi khi đăng ký xe: ${error.message}`, 500);
     }
 };
 
+/**
+ * Lấy thông tin xe theo VIN
+ */
 const getVehicleByVIN = async (req, res) => {
     try {
         const { vin } = req.params;

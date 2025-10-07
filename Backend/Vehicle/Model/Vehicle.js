@@ -10,6 +10,12 @@ const VehicleSchema = new mongoose.Schema({
         trim: true
     },
 
+    // ✅ Model Reference (from Manufacturing DB)
+    modelId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'VehicleModel'
+    },
+
     modelName: {
         type: String,
         required: true,
@@ -37,6 +43,12 @@ const VehicleSchema = new mongoose.Schema({
         max: new Date().getFullYear() + 2
     },
 
+    // ✅ Vehicle Category (SUV, Sedan, Hatchback, etc.)
+    category: {
+        type: String,
+        trim: true
+    },
+
     color: {
         type: String,
         required: true,
@@ -45,6 +57,56 @@ const VehicleSchema = new mongoose.Schema({
 
     productionDate: {
         type: Date
+    },
+
+    // ✅ Production Information (from Manufacturing DB)
+    productionBatch: {
+        type: String,
+        trim: true
+    },
+
+    productionLocation: {
+        type: String,
+        trim: true
+    },
+
+    plantCode: {
+        type: String,
+        trim: true,
+        uppercase: true
+    },
+
+    // ✅ Quality Information
+    qualityStatus: {
+        type: String,
+        enum: ['pending', 'passed', 'failed'],
+        default: 'pending'
+    },
+
+    // ✅ Vehicle Specifications (from Model)
+    batteryCapacity: {
+        type: Number // kWh
+    },
+
+    motorPower: {
+        type: Number // kW
+    },
+
+    variant: {
+        type: String,
+        trim: true
+    },
+
+    // ✅ Warranty Information (from Model)
+    vehicleWarrantyMonths: {
+        type: Number,
+        default: 36
+    },
+
+    // ✅ VIN Validation Timestamp
+    vinValidatedAt: {
+        type: Date,
+        default: Date.now
     },
 
     ownerName: {
@@ -69,6 +131,13 @@ const VehicleSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
+    },
+
+    // ✅ Service Center Reference (Primary Key)
+    serviceCenterId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'ServiceCenter'
     },
 
     serviceCenterName: {
