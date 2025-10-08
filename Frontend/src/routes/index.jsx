@@ -10,49 +10,93 @@ import CreateClaim from "../page/Home/SC/CreateClaim";
 import ManageClaim from "../page/Home/SC/ManageClaim";
 import ManageCustomer from "../page/Home/SC/ManageCustomer";
 import ManageCampaign from "../page/Home/SC/ManageCampaign";
+import ProtectRoute from "../components/ProtectRoute";
+import Unauthorized from "../components/Unauthorized";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Auth />,
+  },
+  {
+    path: "/unauthorized",
+    element: <Unauthorized />,
+  },
+  {
+    element: <ProtectRoute allowedRoles={["service_staff","admin"]} />,
     children: [
       {
-        path: "forgot-password",
-        element: <ForgotPassword />,
+        path: "/sc",
+        element: <DefaultLayout />,
+        children: [
+          {
+            index: true,
+            element: <Dashboard />,
+          },
+          {
+            path: "register-vin",
+            element: <RegisterVIN />,
+          },
+          {
+            path: "search-vin",
+            element: <SearchVIN />,
+          },
+          {
+            path: "create-claim",
+            element: <CreateClaim />,
+          },
+          {
+            path: "manage-claim",
+            element: <ManageClaim />,
+          },
+          {
+            path: "manage-customer",
+            element: <ManageCustomer />,
+          },
+          {
+            path: "manage-campaign",
+            element: <ManageCampaign />,
+          },
+        ],
       },
     ],
   },
   {
-    path: "/sc",
-    element: <DefaultLayout />,
+    element: <ProtectRoute allowedRoles={["admin"]} />,
     children: [
       {
-        index: true,
-        element: <Dashboard />,
-      },
-      {
-        path: "register-vin",
-        element: <RegisterVIN />,
-      },
-      {
-        path: "search-vin",
-        element: <SearchVIN />,
-      },
-      {
-        path: "create-claim",
-        element: <CreateClaim />,
-      },
-      {
-        path: "manage-claim",
-        element: <ManageClaim />,
-      },
-      {
-        path: "manage-customer",
-        element: <ManageCustomer />,
-      },
-      {
-        path: "manage-campaign",
-        element: <ManageCampaign />,
+        path: "/admin",
+        element: <DefaultLayout />,
+        children: [
+          {
+            index: true,
+            element: <Dashboard />,
+          },
+          {
+            path: "register-vin",
+            element: <RegisterVIN />,
+          },
+          {
+            path: "search-vin",
+            element: <SearchVIN />,
+          },
+          {
+            path: "create-claim",
+            element: <CreateClaim />,
+          },
+          {
+            path: "manage-claim",
+            element: <ManageClaim />,
+          },
+          {
+            path: "manage-customer",
+            element: <ManageCustomer />,
+          },
+          {
+            path: "manage-campaign",
+            element: <ManageCampaign />,
+          },
+        ],
       },
     ],
   },
