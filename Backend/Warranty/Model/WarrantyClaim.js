@@ -102,6 +102,9 @@ const warrantyClaimSchema = new mongoose.Schema({
             "repair_in_progress",   // UC10: Repair work is in progress
             "repair_on_hold",       // UC10: Repair work is on hold due to issues
             "repair_completed",     // UC10: Repair work completed, awaiting final check
+            "uploading_results",    // UC11: Uploading result photos
+            "ready_for_handover",   // UC11: Ready for vehicle handover
+            "handed_over",          // UC11: Vehicle handed over to customer
             "in_progress",          // Legacy status
             "completed",
             "cancelled",
@@ -124,6 +127,9 @@ const warrantyClaimSchema = new mongoose.Schema({
                 "repair_in_progress",   // UC10: Repair work is in progress
                 "repair_on_hold",       // UC10: Repair work is on hold due to issues
                 "repair_completed",     // UC10: Repair work completed, awaiting final check
+                "uploading_results",    // UC11: Uploading result photos
+                "ready_for_handover",   // UC11: Ready for vehicle handover
+                "handed_over",          // UC11: Vehicle handed over to customer
                 "in_progress",          // Legacy status
                 "completed",
                 "cancelled",
@@ -468,6 +474,117 @@ const warrantyClaimSchema = new mongoose.Schema({
             min: 0,
             default: 0
         }
+    },
+
+    // UC11: Warranty Results Management
+    warrantyResults: {
+        // Ảnh kết quả
+        resultPhotos: [{
+            url: {
+                type: String,
+                required: true
+            },
+            description: {
+                type: String,
+                required: true,
+                maxlength: 500
+            },
+            uploadedAt: {
+                type: Date,
+                default: Date.now
+            },
+            uploadedBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                required: true,
+                ref: 'User'
+            }
+        }],
+
+        // Thông tin hoàn thành
+        completionInfo: {
+            completedBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                required: false,
+                ref: 'User'
+            },
+            completedAt: {
+                type: Date,
+                required: false
+            },
+            finalNotes: {
+                type: String,
+                required: false,
+                maxlength: 2000
+            },
+            workSummary: {
+                type: String,
+                required: false,
+                maxlength: 2000
+            },
+            testResults: {
+                type: String,
+                required: false,
+                maxlength: 2000
+            }
+        },
+
+        // Thông tin bàn giao xe
+        handoverInfo: {
+            handoverDate: {
+                type: Date,
+                required: false
+            },
+            handedOverBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                required: false,
+                ref: 'User'
+            },
+            customerName: {
+                type: String,
+                required: false,
+                maxlength: 200
+            },
+            customerPhone: {
+                type: String,
+                required: false,
+                maxlength: 20
+            },
+            customerSignature: {
+                type: String,
+                required: false
+            },
+            vehicleCondition: {
+                type: String,
+                enum: ['excellent', 'good', 'fair'],
+                required: false
+            },
+            mileageAtHandover: {
+                type: Number,
+                required: false,
+                min: 0
+            },
+            notes: {
+                type: String,
+                required: false,
+                maxlength: 1000
+            }
+        },
+
+        // Trạng thái kết quả bảo hành
+        status: {
+            type: String,
+            enum: ['uploading_results', 'ready_for_handover', 'handed_over', 'closed'],
+            required: false
+        },
+        closedAt: {
+            type: Date,
+            required: false
+        },
+        closedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: false,
+            ref: 'User'
+        }
     }
 }, {
     timestamps: true // This will automatically manage createdAt and updatedAt
@@ -485,6 +602,12 @@ warrantyClaimSchema.index({ 'repairProgress.status': 1 });
 warrantyClaimSchema.index({ 'repairProgress.assignedTechnician': 1 });
 warrantyClaimSchema.index({ 'repairProgress.startDate': 1 });
 warrantyClaimSchema.index({ claimStatus: 1, 'repairProgress.status': 1 });
+
+// UC11: Warranty Results indexes
+warrantyClaimSchema.index({ 'warrantyResults.status': 1 });
+warrantyClaimSchema.index({ 'warrantyResults.completionInfo.completedAt': 1 });
+warrantyClaimSchema.index({ 'warrantyResults.handoverInfo.handoverDate': 1 });
+warrantyClaimSchema.index({ claimStatus: 1, 'warrantyResults.status': 1 });
 
 // Pre-save middleware to update updatedAt and track status changes
 warrantyClaimSchema.pre('save', function (next) {
@@ -535,7 +658,7 @@ warrantyClaimSchema.virtual('isEditable').get(function () {
 
 // Virtual for checking if claim is closed
 warrantyClaimSchema.virtual('isClosed').get(function () {
-    return ['completed', 'cancelled', 'rejected'].includes(this.claimStatus);
+    return ['completed', 'cancelled', 'rejected', 'handed_over'].includes(this.claimStatus);
 });
 
 // Ensure virtual fields are serialized

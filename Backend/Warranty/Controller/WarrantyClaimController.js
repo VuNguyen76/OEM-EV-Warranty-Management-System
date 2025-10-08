@@ -3,9 +3,11 @@ const WarrantyClaimModel = require('../Model/WarrantyClaim');
 const WarrantyActivationModel = require('../Model/WarrantyActivation');
 const { generateFileUrl } = require('../../shared/middleware/MulterMiddleware');
 const { verifyVINInVehicleService, normalizeVIN } = require('../../shared/services/VehicleServiceHelper');
+// Import warranty results services
+const WarrantyResultsStorageService = require('../../shared/services/WarrantyResultsStorageService');
 
 /**
- * UC4: Tạo Yêu Cầu Bảo Hành
+ * Tạo Yêu Cầu Bảo Hành
  * - Chọn xe cần bảo hành (VIN đã có warranty)
  * - Mô tả vấn đề/lỗi
  * - Chọn phụ tùng cần thay thế
@@ -129,7 +131,7 @@ const createWarrantyClaim = async (req, res) => {
                 createdAt: warrantyClaim.createdAt
             },
             message: `Tạo yêu cầu bảo hành ${claimNumber} cho xe ${vinUpper} thành công`
-        }, "UC4: Tạo yêu cầu bảo hành thành công", 201);
+        }, "Tạo yêu cầu bảo hành thành công", 201);
 
     } catch (error) {
         console.error('Error in createWarrantyClaim:', error);
@@ -138,7 +140,7 @@ const createWarrantyClaim = async (req, res) => {
 };
 
 /**
- * UC5: Đính Kèm Báo Cáo Kiểm Tra
+ * Đính Kèm Báo Cáo Kiểm Tra
  * - Upload báo cáo kiểm tra kỹ thuật
  * - Đính kèm hình ảnh minh chứng
  * - Thêm ghi chú chẩn đoán
@@ -207,7 +209,7 @@ const addClaimAttachment = async (req, res) => {
             claimId: warrantyClaim._id,
             claimNumber: warrantyClaim.claimNumber,
             totalAttachments: warrantyClaim.attachments.length
-        }, "UC5: Đính kèm báo cáo kiểm tra thành công");
+        }, "Đính kèm báo cáo kiểm tra thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -308,7 +310,7 @@ const getClaimsByServiceCenter = async (req, res) => {
 };
 
 /**
- * UC6: Theo Dõi Trạng Thái Yêu Cầu
+ * Theo Dõi Trạng Thái Yêu Cầu
  * - Lấy lịch sử thay đổi trạng thái của claim
  */
 const getClaimStatusHistory = async (req, res) => {
@@ -352,7 +354,7 @@ const getClaimStatusHistory = async (req, res) => {
                 hasNextPage: endIndex < sortedHistory.length,
                 hasPrevPage: page > 1
             }
-        }, "UC6: Lấy lịch sử trạng thái thành công");
+        }, "Lấy lịch sử trạng thái thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -363,7 +365,7 @@ const getClaimStatusHistory = async (req, res) => {
 };
 
 /**
- * UC7: Phê Duyệt/Từ Chối Yêu Cầu
+ * Phê Duyệt/Từ Chối Yêu Cầu
  * - Phê duyệt claim với validation business logic
  */
 const approveWarrantyClaim = async (req, res) => {
@@ -422,7 +424,7 @@ const approveWarrantyClaim = async (req, res) => {
             approvedAt: claim.approvedAt,
             approvedCost: claim.approvedCost,
             approvalNotes: approvalNotes || 'Claim has been approved for processing'
-        }, "UC7: Phê duyệt yêu cầu bảo hành thành công");
+        }, "Phê duyệt yêu cầu bảo hành thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -433,7 +435,7 @@ const approveWarrantyClaim = async (req, res) => {
 };
 
 /**
- * UC7: Phê Duyệt/Từ Chối Yêu Cầu
+ * Phê Duyệt/Từ Chối Yêu Cầu
  * - Từ chối claim với lý do bắt buộc
  */
 const rejectWarrantyClaim = async (req, res) => {
@@ -483,7 +485,7 @@ const rejectWarrantyClaim = async (req, res) => {
             rejectedAt: claim.rejectedAt,
             rejectionReason: rejectionReason.trim(),
             rejectionNotes: rejectionNotes?.trim() || ''
-        }, "UC7: Từ chối yêu cầu bảo hành thành công");
+        }, "Từ chối yêu cầu bảo hành thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -494,7 +496,7 @@ const rejectWarrantyClaim = async (req, res) => {
 };
 
 /**
- * UC7: Phê Duyệt/Từ Chối Yêu Cầu
+ * Phê Duyệt/Từ Chối Yêu Cầu
  * - Lấy danh sách claims cần phê duyệt
  */
 const getClaimsForApproval = async (req, res) => {
@@ -544,7 +546,7 @@ const getClaimsForApproval = async (req, res) => {
                 hasNextPage: page * limit < totalClaims,
                 hasPrevPage: page > 1
             }
-        }, "UC7: Lấy danh sách claims cần phê duyệt thành công");
+        }, "Lấy danh sách claims cần phê duyệt thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -553,7 +555,7 @@ const getClaimsForApproval = async (req, res) => {
 };
 
 /**
- * UC7: Phê Duyệt/Từ Chối Yêu Cầu
+ * Phê Duyệt/Từ Chối Yêu Cầu
  * - Thêm ghi chú cho claim
  */
 const addApprovalNotes = async (req, res) => {
@@ -605,7 +607,7 @@ const addApprovalNotes = async (req, res) => {
                 addedAt: new Date()
             },
             totalNotes: claim.approvalNotes.length
-        }, "UC7: Thêm ghi chú phê duyệt thành công");
+        }, "Thêm ghi chú phê duyệt thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -616,7 +618,7 @@ const addApprovalNotes = async (req, res) => {
 };
 
 /**
- * UC9: Ship Parts - Confirm parts shipment for approved claim
+ * Ship Parts - Confirm parts shipment for approved claim
  */
 const shipParts = async (req, res) => {
     try {
@@ -700,7 +702,7 @@ const shipParts = async (req, res) => {
             trackingNumber: trackingNumber.trim(),
             shippedDate: claim.partsShipment.shippedDate,
             partsCount: parts.length
-        }, "UC9: Phụ tùng đã được ship thành công");
+        }, "Phụ tùng đã được ship thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -712,7 +714,7 @@ const shipParts = async (req, res) => {
 };
 
 /**
- * UC9: Receive Parts - Confirm parts receipt and quality check
+ * Receive Parts - Confirm parts receipt and quality check
  */
 const receiveParts = async (req, res) => {
     try {
@@ -809,8 +811,8 @@ const receiveParts = async (req, res) => {
             hasDefectiveParts: hasDefectiveParts,
             partsReceived: parts.length
         }, hasDefectiveParts ?
-            "UC9: Phụ tùng đã nhận nhưng có lỗi chất lượng" :
-            "UC9: Phụ tùng đã nhận và kiểm tra chất lượng thành công");
+            "Phụ tùng đã nhận nhưng có lỗi chất lượng" :
+            "Phụ tùng đã nhận và kiểm tra chất lượng thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -822,7 +824,7 @@ const receiveParts = async (req, res) => {
 };
 
 /**
- * UC9: Get Parts Shipment Status
+ * Get Parts Shipment Status
  */
 const getPartsShipmentStatus = async (req, res) => {
     try {
@@ -849,7 +851,7 @@ const getPartsShipmentStatus = async (req, res) => {
                 status: 'pending',
                 parts: []
             }
-        }, "UC9: Lấy thông tin shipment thành công");
+        }, "Lấy thông tin shipment thành công");
 
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
@@ -860,11 +862,11 @@ const getPartsShipmentStatus = async (req, res) => {
 };
 
 // ===================================
-// UC10: REPAIR PROGRESS MANAGEMENT
+// REPAIR PROGRESS MANAGEMENT
 // ===================================
 
 /**
- * UC10: Start repair work
+ * Start repair work
  * Status transition: parts_received -> repair_in_progress
  */
 const startRepair = async (req, res) => {
@@ -936,7 +938,7 @@ const startRepair = async (req, res) => {
 };
 
 /**
- * UC10: Update progress step
+ * Update progress step
  */
 const updateProgressStep = async (req, res) => {
     try {
@@ -1012,7 +1014,7 @@ const updateProgressStep = async (req, res) => {
 };
 
 /**
- * UC10: Report issue during repair
+ * Report issue during repair
  */
 const reportIssue = async (req, res) => {
     try {
@@ -1092,7 +1094,7 @@ const reportIssue = async (req, res) => {
 };
 
 /**
- * UC10: Resolve issue and resume repair
+ * Resolve issue and resume repair
  */
 const resolveIssue = async (req, res) => {
     try {
@@ -1163,7 +1165,7 @@ const resolveIssue = async (req, res) => {
 };
 
 /**
- * UC10: Perform quality check
+ * Perform quality check
  */
 const performQualityCheck = async (req, res) => {
     try {
@@ -1244,7 +1246,7 @@ const performQualityCheck = async (req, res) => {
 };
 
 /**
- * UC10: Complete repair (final step)
+ * Complete repair (final step)
  */
 const completeRepair = async (req, res) => {
     try {
@@ -1305,7 +1307,7 @@ const completeRepair = async (req, res) => {
 };
 
 /**
- * UC10: Get repair progress
+ * Get repair progress
  */
 const getRepairProgress = async (req, res) => {
     try {
@@ -1343,7 +1345,7 @@ const getRepairProgress = async (req, res) => {
 };
 
 /**
- * UC10: Get repair history
+ * Get repair history
  */
 const getRepairHistory = async (req, res) => {
     try {
@@ -1440,6 +1442,545 @@ const getRepairHistory = async (req, res) => {
     }
 };
 
+// ===================================
+// WARRANTY RESULTS MANAGEMENT
+// ===================================
+
+/**
+ * Upload Result Photos
+ * Upload ảnh kết quả sau khi hoàn thành sửa chữa
+ *
+ * @route POST /api/claims/:claimId/results/photos
+ * @access technician, service_staff, admin
+ */
+const uploadResultPhotos = async (req, res) => {
+    try {
+        const { claimId } = req.params;
+        const userId = req.user.sub;
+
+        // ✅ VALIDATION: Claim must exist
+        const WarrantyClaim = WarrantyClaimModel();
+        const claim = await WarrantyClaim.findById(claimId);
+
+        if (!claim) {
+            // Cleanup uploaded files if claim not found
+            if (req.files && req.files.length > 0) {
+                WarrantyResultsStorageService.cleanupUploadedFiles(req.files);
+            }
+            return responseHelper.error(res, "Không tìm thấy yêu cầu bảo hành", 404);
+        }
+
+        // ✅ VALIDATION: Claim status must be repair_completed
+        if (claim.claimStatus !== 'repair_completed') {
+            // Cleanup uploaded files
+            if (req.files && req.files.length > 0) {
+                WarrantyResultsStorageService.cleanupUploadedFiles(req.files);
+            }
+            return responseHelper.error(res, "Chỉ có thể upload ảnh khi claim ở trạng thái 'repair_completed'", 400);
+        }
+
+        // ✅ VALIDATION: Permission check
+        if (claim.serviceCenterId.toString() !== userId && req.user.role !== 'admin') {
+            // Cleanup uploaded files
+            if (req.files && req.files.length > 0) {
+                WarrantyResultsStorageService.cleanupUploadedFiles(req.files);
+            }
+            return responseHelper.error(res, "Không có quyền upload ảnh cho claim này", 403);
+        }
+
+        // ✅ VALIDATION: Files validation (đã được validate bởi middleware)
+        const validationResult = WarrantyResultsStorageService.validateUploadedFiles(req.files);
+        if (!validationResult.valid) {
+            // Cleanup uploaded files
+            WarrantyResultsStorageService.cleanupUploadedFiles(req.files);
+            return responseHelper.error(res, validationResult.errors.join(', '), 400);
+        }
+
+        // ✅ BUSINESS LOGIC: Process uploaded photos
+        const photoObjects = WarrantyResultsStorageService.processUploadedPhotos(
+            req.files,
+            req.parsedDescriptions, // Đã được parse bởi middleware
+            userId,
+            req
+        );
+
+        // Initialize warrantyResults if not exists
+        if (!claim.warrantyResults) {
+            claim.warrantyResults = {
+                resultPhotos: [],
+                completionInfo: {},
+                handoverInfo: {},
+                status: 'uploading_results'
+            };
+        }
+
+        // Add photos to claim
+        claim.warrantyResults.resultPhotos.push(...photoObjects);
+
+        // Update warranty results status
+        if (!claim.warrantyResults.status) {
+            claim.warrantyResults.status = 'uploading_results';
+        }
+
+        // Set audit trail for status change
+        claim._statusChangedBy = req.user.email;
+        claim._statusChangeReason = 'Upload ảnh kết quả bảo hành';
+        claim._statusChangeNotes = `Uploaded ${photoObjects.length} result photos`;
+
+        // Save claim
+        await claim.save();
+
+        // Prepare response
+        const responseData = {
+            claimId: claim._id,
+            claimNumber: claim.claimNumber,
+            photosUploaded: photoObjects.length,
+            photos: photoObjects.map(photo => ({
+                url: photo.url,
+                description: photo.description,
+                uploadedAt: photo.uploadedAt
+            })),
+            warrantyResultsStatus: claim.warrantyResults.status
+        };
+
+        return responseHelper.success(res, responseData, "Upload ảnh kết quả thành công");
+
+    } catch (error) {
+        // Cleanup uploaded files on error
+        if (req.files && req.files.length > 0) {
+            WarrantyResultsStorageService.cleanupUploadedFiles(req.files);
+        }
+
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'uploadResultPhotos', error, "Lỗi server khi upload ảnh kết quả", 500, {
+            claimId: req.params.claimId,
+            filesCount: req.files?.length || 0
+        });
+    }
+};
+
+/**
+ * Update Completion Info
+ * Cập nhật thông tin hoàn thành sửa chữa
+ *
+ * @route POST /api/claims/:claimId/results/completion
+ * @access technician, service_staff, admin
+ */
+const updateCompletionInfo = async (req, res) => {
+    try {
+        const { claimId } = req.params;
+        const { workSummary, testResults, finalNotes } = req.body;
+        const userId = req.user.sub;
+
+        // ✅ VALIDATION: Required fields
+        if (!workSummary || workSummary.trim().length === 0) {
+            return responseHelper.error(res, "workSummary là bắt buộc", 400);
+        }
+        if (!testResults || testResults.trim().length === 0) {
+            return responseHelper.error(res, "testResults là bắt buộc", 400);
+        }
+
+        // ✅ VALIDATION: Field length limits
+        if (workSummary.trim().length > 2000) {
+            return responseHelper.error(res, "workSummary quá dài (tối đa 2000 ký tự)", 400);
+        }
+        if (testResults.trim().length > 2000) {
+            return responseHelper.error(res, "testResults quá dài (tối đa 2000 ký tự)", 400);
+        }
+        if (finalNotes && finalNotes.trim().length > 2000) {
+            return responseHelper.error(res, "finalNotes quá dài (tối đa 2000 ký tự)", 400);
+        }
+
+        // ✅ UC11 VALIDATION: Claim must exist
+        const WarrantyClaim = WarrantyClaimModel();
+        const claim = await WarrantyClaim.findById(claimId);
+
+        if (!claim) {
+            return responseHelper.error(res, "Không tìm thấy yêu cầu bảo hành", 404);
+        }
+
+        // ✅ UC11 VALIDATION: Claim status must be repair_completed
+        if (claim.claimStatus !== 'repair_completed') {
+            return responseHelper.error(res, "Chỉ có thể cập nhật thông tin hoàn thành khi claim ở trạng thái 'repair_completed'", 400);
+        }
+
+        // ✅ UC11 VALIDATION: Permission check
+        if (claim.serviceCenterId.toString() !== userId && req.user.role !== 'admin') {
+            return responseHelper.error(res, "Không có quyền cập nhật thông tin hoàn thành cho claim này", 403);
+        }
+
+        // ✅ UC11 VALIDATION: Must have at least 1 result photo
+        if (!claim.warrantyResults || !claim.warrantyResults.resultPhotos || claim.warrantyResults.resultPhotos.length === 0) {
+            return responseHelper.error(res, "Phải upload ít nhất 1 ảnh kết quả trước khi cập nhật thông tin hoàn thành", 400);
+        }
+
+        // ✅ UC11 BUSINESS LOGIC: Update completion info
+        if (!claim.warrantyResults.completionInfo) {
+            claim.warrantyResults.completionInfo = {};
+        }
+
+        claim.warrantyResults.completionInfo.completedBy = userId;
+        claim.warrantyResults.completionInfo.completedAt = new Date();
+        claim.warrantyResults.completionInfo.workSummary = workSummary.trim();
+        claim.warrantyResults.completionInfo.testResults = testResults.trim();
+        claim.warrantyResults.completionInfo.finalNotes = finalNotes ? finalNotes.trim() : '';
+
+        // Update warranty results status
+        claim.warrantyResults.status = 'ready_for_handover';
+
+        // Update claim status
+        claim.claimStatus = 'ready_for_handover';
+
+        // Set audit trail for status change
+        claim._statusChangedBy = req.user.email;
+        claim._statusChangeReason = 'Cập nhật thông tin hoàn thành';
+        claim._statusChangeNotes = 'Completed repair work and ready for handover';
+
+        // Save claim
+        await claim.save();
+
+        // Prepare response
+        const responseData = {
+            claimId: claim._id,
+            claimNumber: claim.claimNumber,
+            status: claim.claimStatus,
+            completedBy: userId,
+            completedAt: claim.warrantyResults.completionInfo.completedAt,
+            warrantyResultsStatus: claim.warrantyResults.status
+        };
+
+        return responseHelper.success(res, responseData, "Cập nhật thông tin hoàn thành thành công");
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'updateCompletionInfo', error, "Lỗi server khi cập nhật thông tin hoàn thành", 500, {
+            claimId: req.params.claimId
+        });
+    }
+};
+
+/**
+ * Record Handover
+ * Ghi lại thông tin bàn giao xe cho khách hàng
+ *
+ * @route POST /api/claims/:claimId/results/handover
+ * @access technician, service_staff, admin
+ */
+const recordHandover = async (req, res) => {
+    try {
+        const { claimId } = req.params;
+        const {
+            customerName,
+            customerPhone,
+            customerSignature,
+            vehicleCondition,
+            mileageAtHandover,
+            notes
+        } = req.body;
+        const userId = req.user.sub;
+
+        // ✅ UC11 VALIDATION: Required fields
+        if (!customerName || customerName.trim().length === 0) {
+            return responseHelper.error(res, "customerName là bắt buộc", 400);
+        }
+        if (!customerPhone || customerPhone.trim().length === 0) {
+            return responseHelper.error(res, "customerPhone là bắt buộc", 400);
+        }
+        if (!customerSignature || customerSignature.trim().length === 0) {
+            return responseHelper.error(res, "customerSignature là bắt buộc", 400);
+        }
+
+        // ✅ UC11 VALIDATION: Field validations
+        if (customerName.trim().length > 200) {
+            return responseHelper.error(res, "customerName quá dài (tối đa 200 ký tự)", 400);
+        }
+
+        // Validate phone number format (10 digits)
+        const phoneRegex = /^[0-9]{10}$/;
+        if (!phoneRegex.test(customerPhone.trim())) {
+            return responseHelper.error(res, "customerPhone phải là 10 số", 400);
+        }
+
+        // Validate vehicle condition
+        const validConditions = ['excellent', 'good', 'fair'];
+        if (vehicleCondition && !validConditions.includes(vehicleCondition)) {
+            return responseHelper.error(res, `vehicleCondition phải là: ${validConditions.join(', ')}`, 400);
+        }
+
+        // Validate mileage
+        if (mileageAtHandover !== undefined && (typeof mileageAtHandover !== 'number' || mileageAtHandover < 0)) {
+            return responseHelper.error(res, "mileageAtHandover phải là số dương", 400);
+        }
+
+        // Validate notes length
+        if (notes && notes.trim().length > 1000) {
+            return responseHelper.error(res, "notes quá dài (tối đa 1000 ký tự)", 400);
+        }
+
+        // ✅ UC11 VALIDATION: Claim must exist
+        const WarrantyClaim = WarrantyClaimModel();
+        const claim = await WarrantyClaim.findById(claimId);
+
+        if (!claim) {
+            return responseHelper.error(res, "Không tìm thấy yêu cầu bảo hành", 404);
+        }
+
+        // ✅ UC11 VALIDATION: Claim status must be ready_for_handover
+        if (claim.claimStatus !== 'ready_for_handover') {
+            return responseHelper.error(res, "Chỉ có thể ghi bàn giao khi claim ở trạng thái 'ready_for_handover'", 400);
+        }
+
+        // ✅ UC11 VALIDATION: Permission check
+        if (claim.serviceCenterId.toString() !== userId && req.user.role !== 'admin') {
+            return responseHelper.error(res, "Không có quyền ghi bàn giao cho claim này", 403);
+        }
+
+        // ✅ UC11 BUSINESS LOGIC: Update handover info
+        if (!claim.warrantyResults.handoverInfo) {
+            claim.warrantyResults.handoverInfo = {};
+        }
+
+        claim.warrantyResults.handoverInfo.handoverDate = new Date();
+        claim.warrantyResults.handoverInfo.handedOverBy = userId;
+        claim.warrantyResults.handoverInfo.customerName = customerName.trim();
+        claim.warrantyResults.handoverInfo.customerPhone = customerPhone.trim();
+        claim.warrantyResults.handoverInfo.customerSignature = customerSignature.trim();
+        claim.warrantyResults.handoverInfo.vehicleCondition = vehicleCondition || 'good';
+        claim.warrantyResults.handoverInfo.mileageAtHandover = mileageAtHandover || 0;
+        claim.warrantyResults.handoverInfo.notes = notes ? notes.trim() : '';
+
+        // Update warranty results status
+        claim.warrantyResults.status = 'handed_over';
+
+        // Update claim status
+        claim.claimStatus = 'handed_over';
+
+        // Set audit trail for status change
+        claim._statusChangedBy = req.user.email;
+        claim._statusChangeReason = 'Bàn giao xe cho khách hàng';
+        claim._statusChangeNotes = `Handed over to customer: ${customerName.trim()}`;
+
+        // Save claim
+        await claim.save();
+
+        // Prepare response
+        const responseData = {
+            claimId: claim._id,
+            claimNumber: claim.claimNumber,
+            status: claim.claimStatus,
+            handoverDate: claim.warrantyResults.handoverInfo.handoverDate,
+            customerName: claim.warrantyResults.handoverInfo.customerName,
+            warrantyResultsStatus: claim.warrantyResults.status
+        };
+
+        return responseHelper.success(res, responseData, "Ghi lại thông tin bàn giao xe thành công");
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'recordHandover', error, "Lỗi server khi ghi bàn giao xe", 500, {
+            claimId: req.params.claimId
+        });
+    }
+};
+
+/**
+ * Close Warranty Case
+ * Đóng hồ sơ bảo hành
+ *
+ * @route POST /api/claims/:claimId/results/close
+ * @access service_staff, admin
+ */
+const closeWarrantyCase = async (req, res) => {
+    try {
+        const { claimId } = req.params;
+        const { closureNotes } = req.body;
+        const userId = req.user.sub;
+
+        // ✅ UC11 VALIDATION: Only service_staff and admin can close
+        if (!['service_staff', 'admin'].includes(req.user.role)) {
+            return responseHelper.error(res, "Chỉ service_staff và admin mới có thể đóng hồ sơ bảo hành", 403);
+        }
+
+        // ✅ UC11 VALIDATION: Closure notes validation
+        if (closureNotes && closureNotes.trim().length > 1000) {
+            return responseHelper.error(res, "closureNotes quá dài (tối đa 1000 ký tự)", 400);
+        }
+
+        // ✅ UC11 VALIDATION: Claim must exist
+        const WarrantyClaim = WarrantyClaimModel();
+        const claim = await WarrantyClaim.findById(claimId);
+
+        if (!claim) {
+            return responseHelper.error(res, "Không tìm thấy yêu cầu bảo hành", 404);
+        }
+
+        // ✅ UC11 VALIDATION: Claim status must be handed_over
+        if (claim.claimStatus !== 'handed_over') {
+            return responseHelper.error(res, "Chỉ có thể đóng hồ sơ khi claim ở trạng thái 'handed_over'", 400);
+        }
+
+        // ✅ UC11 VALIDATION: Must have complete warranty results
+        if (!claim.warrantyResults) {
+            return responseHelper.error(res, "Không có thông tin kết quả bảo hành", 400);
+        }
+
+        // Check for result photos
+        if (!claim.warrantyResults.resultPhotos || claim.warrantyResults.resultPhotos.length === 0) {
+            return responseHelper.error(res, "Phải có ảnh kết quả trước khi đóng hồ sơ", 400);
+        }
+
+        // Check for completion info
+        if (!claim.warrantyResults.completionInfo || !claim.warrantyResults.completionInfo.completedAt) {
+            return responseHelper.error(res, "Phải có thông tin hoàn thành trước khi đóng hồ sơ", 400);
+        }
+
+        // Check for handover info
+        if (!claim.warrantyResults.handoverInfo || !claim.warrantyResults.handoverInfo.handoverDate) {
+            return responseHelper.error(res, "Phải có thông tin bàn giao trước khi đóng hồ sơ", 400);
+        }
+
+        // ✅ UC11 BUSINESS LOGIC: Close warranty case
+        claim.warrantyResults.status = 'closed';
+        claim.warrantyResults.closedAt = new Date();
+        claim.warrantyResults.closedBy = userId;
+
+        // Update claim status to completed
+        claim.claimStatus = 'completed';
+        claim.completedAt = new Date();
+
+        // Set audit trail for status change
+        claim._statusChangedBy = req.user.email;
+        claim._statusChangeReason = 'Đóng hồ sơ bảo hành';
+        claim._statusChangeNotes = closureNotes ? closureNotes.trim() : 'Warranty case closed successfully';
+
+        // Save claim
+        await claim.save();
+
+        // Prepare response
+        const responseData = {
+            claimId: claim._id,
+            claimNumber: claim.claimNumber,
+            status: claim.claimStatus,
+            closedAt: claim.warrantyResults.closedAt,
+            closedBy: userId,
+            warrantyResultsStatus: claim.warrantyResults.status
+        };
+
+        return responseHelper.success(res, responseData, "Đóng hồ sơ bảo hành thành công");
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'closeWarrantyCase', error, "Lỗi server khi đóng hồ sơ bảo hành", 500, {
+            claimId: req.params.claimId
+        });
+    }
+};
+
+/**
+ * Get Warranty Results
+ * Xem kết quả bảo hành
+ *
+ * @route GET /api/claims/:claimId/results
+ * @access technician, service_staff, admin, oem_staff
+ */
+const getWarrantyResults = async (req, res) => {
+    try {
+        const { claimId } = req.params;
+        const userId = req.user.sub;
+
+        // ✅ UC11 VALIDATION: Claim must exist
+        const WarrantyClaim = WarrantyClaimModel();
+        const claim = await WarrantyClaim.findById(claimId)
+            .populate('warrantyResults.completionInfo.completedBy', 'name email')
+            .populate('warrantyResults.handoverInfo.handedOverBy', 'name email')
+            .populate('warrantyResults.closedBy', 'name email')
+            .populate('warrantyResults.resultPhotos.uploadedBy', 'name email');
+
+        if (!claim) {
+            return responseHelper.error(res, "Không tìm thấy yêu cầu bảo hành", 404);
+        }
+
+        // ✅ UC11 VALIDATION: Permission check
+        // OEM staff can view any, others can only view their own service center's claims
+        if (req.user.role !== 'admin' && req.user.role !== 'oem_staff') {
+            if (claim.serviceCenterId.toString() !== userId) {
+                return responseHelper.error(res, "Không có quyền xem kết quả bảo hành của claim này", 403);
+            }
+        }
+
+        // ✅ UC11 BUSINESS LOGIC: Prepare warranty results data
+        const warrantyResults = claim.warrantyResults || {};
+
+        // Format result photos
+        const resultPhotos = (warrantyResults.resultPhotos || []).map(photo => ({
+            url: photo.url,
+            description: photo.description,
+            uploadedAt: photo.uploadedAt,
+            uploadedBy: photo.uploadedBy ? {
+                id: photo.uploadedBy._id,
+                name: photo.uploadedBy.name,
+                email: photo.uploadedBy.email
+            } : null
+        }));
+
+        // Format completion info
+        const completionInfo = warrantyResults.completionInfo ? {
+            completedBy: warrantyResults.completionInfo.completedBy ? {
+                id: warrantyResults.completionInfo.completedBy._id,
+                name: warrantyResults.completionInfo.completedBy.name,
+                email: warrantyResults.completionInfo.completedBy.email
+            } : null,
+            completedAt: warrantyResults.completionInfo.completedAt,
+            finalNotes: warrantyResults.completionInfo.finalNotes,
+            workSummary: warrantyResults.completionInfo.workSummary,
+            testResults: warrantyResults.completionInfo.testResults
+        } : null;
+
+        // Format handover info
+        const handoverInfo = warrantyResults.handoverInfo ? {
+            handoverDate: warrantyResults.handoverInfo.handoverDate,
+            handedOverBy: warrantyResults.handoverInfo.handedOverBy ? {
+                id: warrantyResults.handoverInfo.handedOverBy._id,
+                name: warrantyResults.handoverInfo.handedOverBy.name,
+                email: warrantyResults.handoverInfo.handedOverBy.email
+            } : null,
+            customerName: warrantyResults.handoverInfo.customerName,
+            customerPhone: warrantyResults.handoverInfo.customerPhone,
+            vehicleCondition: warrantyResults.handoverInfo.vehicleCondition,
+            mileageAtHandover: warrantyResults.handoverInfo.mileageAtHandover,
+            notes: warrantyResults.handoverInfo.notes
+        } : null;
+
+        // Prepare response data
+        const responseData = {
+            claimId: claim._id,
+            claimNumber: claim.claimNumber,
+            vin: claim.vin,
+            status: claim.claimStatus,
+            warrantyResults: {
+                resultPhotos: resultPhotos,
+                completionInfo: completionInfo,
+                handoverInfo: handoverInfo,
+                status: warrantyResults.status || null,
+                closedAt: warrantyResults.closedAt || null,
+                closedBy: warrantyResults.closedBy ? {
+                    id: warrantyResults.closedBy._id,
+                    name: warrantyResults.closedBy.name,
+                    email: warrantyResults.closedBy.email
+                } : null
+            }
+        };
+
+        return responseHelper.success(res, responseData, "Lấy thông tin kết quả bảo hành thành công");
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'getWarrantyResults', error, "Lỗi server khi lấy kết quả bảo hành", 500, {
+            claimId: req.params.claimId
+        });
+    }
+};
+
 module.exports = {
     createWarrantyClaim,
     addClaimAttachment,
@@ -1447,16 +1988,16 @@ module.exports = {
     getClaimsByVIN,
     getClaimsByServiceCenter,
     getClaimStatusHistory,
-    // UC7: Approval/Rejection methods
+    // Approval/Rejection methods
     approveWarrantyClaim,
     rejectWarrantyClaim,
     getClaimsForApproval,
     addApprovalNotes,
-    // UC9: Parts Management methods
+    // Parts Management methods
     shipParts,
     receiveParts,
     getPartsShipmentStatus,
-    // UC10: Repair Progress Management methods
+    // Repair Progress Management methods
     startRepair,
     updateProgressStep,
     reportIssue,
@@ -1464,5 +2005,11 @@ module.exports = {
     performQualityCheck,
     completeRepair,
     getRepairProgress,
-    getRepairHistory
+    getRepairHistory,
+    // Warranty Results Management methods
+    uploadResultPhotos,
+    updateCompletionInfo,
+    recordHandover,
+    closeWarrantyCase,
+    getWarrantyResults
 };

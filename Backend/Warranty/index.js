@@ -64,12 +64,18 @@ app.delete('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staf
 // ✅ IMPORT MULTER MIDDLEWARE FIRST (before using)
 const WarrantyClaimController = require('./Controller/WarrantyClaimController');
 const { uploadMultipleFiles, handleMulterError } = require('../shared/middleware/MulterMiddleware');
+// Import warranty results specific middleware
+const {
+    uploadMultipleResultPhotos,
+    handleWarrantyResultsUploadError,
+    validateResultPhotos
+} = require('../shared/middleware/WarrantyResultsFileUpload');
 
-// UC2: Gắn phụ tùng vào xe
+// Gắn phụ tùng vào xe
 app.post('/vehicle-parts', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), PartsController.addPartToVehicle);
 app.get('/vehicle-parts/:vin', authenticateToken, PartsController.getVehicleParts);
 
-// UC3: Lịch sử dịch vụ - with file upload support
+// Lịch sử dịch vụ - with file upload support
 app.post('/service-history',
     authenticateToken,
     authorizeRole('admin', 'service_staff', 'technician'),
@@ -82,13 +88,13 @@ app.get('/service-history/:vin', authenticateToken, ServiceHistoryController.get
 app.get('/service-history', authenticateToken, ServiceHistoryController.getAllServiceHistories);
 app.put('/service-history/:id', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), ServiceHistoryController.updateServiceHistory);
 
-// UC7: Phê Duyệt/Từ Chối Yêu Cầu (MUST be FIRST - before ANY other claims routes)
+// Phê Duyệt/Từ Chối Yêu Cầu (MUST be FIRST - before ANY other claims routes)
 app.get('/claims/for-approval', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.getClaimsForApproval);
 
-// UC4: Tạo yêu cầu bảo hành
+// Tạo yêu cầu bảo hành
 app.post('/claims', authenticateToken, authorizeRole('service_staff', 'technician', 'admin'), WarrantyClaimController.createWarrantyClaim);
 
-// UC5: Đính kèm báo cáo kiểm tra (với file upload)
+// Đính kèm báo cáo kiểm tra (với file upload)
 app.post('/claims/:claimId/attachments',
     authenticateToken,
     authorizeRole('service_staff', 'technician', 'admin'),
@@ -97,20 +103,20 @@ app.post('/claims/:claimId/attachments',
     WarrantyClaimController.addClaimAttachment
 );
 
-// UC6: Theo Dõi Trạng Thái Yêu Cầu (MUST be before /claims/:claimId)
+// Theo Dõi Trạng Thái Yêu Cầu (MUST be before /claims/:claimId)
 app.get('/claims/:claimId/status-history', authenticateToken, WarrantyClaimController.getClaimStatusHistory);
 
-// UC7: Phê Duyệt/Từ Chối Yêu Cầu (specific claim actions)
+// Phê Duyệt/Từ Chối Yêu Cầu (specific claim actions)
 app.put('/claims/:claimId/approve', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.approveWarrantyClaim);
 app.put('/claims/:claimId/reject', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.rejectWarrantyClaim);
 app.post('/claims/:claimId/notes', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.addApprovalNotes);
 
-// UC9: Quản Lý Kho Linh Kiện (Parts Management)
+// Quản Lý Kho Linh Kiện (Parts Management)
 app.post('/claims/:claimId/parts/ship', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.shipParts);
 app.post('/claims/:claimId/parts/receive', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.receiveParts);
 app.get('/claims/:claimId/parts/shipment', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.getPartsShipmentStatus);
 
-// UC10: Repair Progress Management
+// Repair Progress Management
 app.post('/claims/:claimId/repair/start', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.startRepair);
 app.post('/claims/:claimId/repair/progress', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.updateProgressStep);
 app.post('/claims/:claimId/repair/issue', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.reportIssue);
@@ -119,6 +125,40 @@ app.post('/claims/:claimId/repair/quality-check', authenticateToken, authorizeRo
 app.post('/claims/:claimId/repair/complete', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.completeRepair);
 app.get('/claims/:claimId/repair/progress', authenticateToken, authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'), WarrantyClaimController.getRepairProgress);
 app.get('/claims/:claimId/repair/history', authenticateToken, authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'), WarrantyClaimController.getRepairHistory);
+
+// Warranty Results Management
+app.post('/claims/:claimId/results/photos',
+    authenticateToken,
+    authorizeRole('technician', 'service_staff', 'admin'),
+    uploadMultipleResultPhotos,
+    handleWarrantyResultsUploadError,
+    validateResultPhotos,
+    WarrantyClaimController.uploadResultPhotos
+);
+
+app.post('/claims/:claimId/results/completion',
+    authenticateToken,
+    authorizeRole('technician', 'service_staff', 'admin'),
+    WarrantyClaimController.updateCompletionInfo
+);
+
+app.post('/claims/:claimId/results/handover',
+    authenticateToken,
+    authorizeRole('technician', 'service_staff', 'admin'),
+    WarrantyClaimController.recordHandover
+);
+
+app.post('/claims/:claimId/results/close',
+    authenticateToken,
+    authorizeRole('service_staff', 'admin'),
+    WarrantyClaimController.closeWarrantyCase
+);
+
+app.get('/claims/:claimId/results',
+    authenticateToken,
+    authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'),
+    WarrantyClaimController.getWarrantyResults
+);
 
 // Get claims - specific routes first
 app.get('/claims/vin/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);
