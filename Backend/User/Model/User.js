@@ -48,7 +48,7 @@ const UserSchema = new mongoose.Schema({
     role: {
         type: String,
         enum: Enum.getValues(),
-        default: "customer"
+        default: "service_staff" // ✅ Default role for new staff accounts
     },
     serviceCenter: {
         id: {
@@ -67,7 +67,6 @@ const UserSchema = new mongoose.Schema({
     skills: [String],
     workload: {
         type: Number,
-        default: 0,
         min: 0
     },
     availability: {
@@ -76,14 +75,14 @@ const UserSchema = new mongoose.Schema({
     },
 
     performanceMetrics: {
-        averageCompletionTime: { type: Number, default: 0 },
-        qualityScore: { type: Number, default: 5.0, min: 0, max: 10 },
-        completedTasks: { type: Number, default: 0 },
-        customerRating: { type: Number, default: 5.0, min: 0, max: 5 }
+        averageCompletionTime: { type: Number },
+        qualityScore: { type: Number, min: 0, max: 10 },
+        completedTasks: { type: Number },
+        customerRating: { type: Number, min: 0, max: 5 }
     },
 
     lastLoginAt: Date,
-    loginAttempts: { type: Number, default: 0 },
+    loginAttempts: { type: Number, required: true, default: 0 },
     lockedUntil: Date
 });
 

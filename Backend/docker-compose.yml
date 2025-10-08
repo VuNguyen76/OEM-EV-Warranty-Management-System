@@ -89,6 +89,10 @@ services:
       - redis
     networks:
       - warranty_network
+    volumes:
+      - ./Manufacturing:/app/Manufacturing
+      - ./shared:/app/shared
+      - ./node_modules:/app/node_modules
 
   # Warranty Service
   warranty-service:
@@ -111,6 +115,10 @@ services:
       - redis
     networks:
       - warranty_network
+    volumes:
+      - ./Warranty:/app/Warranty
+      - ./shared:/app/shared
+      - ./node_modules:/app/node_modules
 
   # Vehicle Service
   warranty_vehicle_service:

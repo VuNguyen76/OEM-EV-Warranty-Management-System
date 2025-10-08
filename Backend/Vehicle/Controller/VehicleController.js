@@ -1,7 +1,9 @@
-const { createVehicleModel } = require('../Model/Vehicle');
+const createVehicleModel = require('../Model/Vehicle');
 const responseHelper = require('../../shared/utils/responseHelper');
 const queryHelper = require('../../shared/utils/queryHelper');
 const redisService = require('../../shared/services/RedisService');
+const { getCached, setCached, clearCachePatterns } = require('../../shared/services/CacheHelper');
+const { normalizeVIN, isValidVINFormat } = require('../../shared/services/VehicleServiceHelper');
 
 let Vehicle = null;
 
@@ -11,83 +13,193 @@ const initializeModels = () => {
     }
 };
 
+/**
+ * UC1: Đăng ký xe theo VIN
+ * - Nhập VIN và thông tin chủ xe
+ * - Tự động lấy thông tin model từ Manufacturing
+ * - Lưu vào Vehicle DB
+ */
 const registerVehicle = async (req, res) => {
     try {
         const {
             vin,
-            modelName,
-            modelCode,
-            manufacturer,
-            year,
-            color,
-            productionDate,
+            // ✅ CUSTOMER INFORMATION (provided by customer to service staff)
             ownerName,
             ownerPhone,
             ownerEmail,
             ownerAddress,
-            serviceCenterName,
-            serviceCenterCode,
-            serviceCenterAddress,
-            serviceCenterPhone,
+            purchaseDate,
+            purchasePrice,
+            dealerName,
+            // ✅ SERVICE CENTER INFORMATION (from authenticated staff user)
+            serviceCenterId, // Optional - can use from req.user if not provided
             notes
         } = req.body;
 
+        if (!vin || !ownerName || !ownerPhone || !ownerAddress || !purchaseDate) {
+            return responseHelper.error(res, "Thiếu thông tin bắt buộc: VIN, tên chủ xe, số điện thoại, địa chỉ, ngày mua", 400);
+        }
+
+        // ✅ SERVICE CENTER ID: Use from request body or authenticated user
+        const actualServiceCenterId = serviceCenterId || req.user.serviceCenterId || req.user.sub;
+        if (!actualServiceCenterId) {
+            return responseHelper.error(res, "Không xác định được Service Center. Vui lòng liên hệ quản trị viên", 400);
+        }
+
+        // Validate purchase date
+        const purchaseDateObj = new Date(purchaseDate);
+        if (purchaseDateObj > new Date()) {
+            return responseHelper.error(res, "Ngày mua không thể trong tương lai", 400);
+        }
+
+        if (!isValidVINFormat(vin)) {
+            return responseHelper.error(res, "VIN không đúng định dạng (phải 17 ký tự, không chứa I, O, Q)", 400);
+        }
+
         initializeModels();
 
-        const existingVehicle = await Vehicle.findByVIN(vin);
+        const VINLookupService = require('../services/VINLookupService');
+
+        console.log(`🔍 Validating and looking up VIN: ${vin}`);
+        const authToken = req.headers.authorization?.replace('Bearer ', '');
+        const vehicleInfo = await VINLookupService.validateAndLookupVIN(vin, authToken);
+        console.log(`✅ VIN lookup successful:`, {
+            vin: vehicleInfo.vin,
+            modelName: vehicleInfo.modelName,
+            manufacturer: vehicleInfo.manufacturer,
+            year: vehicleInfo.year,
+            qualityStatus: vehicleInfo.qualityStatus
+        });
+
+        const existingVehicle = await VINLookupService.checkVINRegistration(vin);
         if (existingVehicle) {
             return responseHelper.error(res, "VIN này đã được đăng ký", 400);
         }
 
+        const serviceCenterInfo = await VINLookupService.getServiceCenterInfo(actualServiceCenterId);
+        console.log(`✅ Service center validated:`, serviceCenterInfo);
         const vehicle = new Vehicle({
-            vin: vin.toUpperCase(),
-            modelName,
-            modelCode: modelCode.toUpperCase(),
-            manufacturer,
-            year,
-            color,
-            productionDate: productionDate ? new Date(productionDate) : null,
+            vin: vehicleInfo.vin,
+            modelId: vehicleInfo.modelId,
+            modelName: vehicleInfo.modelName,
+            modelCode: vehicleInfo.modelCode,
+            manufacturer: vehicleInfo.manufacturer,
+            year: vehicleInfo.year,
+            category: vehicleInfo.category,
+            color: vehicleInfo.color,
+            productionDate: vehicleInfo.productionDate,
+            productionBatch: vehicleInfo.productionBatch,
+            productionLocation: vehicleInfo.productionLocation,
+            plantCode: vehicleInfo.plantCode,
+            batteryCapacity: vehicleInfo.batteryCapacity,
+            motorPower: vehicleInfo.motorPower,
+            variant: vehicleInfo.variant,
+            vehicleWarrantyMonths: vehicleInfo.vehicleWarrantyMonths,
             ownerName,
             ownerPhone,
             ownerEmail,
             ownerAddress,
-            serviceCenterName: serviceCenterName || req.user.serviceCenterName || 'Default Service Center',
-            serviceCenterCode: serviceCenterCode || req.user.serviceCenterCode || 'SC001',
-            serviceCenterAddress,
-            serviceCenterPhone,
+            purchaseDate: purchaseDateObj,
+            purchasePrice: purchasePrice || null,
+            dealerName: dealerName || null,
+            serviceCenterId: serviceCenterInfo.id,
+            serviceCenterName: serviceCenterInfo.name,
+            serviceCenterCode: serviceCenterInfo.code,
+            // ✅ STAFF INFORMATION (who registered the vehicle on behalf of customer)
             registeredBy: req.user.email,
             registeredByRole: req.user.role,
             createdBy: req.user.email,
-            notes
+            notes,
+            vinValidatedAt: vehicleInfo.validatedAt,
+            qualityStatus: vehicleInfo.qualityStatus
         });
 
         await vehicle.save();
+        await clearCachePatterns(["vehicles:*"]);
 
-        await redisService.del("vehicles:*");
+        console.log(`✅ Vehicle registered successfully: ${vehicle.vin}`);
+
+        // ✅ AUTO-ACTIVATE WARRANTY after successful vehicle registration
+        let warrantyActivation = null;
+        try {
+            const WarrantyActivationModel = require('../../Warranty/Model/WarrantyActivation');
+            const WarrantyActivation = WarrantyActivationModel();
+
+            // Calculate warranty dates from purchase date
+            const warrantyStartDate = purchaseDateObj;
+            const warrantyEndDate = new Date(warrantyStartDate);
+            warrantyEndDate.setMonth(warrantyEndDate.getMonth() + vehicleInfo.vehicleWarrantyMonths);
+
+            warrantyActivation = new WarrantyActivation({
+                vin: vehicleInfo.vin,
+                warrantyStartDate,
+                warrantyEndDate,
+                warrantyMonths: vehicleInfo.vehicleWarrantyMonths,
+                warrantySource: 'model',
+                warrantyStatus: 'active',
+                serviceCenterId: serviceCenterInfo.id,
+                serviceCenterName: serviceCenterInfo.name,
+                serviceCenterCode: serviceCenterInfo.code,
+                // ✅ STAFF INFORMATION (who activated warranty on behalf of customer)
+                activatedBy: req.user.email,
+                activatedByRole: req.user.role,
+                activatedDate: new Date(),
+                notes: `Auto-activated during vehicle registration by ${req.user.email}`,
+                createdBy: req.user.email,
+                createdByRole: req.user.role
+            });
+
+            await warrantyActivation.save();
+            console.log(`✅ Warranty auto-activated for VIN: ${vehicle.vin}`);
+
+        } catch (warrantyError) {
+            console.error('⚠️ Warning: Failed to auto-activate warranty:', warrantyError.message);
+            // Don't fail vehicle registration if warranty activation fails
+        }
 
         return responseHelper.success(res, {
-            id: vehicle._id,
-            vin: vehicle.vin,
-            modelName: vehicle.modelName,
-            ownerName: vehicle.ownerName,
-            serviceCenterName: vehicle.serviceCenterName,
-            status: vehicle.status
-        }, "Đăng ký xe thành công", 201);
+            vehicle: {
+                id: vehicle._id,
+                vin: vehicle.vin,
+                modelName: vehicle.modelName,
+                manufacturer: vehicle.manufacturer,
+                year: vehicle.year,
+                ownerName: vehicle.ownerName,
+                purchaseDate: vehicle.purchaseDate,
+                serviceCenterName: vehicle.serviceCenterName,
+                status: vehicle.status,
+                qualityStatus: vehicle.qualityStatus
+            },
+            warranty: warrantyActivation ? {
+                id: warrantyActivation._id,
+                warrantyStatus: warrantyActivation.warrantyStatus,
+                warrantyStartDate: warrantyActivation.warrantyStartDate,
+                warrantyEndDate: warrantyActivation.warrantyEndDate,
+                warrantyMonths: warrantyActivation.warrantyMonths,
+                remainingDays: warrantyActivation.remainingDays
+            } : null
+        }, warrantyActivation ?
+            `Đăng ký xe cho khách hàng ${ownerName} và kích hoạt bảo hành thành công` :
+            `Đăng ký xe cho khách hàng ${ownerName} thành công (bảo hành chưa kích hoạt)`, 201);
     } catch (error) {
-        return responseHelper.error(res, "Lỗi khi đăng ký xe", 500);
+        console.error('❌ Error in registerVehicle:', error);
+        return responseHelper.error(res, `Lỗi khi đăng ký xe: ${error.message}`, 500);
     }
 };
 
+/**
+ * Lấy thông tin xe theo VIN
+ */
 const getVehicleByVIN = async (req, res) => {
     try {
         const { vin } = req.params;
-        const cacheKey = `vehicles:vin:${vin.toUpperCase()}`;
+        const cacheKey = `vehicles:vin:${normalizeVIN(vin)}`;
 
         initializeModels();
 
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            return responseHelper.success(res, JSON.parse(cachedData), "Lấy thông tin xe thành công (từ cache)");
+            return responseHelper.success(res, cachedData, "Lấy thông tin xe thành công (từ cache)");
         }
 
         const vehicle = await Vehicle.findByVIN(vin);
@@ -95,7 +207,7 @@ const getVehicleByVIN = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
         }
 
-        await redisService.set(cacheKey, JSON.stringify(vehicle), 600);
+        await setCached(cacheKey, vehicle, 600);
 
         return responseHelper.success(res, vehicle, "Lấy thông tin xe thành công");
     } catch (error) {
@@ -110,9 +222,9 @@ const getAllVehicles = async (req, res) => {
 
         initializeModels();
 
-        const cachedData = await redisService.get(cacheKey);
+        const cachedData = await getCached(cacheKey);
         if (cachedData) {
-            return responseHelper.success(res, JSON.parse(cachedData), "Lấy danh sách xe thành công (từ cache)");
+            return responseHelper.success(res, cachedData, "Lấy danh sách xe thành công (từ cache)");
         }
 
         let query = {};
@@ -142,7 +254,7 @@ const getAllVehicles = async (req, res) => {
 
         const result = { vehicles, pagination };
 
-        await redisService.set(cacheKey, JSON.stringify(result), 300);
+        await setCached(cacheKey, result, 300);
 
         return responseHelper.success(res, result, "Lấy danh sách xe thành công");
     } catch (error) {
@@ -168,7 +280,7 @@ const updateVehicle = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy xe", 404);
         }
 
-        await redisService.del("vehicles:*");
+        await clearCachePatterns(["vehicles:*"]);
 
         return responseHelper.success(res, vehicle, "Cập nhật thông tin xe thành công");
     } catch (error) {
@@ -229,7 +341,7 @@ const getVehicleStatistics = async (req, res) => {
     try {
         const cacheKey = 'vehicle_statistics';
 
-        const cachedStats = await redisService.get(cacheKey);
+        const cachedStats = await getCached(cacheKey);
         if (cachedStats) {
             return responseHelper.success(res, cachedStats, 'Thống kê xe (từ cache)');
         }
@@ -257,7 +369,7 @@ const getVehicleStatistics = async (req, res) => {
             lastUpdated: new Date()
         };
 
-        await redisService.set(cacheKey, statistics, 300);
+        await setCached(cacheKey, statistics, 300);
 
         responseHelper.success(res, statistics, 'Lấy thống kê xe thành công');
     } catch (error) {

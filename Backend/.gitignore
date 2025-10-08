@@ -79,3 +79,8 @@ coverage/
 
 tests/
 *.*.js
+
+*.ps1
+*.txt
+*.pdf
+docs/

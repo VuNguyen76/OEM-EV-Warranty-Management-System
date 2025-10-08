@@ -15,8 +15,9 @@ class App {
 
         setupCommonMiddleware(this.app);
 
-        this.app.use(express.json());
-        this.app.use(express.urlencoded({ extended: true }));
+        // Remove body parsing middleware to avoid conflicts with proxy
+        // this.app.use(express.json());
+        // this.app.use(express.urlencoded({ extended: true }));
 
         this.app.use(apiRateLimit);
         this.app.use('/api/auth/login', loginRateLimit);
