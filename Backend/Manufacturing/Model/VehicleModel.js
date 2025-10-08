@@ -62,6 +62,7 @@ const VehicleModelSchema = new mongoose.Schema({
     vehicleWarrantyMonths: {
         type: Number,
         required: true,
+        default: 36,
         min: 12,
         max: 120
     },
@@ -69,6 +70,7 @@ const VehicleModelSchema = new mongoose.Schema({
     batteryWarrantyMonths: {
         type: Number,
         required: true,
+        default: 96,
         min: 24,
         max: 240
     },

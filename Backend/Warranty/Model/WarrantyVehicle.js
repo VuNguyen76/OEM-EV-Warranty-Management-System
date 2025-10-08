@@ -12,11 +12,6 @@ const WarrantyVehicleSchema = new mongoose.Schema({
     },
 
     // Vehicle Information (from Manufacturing Service)
-    modelId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'VehicleModel'
-    },
-
     modelName: {
         type: String,
         required: true,
@@ -41,11 +36,6 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         required: true
     },
 
-    category: {
-        type: String,
-        trim: true
-    },
-
     color: {
         type: String,
         required: true,
@@ -53,20 +43,6 @@ const WarrantyVehicleSchema = new mongoose.Schema({
     },
 
     productionDate: Date,
-
-    // Vehicle Specifications (from Model)
-    batteryCapacity: {
-        type: Number // kWh
-    },
-
-    motorPower: {
-        type: Number // kW
-    },
-
-    variant: {
-        type: String,
-        trim: true
-    },
 
     // Owner Information
     ownerName: {
@@ -95,27 +71,16 @@ const WarrantyVehicleSchema = new mongoose.Schema({
 
     // Service Center Information
     serviceCenterId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         required: true,
-        ref: 'ServiceCenter'
+        trim: true,
+
     },
 
     serviceCenterName: {
         type: String,
         required: true,
         trim: true
-    },
-
-    serviceCenterCode: {
-        type: String,
-        required: true,
-        trim: true
-    },
-
-    // Vehicle Reference
-    vehicleId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Vehicle'
     },
 
     // Warranty Information
@@ -135,24 +100,15 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         default: "pending"
     },
 
-    warrantyMonths: {
-        type: Number,
-        required: true
-    },
-
-    warrantySource: {
-        type: String,
-        required: true
-    },
-
+    // Vehicle Warranty Details
     vehicleWarrantyMonths: {
         type: Number,
-        required: true
+        default: 36
     },
 
     batteryWarrantyMonths: {
         type: Number,
-        required: true
+        default: 96
     },
 
     // Registration Information
@@ -175,13 +131,13 @@ const WarrantyVehicleSchema = new mongoose.Schema({
     // Mileage tracking
     currentMileage: {
         type: Number,
-        required: true,
+        default: 0,
         min: 0
     },
 
     lastServiceMileage: {
         type: Number,
-        required: true,
+        default: 0,
         min: 0
     },
 
@@ -225,6 +181,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
 });
 
 // Indexes
+WarrantyVehicleSchema.index({ serviceCenterId: 1, warrantyStatus: 1 });
 WarrantyVehicleSchema.index({ warrantyEndDate: 1 });
 WarrantyVehicleSchema.index({ ownerPhone: 1 });
 WarrantyVehicleSchema.index({ createdAt: -1 });

@@ -8,12 +8,10 @@ const userSlice = createSlice({
       const { user, token } = action.payload;
       state.user = user;
       state.token = token;
-      localStorage.setItem("token", token);
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
-      localStorage.removeItem("token");
     },
   },
 });

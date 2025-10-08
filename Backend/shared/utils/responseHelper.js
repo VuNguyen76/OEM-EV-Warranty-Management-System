@@ -25,20 +25,15 @@ const sendSuccess = (res, message, data = null, statusCode = 200, meta = {}) => 
  * @param {Object} res - Express response object
  * @param {string} message - Error message
  * @param {number} statusCode - HTTP status code (default: 500)
- * @param {Object} errorDetails - Error details including type, fields, etc.
+ * @param {string} error - Detailed error message
  * @param {Object} meta - Additional metadata
  */
-const sendError = (res, message, statusCode = 500, errorDetails = null, meta = {}) => {
+const sendError = (res, message, statusCode = 500, error = null, meta = {}) => {
     const response = {
         success: false,
-        error: {
-            message,
-            code: statusCode,
-            type: errorDetails?.type || 'Error',
-            ...(errorDetails?.fields && { fields: errorDetails.fields }),
-            ...errorDetails,
-            ...meta
-        }
+        message,
+        ...(error && { error }),
+        ...meta
     };
 
     return res.status(statusCode).json(response);
@@ -91,24 +86,13 @@ const createPagination = (page, limit, total) => {
 const errorHandler = (err, req, res, next) => {
     // Mongoose validation error
     if (err.name === 'ValidationError') {
-        const validationErrors = Object.values(err.errors).map(e => ({
-            field: e.path,
-            message: e.message,
-            value: e.value
-        }));
-        return sendError(res, 'Dữ liệu không hợp lệ', 400, {
-            type: 'ValidationError',
-            fields: validationErrors
-        });
+        const errors = Object.values(err.errors).map(e => e.message);
+        return sendError(res, 'Dữ liệu không hợp lệ', 400, errors.join(', '));
     }
 
     // Mongoose cast error (invalid ObjectId)
     if (err.name === 'CastError') {
-        return sendError(res, 'ID không hợp lệ', 400, {
-            type: 'CastError',
-            field: err.path,
-            value: err.value
-        });
+        return sendError(res, 'ID không hợp lệ', 400, err.message);
     }
 
     // Mongoose duplicate key error

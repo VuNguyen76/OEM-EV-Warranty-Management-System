@@ -1,39 +1,46 @@
 const User = require("../Model/User");
-const responseHelper = require("../../shared/utils/responseHelper");
-const { getCached, setCached, clearCachePatterns } = require("../../shared/services/CacheHelper");
-const { handleControllerError, safeCacheOperation } = require("../../shared/utils/errorHelper");
+const redisService = require("../../shared/services/RedisService");
 
 const getAllUsers = async (req, res) => {
     try {
         const cacheKey = "users:all";
 
-        // Try cache first
-        const cachedUsers = await safeCacheOperation(
-            () => getCached(cacheKey),
-            'getAllUsers-cache-get'
-        );
-
-        if (cachedUsers) {
-            return responseHelper.success(res, {
-                users: cachedUsers,
-                count: cachedUsers.length
-            }, "Lấy danh sách users thành công (cached)");
+        let cachedUsers = null;
+        try {
+            cachedUsers = await redisService.get(cacheKey);
+            if (cachedUsers) {
+                const users = JSON.parse(cachedUsers);
+                return res.json({
+                    success: true,
+                    message: "Lấy danh sách users thành công (cached)",
+                    data: users,
+                    count: users.length,
+                    cached: true
+                });
+            }
+        } catch (cacheError) {
         }
 
         const users = await User.find().select("-password");
 
-        // Cache for 10 minutes
-        await safeCacheOperation(
-            () => setCached(cacheKey, users, 600),
-            'getAllUsers-cache-set'
-        );
+        try {
+            await redisService.set(cacheKey, JSON.stringify(users), 600);
+        } catch (cacheError) {
+        }
 
-        return responseHelper.success(res, {
-            users,
+        res.json({
+            success: true,
+            message: "Lấy danh sách users thành công",
+            data: users,
             count: users.length
-        }, "Lấy danh sách users thành công");
+        });
     } catch (err) {
-        return handleControllerError(res, 'getAllUsers', err, "Lỗi server khi lấy danh sách users");
+        console.error("Get users error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi lấy danh sách users",
+            error: err.message
+        });
     }
 };
 
@@ -43,35 +50,51 @@ const getUserById = async (req, res) => {
         const userId = req.user.sub || req.user.userId;
 
         if (req.user.role !== "admin" && userId !== id) {
-            return responseHelper.error(res, "Không có quyền truy cập thông tin user này", 403);
+            return res.status(403).json({
+                success: false,
+                message: "Không có quyền truy cập thông tin user này"
+            });
         }
-
-        const cacheKey = `user:${id}`;
-
-        // Try cache first
-        const cachedUser = await safeCacheOperation(
-            () => getCached(cacheKey),
-            'getUserById-cache-get'
-        );
-
-        if (cachedUser) {
-            return responseHelper.success(res, cachedUser, "Lấy thông tin user thành công (cached)");
+        let cachedUser = null;
+        try {
+            cachedUser = await redisService.getUser(id);
+            if (cachedUser) {
+                return res.json({
+                    success: true,
+                    message: "Lấy thông tin user thành công (cached)",
+                    data: cachedUser,
+                    cached: true
+                });
+            }
+        } catch (cacheError) {
         }
 
         const user = await User.findById(id).select("-password");
         if (!user) {
-            return responseHelper.error(res, "Không tìm thấy user", 404);
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy user"
+            });
         }
 
-        // Cache for 1 hour
-        await safeCacheOperation(
-            () => setCached(cacheKey, user, 3600),
-            'getUserById-cache-set'
-        );
+        try {
+            await redisService.cacheUser(id, user, 3600);
+        } catch (cacheError) {
+        }
 
-        return responseHelper.success(res, user, "Lấy thông tin user thành công");
+        res.json({
+            success: true,
+            message: "Lấy thông tin user thành công",
+            data: user,
+            cached: false
+        });
     } catch (err) {
-        return handleControllerError(res, 'getUserById', err, "Lỗi server khi lấy thông tin user");
+        console.error("Get user by ID error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi lấy thông tin user",
+            error: err.message
+        });
     }
 };
 
@@ -85,7 +108,10 @@ const updateUser = async (req, res) => {
         const userId = req.user.sub || req.user.userId;
 
         if (req.user.role !== "admin" && userId !== id) {
-            return responseHelper.error(res, "Không có quyền cập nhật user này", 403);
+            return res.status(403).json({
+                success: false,
+                message: "Không có quyền cập nhật user này"
+            });
         }
 
         const updateData = { username, email, note, phone, address };
@@ -120,43 +146,58 @@ const updateUser = async (req, res) => {
         ).select("-password");
 
         if (!updatedUser) {
-            return responseHelper.error(res, "Không tìm thấy user", 404);
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy user"
+            });
         }
 
-        // Clear cache
-        const cachePatterns = ["users:*", `user:${id}`];
-        if (updatedUser.role === "technician" ||
-            (updateData.specialization || updateData.skills || updateData.availability !== undefined)) {
-            cachePatterns.push("technicians:*");
+        // Xóa cache liên quan
+        try {
+            await redisService.invalidateUser(id);
+            await redisService.del("users:all");
+
+            if (updatedUser.role === "technician" ||
+                (updateData.specialization || updateData.skills || updateData.availability !== undefined)) {
+                await redisService.invalidateTechnicians();
+            }
+
+        } catch (cacheError) {
         }
 
-        await safeCacheOperation(
-            () => clearCachePatterns(cachePatterns),
-            'updateUser-cache-clear'
-        );
-
-        return responseHelper.success(res, updatedUser, "Cập nhật user thành công");
+        res.json({
+            success: true,
+            message: "Cập nhật user thành công",
+            data: updatedUser
+        });
     } catch (err) {
-        return handleControllerError(res, 'updateUser', err, "Lỗi server khi cập nhật user");
+        console.error("Update user error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi cập nhật user",
+            error: err.message
+        });
     }
 };
 
 const getAvailableTechnicians = async (req, res) => {
     try {
         const { specialization, serviceCenter } = req.query;
-        const cacheKey = `technicians:${specialization || 'all'}:${serviceCenter || 'all'}`;
+        const filters = { specialization, serviceCenter };
 
-        // Try cache first
-        const cachedTechnicians = await safeCacheOperation(
-            () => getCached(cacheKey),
-            'getTechnicians-cache-get'
-        );
-
-        if (cachedTechnicians) {
-            return responseHelper.success(res, {
-                technicians: cachedTechnicians,
-                count: cachedTechnicians.length
-            }, "Lấy danh sách technicians thành công (cached)");
+        let cachedTechnicians = null;
+        try {
+            cachedTechnicians = await redisService.getTechnicians(filters);
+            if (cachedTechnicians) {
+                return res.json({
+                    success: true,
+                    message: "Lấy danh sách technicians thành công (cached)",
+                    data: cachedTechnicians,
+                    count: cachedTechnicians.length,
+                    cached: true
+                });
+            }
+        } catch (cacheError) {
         }
 
         const filter = {
@@ -177,18 +218,24 @@ const getAvailableTechnicians = async (req, res) => {
             .select("-password -refreshToken")
             .sort({ workload: 1, "performanceMetrics.qualityScore": -1 });
 
-        // Cache for 5 minutes
-        await safeCacheOperation(
-            () => setCached(cacheKey, technicians, 300),
-            'getTechnicians-cache-set'
-        );
+        try {
+            await redisService.cacheTechnicians(filters, technicians, 300);
+        } catch (cacheError) {
+        }
 
-        return responseHelper.success(res, {
-            technicians,
+        res.json({
+            success: true,
+            message: "Lấy danh sách technicians thành công",
+            data: technicians,
             count: technicians.length
-        }, "Lấy danh sách technicians thành công");
+        });
     } catch (err) {
-        return handleControllerError(res, 'getAvailableTechnicians', err, "Lỗi server khi lấy danh sách technicians");
+        console.error("Get technicians error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi lấy danh sách technicians",
+            error: err.message
+        });
     }
 };
 
@@ -198,26 +245,32 @@ const deleteUser = async (req, res) => {
         const userId = req.user.sub || req.user.userId;
 
         if (userId === id) {
-            return responseHelper.error(res, "Không thể xóa chính mình", 400);
+            return res.status(400).json({
+                success: false,
+                message: "Không thể xóa chính mình"
+            });
         }
 
         const deletedUser = await User.findByIdAndDelete(id);
         if (!deletedUser) {
-            return responseHelper.error(res, "Không tìm thấy user", 404);
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy user"
+            });
         }
 
-        // Clear cache
-        await safeCacheOperation(
-            () => clearCachePatterns(["users:*", `user:${id}`, "technicians:*"]),
-            'deleteUser-cache-clear'
-        );
-
-        return responseHelper.success(res, {
-            id: deletedUser._id,
-            username: deletedUser.username
-        }, "Xóa user thành công");
+        res.json({
+            success: true,
+            message: "Xóa user thành công",
+            data: { id: deletedUser._id, username: deletedUser.username }
+        });
     } catch (err) {
-        return handleControllerError(res, 'deleteUser', err, "Lỗi server khi xóa user");
+        console.error("Delete user error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi xóa user",
+            error: err.message
+        });
     }
 };
 
@@ -229,28 +282,43 @@ const changePassword = async (req, res) => {
 
         // Check permission - only admin or own user
         if (req.user.role !== "admin" && userId !== id) {
-            return responseHelper.error(res, "Không có quyền thay đổi mật khẩu của user này", 403);
+            return res.status(403).json({
+                success: false,
+                message: "Không có quyền thay đổi mật khẩu của user này"
+            });
         }
 
         // Validate input
         if (!newPassword || newPassword.length < 6) {
-            return responseHelper.error(res, "Mật khẩu mới phải có ít nhất 6 ký tự", 400);
+            return res.status(400).json({
+                success: false,
+                message: "Mật khẩu mới phải có ít nhất 6 ký tự"
+            });
         }
 
         const user = await User.findById(id);
         if (!user) {
-            return responseHelper.error(res, "Không tìm thấy user", 404);
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy user"
+            });
         }
 
         // If not admin, verify old password
         if (req.user.role !== "admin") {
             if (!oldPassword) {
-                return responseHelper.error(res, "Cần nhập mật khẩu cũ", 400);
+                return res.status(400).json({
+                    success: false,
+                    message: "Cần nhập mật khẩu cũ"
+                });
             }
 
             const isOldPasswordValid = await user.comparePassword(oldPassword);
             if (!isOldPasswordValid) {
-                return responseHelper.error(res, "Mật khẩu cũ không đúng", 400);
+                return res.status(400).json({
+                    success: false,
+                    message: "Mật khẩu cũ không đúng"
+                });
             }
         }
 
@@ -259,14 +327,24 @@ const changePassword = async (req, res) => {
         await user.save();
 
         // Clear cache
-        await safeCacheOperation(
-            () => clearCachePatterns(["users:*", `user:${id}`]),
-            'changePassword-cache-clear'
-        );
+        try {
+            await redisService.del("users:*");
+            await redisService.del(`user:${id}`);
+        } catch (cacheError) {
+            console.error("Cache clear error:", cacheError);
+        }
 
-        return responseHelper.success(res, null, "Đổi mật khẩu thành công");
+        res.json({
+            success: true,
+            message: "Đổi mật khẩu thành công"
+        });
     } catch (err) {
-        return handleControllerError(res, 'changePassword', err, "Lỗi server khi đổi mật khẩu");
+        console.error("Change password error:", err);
+        res.status(500).json({
+            success: false,
+            message: "Lỗi server khi đổi mật khẩu",
+            error: err.message
+        });
     }
 };
 

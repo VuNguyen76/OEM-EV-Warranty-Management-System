@@ -1,5 +1,5 @@
 import { api } from "../../service/api";
-import { logout } from "../userSlice/userSlice.slice";
+import { logout, setCredentials } from "../userSlice/userSlice.slice";
 
 const authApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -10,6 +10,14 @@ const authApi = api.injectEndpoints({
         body: data,
       }),
       invalidatesTags: ["Auth"],
+      async onQueryStarted(agr, { dispatch, queryFulfilled }) {
+        try {
+          const { data: res } = await queryFulfilled;
+          dispatch(setCredentials({ user: res.user, token: res.accessToken }));
+        } catch (error) {
+          console.log(error);
+        }
+      },
     }),
     register: builder.mutation({
       query: (data) => ({
@@ -44,5 +52,9 @@ const authApi = api.injectEndpoints({
   }),
 });
 
-export const { useLoginMutation, useRegisterMutation, useGetUserByIdQuery, useLogoutMutation } =
-  authApi;
+export const {
+  useLoginMutation,
+  useRegisterMutation,
+  useGetUserByIdQuery,
+  useLogoutMutation,
+} = authApi;

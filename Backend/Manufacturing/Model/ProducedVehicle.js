@@ -48,16 +48,6 @@ const ProducedVehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    plantCode: {
-        type: String,
-        required: true,
-        uppercase: true,
-        trim: true,
-        maxlength: 1,
-        match: /^[A-HJ-NPR-Z0-9]$/,
-        default: 'H'
-    },
-
     // Vehicle Specifications
     color: {
         type: String,

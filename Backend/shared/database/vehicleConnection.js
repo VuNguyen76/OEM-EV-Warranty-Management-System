@@ -21,6 +21,8 @@ const connectToVehicleDatabase = async () => {
 
         // Create separate connection for Vehicle Service
         vehicleConnection = mongoose.createConnection(mongoUri, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
             maxPoolSize: 10,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,

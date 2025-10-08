@@ -10,80 +10,93 @@ import CreateClaim from "../page/Home/SC/CreateClaim";
 import ManageClaim from "../page/Home/SC/ManageClaim";
 import ManageCustomer from "../page/Home/SC/ManageCustomer";
 import ManageCampaign from "../page/Home/SC/ManageCampaign";
-import EVMHomePage from "../page/Home/EVM/EVMHomePage";
-import ModelsPage from "../page/Home/EVM/ModelsPage";
-import ProductionPage from "../page/Home/EVM/ProductionPage";
-import QualityPage from "../page/Home/EVM/QualityPage";
-import ReportsPage from "../page/Home/EVM/ReportsPage";
+import ProtectRoute from "../components/ProtectRoute";
+import Unauthorized from "../components/Unauthorized";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Auth />,
+  },
+  {
+    path: "/unauthorized",
+    element: <Unauthorized />,
+  },
+  {
+    element: <ProtectRoute allowedRoles={["service_staff","admin"]} />,
     children: [
       {
-        path: "forgot-password",
-        element: <ForgotPassword />,
+        path: "/sc",
+        element: <DefaultLayout />,
+        children: [
+          {
+            index: true,
+            element: <Dashboard />,
+          },
+          {
+            path: "register-vin",
+            element: <RegisterVIN />,
+          },
+          {
+            path: "search-vin",
+            element: <SearchVIN />,
+          },
+          {
+            path: "create-claim",
+            element: <CreateClaim />,
+          },
+          {
+            path: "manage-claim",
+            element: <ManageClaim />,
+          },
+          {
+            path: "manage-customer",
+            element: <ManageCustomer />,
+          },
+          {
+            path: "manage-campaign",
+            element: <ManageCampaign />,
+          },
+        ],
       },
     ],
   },
   {
-    path: "/sc",
-    element: <DefaultLayout />,
+    element: <ProtectRoute allowedRoles={["admin"]} />,
     children: [
       {
-        index: true,
-        element: <Dashboard />,
-      },
-      {
-        path: "register-vin",
-        element: <RegisterVIN />,
-      },
-      {
-        path: "search-vin",
-        element: <SearchVIN />,
-      },
-      {
-        path: "create-claim",
-        element: <CreateClaim />,
-      },
-      {
-        path: "manage-claim",
-        element: <ManageClaim />,
-      },
-      {
-        path: "manage-customer",
-        element: <ManageCustomer />,
-      },
-      {
-        path: "manage-campaign",
-        element: <ManageCampaign />,
-      },
-    ],
-  },
-  {
-    path: "/evm",
-    element: <DefaultLayout />,
-    children: [
-      {
-        index: true,
-        element: <EVMHomePage />,
-      },
-      {
-        path: "models",
-        element: <ModelsPage />,
-      },
-      {
-        path: "production",
-        element: <ProductionPage />,
-      },
-      {
-        path: "quality",
-        element: <QualityPage />,
-      },
-      {
-        path: "reports",
-        element: <ReportsPage />,
+        path: "/admin",
+        element: <DefaultLayout />,
+        children: [
+          {
+            index: true,
+            element: <Dashboard />,
+          },
+          {
+            path: "register-vin",
+            element: <RegisterVIN />,
+          },
+          {
+            path: "search-vin",
+            element: <SearchVIN />,
+          },
+          {
+            path: "create-claim",
+            element: <CreateClaim />,
+          },
+          {
+            path: "manage-claim",
+            element: <ManageClaim />,
+          },
+          {
+            path: "manage-customer",
+            element: <ManageCustomer />,
+          },
+          {
+            path: "manage-campaign",
+            element: <ManageCampaign />,
+          },
+        ],
       },
     ],
   },
