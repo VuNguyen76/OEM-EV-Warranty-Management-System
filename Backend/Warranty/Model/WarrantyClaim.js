@@ -81,6 +81,107 @@ const warrantyClaimSchema = new mongoose.Schema({
         min: 0
     },
 
+    // Warranty Results
+    // warrantyResults: {
+    //     resultPhotos: [{
+    //         url: {
+    //             type: String,
+    //             required: true
+    //         },
+    //         description: {
+    //             type: String,
+    //             required: false,
+    //             maxlength: 500
+    //         },
+    //         uploadedAt: {
+    //             type: Date,
+    //             default: Date.now
+    //         },
+    //         uploadedBy: {
+    //             type: mongoose.Schema.Types.ObjectId,
+    //             required: true,
+    //             ref: 'User'
+    //         }
+    //     }],
+
+    //     completionInfo: {
+    //         completedBy: {
+    //             type: mongoose.Schema.Types.ObjectId,
+    //             ref: 'User',
+    //             required: true
+    //         },
+    //         completedAt: {
+    //             type: Date,
+    //             required: true
+    //         },
+    //         finalNotes: {
+    //             type: String,
+    //             maxlength: 2000
+    //         },
+    //         workSummary: {
+    //             type: String,
+    //             required: true,
+    //             maxlength: 2000
+    //         },
+    //         testResults: {
+    //             type: String,
+    //             required: false,
+    //             maxlength: 2000
+    //         }
+    //     },
+
+    //     handoverInfo: {
+    //         handoverDate: {
+    //             type: Date,
+    //             required: true
+    //         },
+    //         handedOverBy: {
+    //             type: mongoose.Schema.Types.ObjectId,
+    //             ref: 'User',
+    //             required: true
+    //         },
+    //         customerName: {
+    //             type: String,
+    //             required: true,
+    //             maxlength: 100
+    //         },
+    //         customerPhone: {
+    //             type: String,
+    //             required: true,
+    //             maxlength: 20
+    //         },
+    //         customerSignature: {
+    //             type: String,
+    //             required: true
+    //         },
+    //         vehicleCondition: {
+    //             type: String,
+    //             required: true,
+    //             maxlength: 1000
+    //         },
+    //         mileageAtHandover: {
+    //             type: Number,
+    //             required: true,
+    //             min: 0
+    //         },
+    //         notes: {
+    //             type: String,
+    //             maxlength: 1000
+    //         }
+    //     },
+
+    //     status: {
+    //         type: String,
+    //         enum: ['uploading_results', 'ready_for_handover', 'handed_over', 'closed'],
+    //         required: true
+    //     },
+    //     closedAt: Date,
+    //     closedBy: {
+    //         type: mongoose.Schema.Types.ObjectId,
+    //         ref: 'User'
+    //     }
+    // },
+
     // Priority
     priority: {
         type: String,
@@ -468,7 +569,121 @@ const warrantyClaimSchema = new mongoose.Schema({
             min: 0,
             default: 0
         }
+    },
+
+    // UC11: Warranty Results Update
+    warrantyResults: {
+        // Result photos after repair completion
+        resultPhotos: [{
+            url: {
+                type: String,
+                required: true
+            },
+            description: {
+                type: String,
+                required: false,
+                maxlength: 500
+            },
+            uploadedAt: {
+                type: Date,
+                default: Date.now
+            },
+            uploadedBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                required: true,
+                ref: 'User'
+            }
+        }],
+
+        // Completion information
+        completionInfo: {
+            completedBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                required: false,
+                ref: 'User'
+            },
+            completedAt: {
+                type: Date,
+                required: false
+            },
+            finalNotes: {
+                type: String,
+                required: false,
+                maxlength: 2000
+            },
+            workSummary: {
+                type: String,
+                required: false,
+                maxlength: 2000
+            },
+            testResults: {
+                type: String,
+                required: false,
+                maxlength: 1000
+            }
+        },
+
+        // Vehicle handover information
+        handoverInfo: {
+            handoverDate: {
+                type: Date,
+                required: false
+            },
+            handedOverBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                required: false,
+                ref: 'User'
+            },
+            customerName: {
+                type: String,
+                required: false,
+                maxlength: 200
+            },
+            customerPhone: {
+                type: String,
+                required: false,
+                maxlength: 20
+            },
+            customerSignature: {
+                type: String, 
+                required: false
+            },
+            vehicleCondition: {
+                type: String,
+                enum: ['excellent', 'good', 'fair', 'needs_attention'],
+                required: false
+            },
+            mileageAtHandover: {
+                type: Number,
+                required: true,
+                min: 0
+            },
+            notes: {
+                type: String,
+                required: false,
+                maxlength: 1000
+            }
+        },
+
+        // Results status tracking
+        status: {
+            type: String,
+            enum: ['uploading_results', 'ready_for_handover', 'handed_over', 'closed'],
+            required: false
+        },
+
+        closedAt: {
+            type: Date,
+            required: false
+        },
+
+        closedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: false,
+            ref: 'User'
+        }
     }
+
 }, {
     timestamps: true // This will automatically manage createdAt and updatedAt
 });
@@ -485,6 +700,13 @@ warrantyClaimSchema.index({ 'repairProgress.status': 1 });
 warrantyClaimSchema.index({ 'repairProgress.assignedTechnician': 1 });
 warrantyClaimSchema.index({ 'repairProgress.startDate': 1 });
 warrantyClaimSchema.index({ claimStatus: 1, 'repairProgress.status': 1 });
+
+
+// UC11: Warranty Results indexes
+warrantyClaimSchema.index({ 'warrantyResults.status': 1 });
+warrantyClaimSchema.index({ 'warrantyResults.handoverInfo.handoverDate': 1 });
+warrantyClaimSchema.index({ 'warrantyResults.completionInfo.completedBy': 1 });
+warrantyClaimSchema.index({ 'warrantyResults.closedAt': -1 });
 
 // Pre-save middleware to update updatedAt and track status changes
 warrantyClaimSchema.pre('save', function (next) {
