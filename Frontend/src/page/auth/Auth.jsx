@@ -1,31 +1,31 @@
 import { useState } from "react";
 import { assets } from "../../assets";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useLoginMutation } from "../../features/auth/auth.api";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setCredentials } from "../../features/userSlice/userSlice.slice";
+import { toast } from "react-toastify";
 
 const Auth = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const dispatch = useDispatch();
+  const [email, setEmail] = useState("tinh123@gmail.com");
+  const [password, setPassword] = useState("Tinh123@");
   const navigate = useNavigate();
 
   const [login, { isLoading }] = useLoginMutation();
+  const { user, token } = useSelector((state) => state.user);
 
   const handleLogin = async () => {
     const res = await login({ email, password }).unwrap();
     if (res.success) {
-      dispatch(setCredentials({ user: res.user, token: res.token }));
-      localStorage.setItem("token", res.token);
+      toast.success("Đăng nhập thành công!");
       switch (res.user.role) {
-        case "sc":
+        case "service_staff":
           navigate("/sc");
           break;
         case "admin":
           navigate("/admin");
           break;
-        case "evm":
+        case "manufacturer_staff":
           navigate("/evm");
           break;
         default:
@@ -33,6 +33,20 @@ const Auth = () => {
       }
     }
   };
+
+  if (user && token) {
+    switch (user.role) {
+      case "service_staff":
+        return <Navigate to="/sc" replace />;
+      case "admin":
+        return <Navigate to="/admin" replace />;
+      case "manufacturer_staff":
+        return <Navigate to="/evm" replace />;
+      default:
+        return <Navigate to="/" replace />;
+    }
+  }
+
   return (
     <div className="h-screen flex justify-center items-center gap-10">
       <div className="w-1/2 h-full relative ">
@@ -97,7 +111,7 @@ const Auth = () => {
                 Mật khẩu
               </label>
               <input
-                type="email"
+                type="password"
                 id="email"
                 className="w-full p-2 border border-gray-300 rounded-md mt-2"
                 placeholder="********"
@@ -107,9 +121,18 @@ const Auth = () => {
             </div>
             <button
               onClick={handleLogin}
-              className="w-full bg-primary text-white p-2 rounded-md hover:bg-primary/80 cursor-pointer transition"
+              className={`w-full bg-primary text-white p-2 rounded-md hover:bg-primary/80  transition flex items-center justify-center gap-3 ${
+                isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+              }`}
             >
-              Đăng nhập
+              {isLoading ? (
+                <>
+                  <p className="w-8 h-8 border-t border-l border-white rounded-full animate-spin"></p>
+                  <span className="font-semibold">Đang đăng nhập</span>
+                </>
+              ) : (
+                <span>Đăng nhập</span>
+              )}
             </button>
             <div className="text-center">
               <Link to="/forgot-password" className="text-gray-500 font-medium">

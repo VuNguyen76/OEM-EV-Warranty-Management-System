@@ -23,7 +23,13 @@ class GatewayService {
                 if (requiresAuth && req.headers.authorization) {
                     proxyReq.setHeader('Authorization', req.headers.authorization);
                 }
-                // Let http-proxy-middleware handle body automatically
+
+                if (req.body && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
+                    const bodyData = JSON.stringify(req.body);
+                    proxyReq.setHeader('Content-Type', 'application/json');
+                    proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                    proxyReq.write(bodyData);
+                }
             },
             onError: (err, req, res) => {
                 if (!res.headersSent) {
@@ -63,10 +69,7 @@ class GatewayService {
             '/api/auth',
             createProxyMiddleware(this.createProxyConfig(
                 this.services.user,
-                {
-                    '^/api/auth/health': '/health',
-                    '^/api/auth': '/auth'
-                },
+                { '^/api/auth': '/auth' },
                 false
             ))
         );

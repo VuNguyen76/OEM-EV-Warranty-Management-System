@@ -56,7 +56,8 @@ const partSchema = new mongoose.Schema({
   warrantyPeriod: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    default: 12 // tháng
   },
 
   cost: {
@@ -90,19 +91,21 @@ const partSchema = new mongoose.Schema({
   stockQuantity: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    default: 0
   },
 
   minimumStock: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    default: 10
   },
 
   reservedQuantity: {
     type: Number,
-    required: true,
-    min: 0
+    min: 0,
+    default: 0
   },
 
   // Vị trí lưu trữ

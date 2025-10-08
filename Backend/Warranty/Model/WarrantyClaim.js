@@ -1,84 +1,28 @@
-const mongoose = require('mongoose');
-const { getWarrantyConnection } = require('../../shared/database/warrantyConnection');
-const { BaseEntity } = require('../../shared/Base/BaseEntity');
-const { ServiceCenterMixin } = require('../../shared/Base/ServiceCenterMixin');
-const { VINMixin } = require('../../shared/Base/VINMixin');
+const mongoose = require("mongoose");
+const BaseEntity = require("../../shared/Base/BaseEntity");
 
-const warrantyClaimSchema = new mongoose.Schema({
-    // ✅ INHERIT BASE PATTERNS
-    ...BaseEntity,
-    ...VINMixin,
-    ...ServiceCenterMixin,
+const WarrantyClaimSchema = new mongoose.Schema({
+    ...BaseEntity.BaseEntity,
 
-    // Claim identification
+    // Claim Information
     claimNumber: {
         type: String,
+        required: true,
         unique: true,
-        required: true,
-        // Format: WC-YYYY-XXXXX
+        index: true
     },
 
-    // ✅ VIN FIELD INHERITED FROM VINMixin
-
-    // Warranty reference
-    warrantyActivationId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "WarrantyActivation",
-        required: true,
-    },
-
-    // Issue information
-    issueDescription: {
+    // Vehicle Information
+    vin: {
         type: String,
         required: true,
-        maxlength: 2000
+        index: true
     },
-
-    issueCategory: {
-        type: String,
-        enum: ["battery", "motor", "electrical", "mechanical", "software", "other"],
-        required: true,
-    },
-
-    // Parts to replace
-    partsToReplace: [{
-        partId: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: false
-        },
-        partName: {
-            type: String,
-            required: true
-        },
-        partSerialNumber: {
-            type: String,
-            required: false
-        },
-        quantity: {
-            type: Number,
-            required: true,
-            min: 1
-        },
-        reason: {
-            type: String,
-            required: true
-        },
-        estimatedCost: {
-            type: Number,
-            required: false,
-            min: 0
-        }
-    }],
-
-    // Diagnosis
-    diagnosis: {
-        type: String,
-        maxlength: 2000
-    },
-
+    vehicleModel: String,
+    vehicleYear: Number,
     mileage: {
         type: Number,
-        min: 0
+        required: true
     },
 
     // Warranty Results
@@ -182,180 +126,138 @@ const warrantyClaimSchema = new mongoose.Schema({
     //     }
     // },
 
-    // Priority
-    priority: {
-        type: String,
-        enum: ["low", "medium", "high", "critical"],
-        default: "medium",
-    },
-
-    // Status
-    claimStatus: {
-        type: String,
-        enum: [
-            "pending",
-            "under_review",
-            "approved",
-            "rejected",
-            "parts_shipped",        // UC9: Parts have been shipped
-            "parts_received",       // UC9: Parts received and verified
-            "parts_rejected",       // UC9: Parts rejected due to quality issues
-            "repair_in_progress",   // UC10: Repair work is in progress
-            "repair_on_hold",       // UC10: Repair work is on hold due to issues
-            "repair_completed",     // UC10: Repair work completed, awaiting final check
-            "in_progress",          // Legacy status
-            "completed",
-            "cancelled",
-        ],
-        default: "pending",
-    },
-
-    // UC6: Status History Tracking
-    statusHistory: [{
-        status: {
-            type: String,
-            enum: [
-                "pending",
-                "under_review",
-                "approved",
-                "rejected",
-                "parts_shipped",        // UC9: Parts have been shipped
-                "parts_received",       // UC9: Parts received and verified
-                "parts_rejected",       // UC9: Parts rejected due to quality issues
-                "repair_in_progress",   // UC10: Repair work is in progress
-                "repair_on_hold",       // UC10: Repair work is on hold due to issues
-                "repair_completed",     // UC10: Repair work completed, awaiting final check
-                "in_progress",          // Legacy status
-                "completed",
-                "cancelled",
-            ],
-            required: true
-        },
-        changedAt: {
-            type: Date,
-            default: Date.now
-        },
-        changedBy: {
-            type: String,
-            required: true
-        },
-        reason: {
-            type: String,
-            maxlength: 500
-        },
-        notes: {
-            type: String,
-            maxlength: 1000
-        }
-    }],
-
-    // Attachments
-    attachments: [{
-        fileName: {
-            type: String,
-            required: true
-        },
-        fileUrl: {
-            type: String,
-            required: true
-        },
-        fileType: {
-            type: String,
-            required: true
-        },
-        uploadedAt: {
-            type: Date,
-            default: Date.now
-        },
-        uploadedBy: {
-            type: String,
-            required: true
-        },
-        attachmentType: {
-            type: String,
-            enum: ["inspection_report", "diagnostic_report", "photo_evidence", "other"],
-            default: "inspection_report"
-        }
-    }],
-
-    // ✅ SERVICE CENTER FIELDS INHERITED FROM ServiceCenterMixin
-
-    requestedBy: {
+    // Customer Information
+    customerName: {
         type: String,
         required: true
     },
+    customerEmail: {
+        type: String,
+        required: true
+    },
+    customerPhone: String,
 
-    // Manufacturer response
+    // Claim Details
+    issueDescription: {
+        type: String,
+        required: true
+    },
+    issueCategory: {
+        type: String,
+        enum: ['battery', 'motor', 'electronics', 'mechanical', 'software', 'other'],
+        required: true
+    },
+    severity: {
+        type: String,
+        enum: ['low', 'medium', 'high', 'critical'],
+        default: 'medium'
+    },
+
+    // Dates
+    incidentDate: {
+        type: Date,
+        required: true
+    },
+    claimDate: {
+        type: Date,
+        default: Date.now
+    },
+
+    // Status
+    status: {
+        type: String,
+        enum: ['pending', 'under_review', 'approved', 'rejected', 'in_progress', 'completed', 'cancelled'],
+        default: 'pending',
+        index: true
+    },
+
+    // Service Center
+    serviceCenterName: String,
+    serviceCenterLocation: String,
+    assignedTechnician: {
+        id: String,
+        name: String,
+        email: String
+    },
+
+    // Approval/Rejection
     reviewedBy: {
-        type: String,
-        required: false
+        id: String,
+        name: String,
+        email: String,
+        date: Date
     },
+    approvalReason: String,
+    rejectionReason: String,
 
-    reviewedAt: {
-        type: Date,
-        required: false
-    },
-
-    reviewNotes: {
-        type: String,
-        maxlength: 2000
-    },
-
-    approvedCost: {
+    // Financial
+    estimatedCost: {
         type: Number,
-        min: 0
+        default: 0
+    },
+    approvedAmount: {
+        type: Number,
+        default: 0
+    },
+    actualCost: {
+        type: Number,
+        default: 0
     },
 
-    // Additional notes (extends BaseEntity.note)
-    notes: {
+    // Parts and Labor
+    partsRequired: [{
+        partNumber: String,
+        partName: String,
+        quantity: Number,
+        unitCost: Number,
+        totalCost: Number
+    }],
+    laborHours: {
+        type: Number,
+        default: 0
+    },
+    laborRate: {
+        type: Number,
+        default: 0
+    },
+
+    // Documentation
+    attachments: [{
+        filename: String,
+        url: String,
+        uploadDate: Date,
+        uploadedBy: String
+    }],
+
+    // Warranty Information
+    warrantyType: {
         type: String,
-        maxlength: 2000
+        enum: ['vehicle', 'battery', 'extended'],
+        required: true
     },
+    warrantyStartDate: Date,
+    warrantyEndDate: Date,
+    warrantyMileageLimit: Number,
 
-    // ✅ TIMESTAMPS INHERITED FROM BaseEntity
-
-    completedAt: {
-        type: Date,
-        required: false
-    },
-
-    // UC7: Approval/Rejection fields
-    approvedAt: {
-        type: Date,
-        required: false
-    },
-
-    approvedBy: {
-        type: String,
-        required: false
-    },
-
-    rejectedAt: {
-        type: Date,
-        required: false
-    },
-
-    rejectedBy: {
-        type: String,
-        required: false
-    },
-
-    rejectionReason: {
-        type: String,
-        maxlength: 1000,
-        required: false
-    },
-
-    // UC7: Approval notes array
-    approvalNotes: [{
-        note: {
-            type: String,
-            required: true,
-            maxlength: 1000
+    // Resolution
+    resolutionDate: Date,
+    resolutionNotes: String,
+    customerSatisfaction: {
+        rating: {
+            type: Number,
+            min: 1,
+            max: 5
         },
+        feedback: String,
+        date: Date
+    },
+
+    // Internal Notes
+    internalNotes: [{
+        note: String,
         addedBy: {
-            type: String,
-            required: true
+            id: String,
+            name: String
         },
         addedAt: {
             type: Date,
@@ -569,131 +471,17 @@ const warrantyClaimSchema = new mongoose.Schema({
             min: 0,
             default: 0
         }
-    },
-
-    // UC11: Warranty Results Update
-    warrantyResults: {
-        // Result photos after repair completion
-        resultPhotos: [{
-            url: {
-                type: String,
-                required: true
-            },
-            description: {
-                type: String,
-                required: false,
-                maxlength: 500
-            },
-            uploadedAt: {
-                type: Date,
-                default: Date.now
-            },
-            uploadedBy: {
-                type: mongoose.Schema.Types.ObjectId,
-                required: true,
-                ref: 'User'
-            }
-        }],
-
-        // Completion information
-        completionInfo: {
-            completedBy: {
-                type: mongoose.Schema.Types.ObjectId,
-                required: false,
-                ref: 'User'
-            },
-            completedAt: {
-                type: Date,
-                required: false
-            },
-            finalNotes: {
-                type: String,
-                required: false,
-                maxlength: 2000
-            },
-            workSummary: {
-                type: String,
-                required: false,
-                maxlength: 2000
-            },
-            testResults: {
-                type: String,
-                required: false,
-                maxlength: 1000
-            }
-        },
-
-        // Vehicle handover information
-        handoverInfo: {
-            handoverDate: {
-                type: Date,
-                required: false
-            },
-            handedOverBy: {
-                type: mongoose.Schema.Types.ObjectId,
-                required: false,
-                ref: 'User'
-            },
-            customerName: {
-                type: String,
-                required: false,
-                maxlength: 200
-            },
-            customerPhone: {
-                type: String,
-                required: false,
-                maxlength: 20
-            },
-            customerSignature: {
-                type: String, 
-                required: false
-            },
-            vehicleCondition: {
-                type: String,
-                enum: ['excellent', 'good', 'fair', 'needs_attention'],
-                required: false
-            },
-            mileageAtHandover: {
-                type: Number,
-                required: true,
-                min: 0
-            },
-            notes: {
-                type: String,
-                required: false,
-                maxlength: 1000
-            }
-        },
-
-        // Results status tracking
-        status: {
-            type: String,
-            enum: ['uploading_results', 'ready_for_handover', 'handed_over', 'closed'],
-            required: false
-        },
-
-        closedAt: {
-            type: Date,
-            required: false
-        },
-
-        closedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: false,
-            ref: 'User'
-        }
     }
-
 }, {
     timestamps: true // This will automatically manage createdAt and updatedAt
 });
 
-// Indexes for better performance
-warrantyClaimSchema.index({ vin: 1 });
-warrantyClaimSchema.index({ claimNumber: 1 });
-warrantyClaimSchema.index({ serviceCenterId: 1 });
-warrantyClaimSchema.index({ claimStatus: 1 });
-warrantyClaimSchema.index({ createdAt: -1 });
+// Indexes
+WarrantyClaimSchema.index({ vin: 1, status: 1 });
+WarrantyClaimSchema.index({ claimDate: -1 });
+WarrantyClaimSchema.index({ status: 1, priority: 1 });
+WarrantyClaimSchema.index({ issueCategory: 1 });
+WarrantyClaimSchema.index({ serviceCenterName: 1 });
 
 // UC10: Repair Progress indexes
 warrantyClaimSchema.index({ 'repairProgress.status': 1 });
@@ -701,71 +489,41 @@ warrantyClaimSchema.index({ 'repairProgress.assignedTechnician': 1 });
 warrantyClaimSchema.index({ 'repairProgress.startDate': 1 });
 warrantyClaimSchema.index({ claimStatus: 1, 'repairProgress.status': 1 });
 
-
-// UC11: Warranty Results indexes
-warrantyClaimSchema.index({ 'warrantyResults.status': 1 });
-warrantyClaimSchema.index({ 'warrantyResults.handoverInfo.handoverDate': 1 });
-warrantyClaimSchema.index({ 'warrantyResults.completionInfo.completedBy': 1 });
-warrantyClaimSchema.index({ 'warrantyResults.closedAt': -1 });
-
-// Pre-save middleware to update updatedAt and track status changes
-warrantyClaimSchema.pre('save', function (next) {
-    this.updatedAt = new Date();
-
-    // UC6: Track status changes in statusHistory
-    if (this.isModified('claimStatus')) {
-        // Initialize statusHistory if it doesn't exist
-        if (!this.statusHistory) {
-            this.statusHistory = [];
-        }
-
-        // Add new status to history
-        // Note: changedBy should be set by the controller before saving
-        const statusEntry = {
-            status: this.claimStatus,
-            changedAt: new Date(),
-            changedBy: this._statusChangedBy || 'system',
-            reason: this._statusChangeReason || '',
-            notes: this._statusChangeNotes || ''
-        };
-
-        this.statusHistory.push(statusEntry);
-
-        // Clean up temporary fields
-        this._statusChangedBy = undefined;
-        this._statusChangeReason = undefined;
-        this._statusChangeNotes = undefined;
+// Virtual for warranty status
+WarrantyClaimSchema.virtual('warrantyStatus').get(function () {
+    const now = new Date();
+    if (this.warrantyEndDate && now > this.warrantyEndDate) {
+        return 'expired';
     }
-
-    next();
+    return 'active';
 });
 
-// Virtual for calculating estimated total cost
-warrantyClaimSchema.virtual('estimatedTotalCost').get(function () {
-    if (!this.partsToReplace || !Array.isArray(this.partsToReplace)) {
-        return 0;
-    }
-    return this.partsToReplace.reduce((total, part) => {
-        return total + (part.estimatedCost || 0) * part.quantity;
-    }, 0);
-});
+// Method to generate claim number
+WarrantyClaimSchema.statics.generateClaimNumber = function () {
+    const year = new Date().getFullYear();
+    const timestamp = Date.now().toString().slice(-6);
+    return `WC${year}${timestamp}`;
+};
 
-// Virtual for checking if claim is still editable
-warrantyClaimSchema.virtual('isEditable').get(function () {
-    return ['pending', 'under_review'].includes(this.claimStatus);
-});
+// Method to check if warranty is valid
+WarrantyClaimSchema.methods.isWarrantyValid = function () {
+    const now = new Date();
+    return this.warrantyEndDate && now <= this.warrantyEndDate;
+};
 
-// Virtual for checking if claim is closed
-warrantyClaimSchema.virtual('isClosed').get(function () {
-    return ['completed', 'cancelled', 'rejected'].includes(this.claimStatus);
-});
+// Method to calculate total cost
+WarrantyClaimSchema.methods.calculateTotalCost = function () {
+    const partsCost = this.partsRequired.reduce((total, part) => total + (part.totalCost || 0), 0);
+    const laborCost = this.laborHours * this.laborRate;
+    return partsCost + laborCost;
+};
 
-// Ensure virtual fields are serialized
-warrantyClaimSchema.set('toJSON', { virtuals: true });
-warrantyClaimSchema.set('toObject', { virtuals: true });
+WarrantyClaimSchema.set('toJSON', { virtuals: true });
+WarrantyClaimSchema.set('toObject', { virtuals: true });
 
-// Export as factory function to use correct connection
-module.exports = function () {
-    const connection = getWarrantyConnection();
-    return connection.model('WarrantyClaim', warrantyClaimSchema);
+// Export factory function
+module.exports = function createWarrantyClaim() {
+    const { getWarrantyConnection } = require('../../shared/database/warrantyConnection');
+    const warrantyConnection = getWarrantyConnection();
+    return warrantyConnection.model('WarrantyClaim', WarrantyClaimSchema);
 };

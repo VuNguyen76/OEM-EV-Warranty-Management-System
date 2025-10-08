@@ -1,12 +1,15 @@
 const mongoose = require('mongoose');
 const { BaseEntity } = require('../../shared/Base/BaseEntity');
-const { VINMixin } = require('../../shared/Base/VINMixin');
 
 const serviceHistorySchema = new mongoose.Schema({
   ...BaseEntity,
-  ...VINMixin,
 
-  // ✅ CORE UC3 FIELDS
+  // Liên kết
+  vehicleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'WarrantyVehicle',
+    required: true
+  },
 
   // Thông tin dịch vụ
   serviceType: {
@@ -34,9 +37,9 @@ const serviceHistorySchema = new mongoose.Schema({
 
   // Thông tin thực hiện
   performedBy: {
-    type: String, // ✅ Staff email who performed the service
-    required: true,
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
 
   supervisedBy: {
@@ -98,26 +101,26 @@ const serviceHistorySchema = new mongoose.Schema({
   // Chi phí
   laborHours: {
     type: Number,
-    required: true,
-    min: 0
+    min: 0,
+    default: 0
   },
 
   laborRate: {
     type: Number,
-    required: true,
-    min: 0
+    min: 0,
+    default: 0
   },
 
   laborCost: {
     type: Number,
-    required: true,
-    min: 0
+    min: 0,
+    default: 0
   },
 
   partsCost: {
     type: Number,
-    required: true,
-    min: 0
+    min: 0,
+    default: 0
   },
 
   additionalCosts: [{
@@ -127,8 +130,8 @@ const serviceHistorySchema = new mongoose.Schema({
 
   totalCost: {
     type: Number,
-    required: true,
-    min: 0
+    min: 0,
+    default: 0
   },
 
   currency: {
@@ -231,7 +234,6 @@ const serviceHistorySchema = new mongoose.Schema({
   // Odometer/Mileage
   odometerReading: {
     type: Number,
-    required: true,
     min: 0
   },
 
