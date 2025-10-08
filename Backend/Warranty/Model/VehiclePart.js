@@ -1,16 +1,12 @@
 const mongoose = require('mongoose');
 const { BaseEntity } = require('../../shared/Base/BaseEntity');
+const { VINMixin } = require('../../shared/Base/VINMixin');
 
 const vehiclePartSchema = new mongoose.Schema({
   ...BaseEntity,
+  ...VINMixin,
 
-  // Liên kết
-  vehicleId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'WarrantyVehicle',
-    required: true
-  },
-
+  // ✅ CORE UC2 FIELDS
   partId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Part',
@@ -32,9 +28,9 @@ const vehiclePartSchema = new mongoose.Schema({
   },
 
   installedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    type: String, // ✅ Staff email who installed the part
+    required: true,
+    trim: true
   },
 
   // Vị trí lắp đặt

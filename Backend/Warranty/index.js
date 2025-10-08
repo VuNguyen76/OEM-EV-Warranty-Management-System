@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 // Import middleware
 const { authenticateToken, authorizeRole } = require('../shared/middleware/AuthMiddleware');
@@ -12,7 +13,6 @@ const { connectToWarrantyDB } = require('../shared/database/warrantyConnection')
 const WarrantyController = require('./Controller/WarrantyController');
 const PartsController = require('./Controller/PartsController');
 const ServiceHistoryController = require('./Controller/ServiceHistoryController');
-const WarrantyClaimController = require('./Controller/WarrantyClaimController');
 
 const app = express();
 const PORT = process.env.PORT || process.env.WARRANTY_PORT || 3002;
@@ -35,6 +35,9 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Static file serving cho uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Health check
 app.get('/health', (req, res) => {
     res.status(200).json({
@@ -45,43 +48,122 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Routes
-// Warranty Management (root paths for API Gateway compatibility)
-app.post('/register', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.registerWarranty);
+// Quản lý bảo hành
 app.get('/warranties/:vin', authenticateToken, WarrantyController.getWarrantyByVIN);
-app.get('/warranties', authenticateToken, WarrantyController.getAllWarranties);
-app.put('/warranties/:vin', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.updateWarranty);
-app.post('/warranties/:vin/activate', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.activateWarranty);
-app.post('/warranties/:vin/void', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyController.voidWarranty);
+app.get('/warranties', authenticateToken, WarrantyController.getWarrantiesByServiceCenter);
+app.get('/warranties/status/:vin', authenticateToken, WarrantyController.checkWarrantyStatus);
 
-// Parts Management (fix route order - specific routes before parameterized routes)
+// Quản lý phụ tùng
 app.post('/parts', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.createPart);
 app.get('/parts', authenticateToken, PartsController.getAllParts);
-app.get('/parts/low-stock', authenticateToken, PartsController.getLowStockParts); // MOVED BEFORE :id
+app.get('/parts/low-stock', authenticateToken, PartsController.getLowStockParts);
 app.get('/parts/:id', authenticateToken, PartsController.getPartById);
 app.put('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.updatePart);
 app.delete('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.deletePart);
 
-// Vehicle Parts (Installation/Replacement)
+// ✅ IMPORT MULTER MIDDLEWARE FIRST (before using)
+const WarrantyClaimController = require('./Controller/WarrantyClaimController');
+const { uploadMultipleFiles, handleMulterError } = require('../shared/middleware/MulterMiddleware');
+// Import warranty results specific middleware
+const {
+    uploadMultipleResultPhotos,
+    handleWarrantyResultsUploadError,
+    validateResultPhotos
+} = require('../shared/middleware/WarrantyResultsFileUpload');
+
+// Gắn phụ tùng vào xe
 app.post('/vehicle-parts', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), PartsController.addPartToVehicle);
 app.get('/vehicle-parts/:vin', authenticateToken, PartsController.getVehicleParts);
 
-// Service History
-app.post('/service-history', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), ServiceHistoryController.addServiceHistory);
+// Lịch sử dịch vụ - with file upload support
+app.post('/service-history',
+    authenticateToken,
+    authorizeRole('admin', 'service_staff', 'technician'),
+    uploadMultipleFiles,
+    handleMulterError,
+    ServiceHistoryController.addServiceHistory
+);
 app.get('/service-history/statistics', authenticateToken, ServiceHistoryController.getServiceStatistics);
 app.get('/service-history/:vin', authenticateToken, ServiceHistoryController.getServiceHistoryByVIN);
 app.get('/service-history', authenticateToken, ServiceHistoryController.getAllServiceHistories);
 app.put('/service-history/:id', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), ServiceHistoryController.updateServiceHistory);
 
-// Warranty Claims (specific routes first)
-app.post('/claims', authenticateToken, WarrantyClaimController.createWarrantyClaim);
-app.get('/claims/statistics', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyClaimController.getClaimStatistics);
-app.get('/claims/vehicle/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);
-app.get('/claims/:id', authenticateToken, WarrantyClaimController.getClaimById);
-app.get('/claims', authenticateToken, WarrantyClaimController.getAllClaims);
-app.put('/claims/:id/status', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyClaimController.updateClaimStatus);
-app.post('/claims/:id/approve', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyClaimController.approveClaim);
-app.post('/claims/:id/reject', authenticateToken, authorizeRole('admin', 'service_staff'), WarrantyClaimController.rejectClaim);
+// Phê Duyệt/Từ Chối Yêu Cầu (MUST be FIRST - before ANY other claims routes)
+app.get('/claims/for-approval', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.getClaimsForApproval);
+
+// Tạo yêu cầu bảo hành
+app.post('/claims', authenticateToken, authorizeRole('service_staff', 'technician', 'admin'), WarrantyClaimController.createWarrantyClaim);
+
+// Đính kèm báo cáo kiểm tra (với file upload)
+app.post('/claims/:claimId/attachments',
+    authenticateToken,
+    authorizeRole('service_staff', 'technician', 'admin'),
+    uploadMultipleFiles,
+    handleMulterError,
+    WarrantyClaimController.addClaimAttachment
+);
+
+// Theo Dõi Trạng Thái Yêu Cầu (MUST be before /claims/:claimId)
+app.get('/claims/:claimId/status-history', authenticateToken, WarrantyClaimController.getClaimStatusHistory);
+
+// Phê Duyệt/Từ Chối Yêu Cầu (specific claim actions)
+app.put('/claims/:claimId/approve', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.approveWarrantyClaim);
+app.put('/claims/:claimId/reject', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.rejectWarrantyClaim);
+app.post('/claims/:claimId/notes', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.addApprovalNotes);
+
+// Quản Lý Kho Linh Kiện (Parts Management)
+app.post('/claims/:claimId/parts/ship', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.shipParts);
+app.post('/claims/:claimId/parts/receive', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.receiveParts);
+app.get('/claims/:claimId/parts/shipment', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.getPartsShipmentStatus);
+
+// Repair Progress Management
+app.post('/claims/:claimId/repair/start', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.startRepair);
+app.post('/claims/:claimId/repair/progress', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.updateProgressStep);
+app.post('/claims/:claimId/repair/issue', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.reportIssue);
+app.post('/claims/:claimId/repair/issue/:issueId/resolve', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.resolveIssue);
+app.post('/claims/:claimId/repair/quality-check', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.performQualityCheck);
+app.post('/claims/:claimId/repair/complete', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.completeRepair);
+app.get('/claims/:claimId/repair/progress', authenticateToken, authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'), WarrantyClaimController.getRepairProgress);
+app.get('/claims/:claimId/repair/history', authenticateToken, authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'), WarrantyClaimController.getRepairHistory);
+
+// Warranty Results Management
+app.post('/claims/:claimId/results/photos',
+    authenticateToken,
+    authorizeRole('technician', 'service_staff', 'admin'),
+    uploadMultipleResultPhotos,
+    handleWarrantyResultsUploadError,
+    validateResultPhotos,
+    WarrantyClaimController.uploadResultPhotos
+);
+
+app.post('/claims/:claimId/results/completion',
+    authenticateToken,
+    authorizeRole('technician', 'service_staff', 'admin'),
+    WarrantyClaimController.updateCompletionInfo
+);
+
+app.post('/claims/:claimId/results/handover',
+    authenticateToken,
+    authorizeRole('technician', 'service_staff', 'admin'),
+    WarrantyClaimController.recordHandover
+);
+
+app.post('/claims/:claimId/results/close',
+    authenticateToken,
+    authorizeRole('service_staff', 'admin'),
+    WarrantyClaimController.closeWarrantyCase
+);
+
+app.get('/claims/:claimId/results',
+    authenticateToken,
+    authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'),
+    WarrantyClaimController.getWarrantyResults
+);
+
+// Get claims - specific routes first
+app.get('/claims/vin/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);
+app.get('/claims/:claimId', authenticateToken, WarrantyClaimController.getClaimById);
+app.get('/claims', authenticateToken, WarrantyClaimController.getClaimsByServiceCenter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -146,10 +228,7 @@ const initializeServices = async () => {
 
         // Initialize controllers
         process.stderr.write('Initializing controllers...\n');
-        await WarrantyController.initializeModels();
-        await PartsController.initializeModels();
-        await ServiceHistoryController.initializeModels();
-        await WarrantyClaimController.initializeModels();
+        // TODO: Initialize controllers when needed
         process.stderr.write('✅ Controllers initialized\n');
 
         // Initialize warranty expiration job
@@ -157,6 +236,7 @@ const initializeServices = async () => {
         const { initializeWarrantyExpirationJob } = require('../shared/jobs/WarrantyExpirationJob');
         const { initializeReservationReleaseJob } = require('../shared/jobs/ReservationReleaseJob');
         const WarrantyVehicle = require('./Model/WarrantyVehicle')();
+        const WarrantyActivation = require('./Model/WarrantyActivation')();
         const Reservation = require('./Model/Reservation')();
 
         const warrantyJob = initializeWarrantyExpirationJob(WarrantyVehicle);

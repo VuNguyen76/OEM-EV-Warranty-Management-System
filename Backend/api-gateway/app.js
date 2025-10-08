@@ -27,6 +27,15 @@ class App {
     } else {
       console.log("Rate limiting is disabled");
     }
+        // Remove body parsing middleware to avoid conflicts with proxy
+        // this.app.use(express.json());
+        // this.app.use(express.urlencoded({ extended: true }));
+
+        this.app.use(apiRateLimit);
+        this.app.use('/api/auth/login', loginRateLimit);
+        this.app.use('/api/auth/register', registerRateLimit);
+        this.app.use('/api/users/delete', strictRateLimit);
+        this.app.use('/api/users/update-role', strictRateLimit);
 
     this.gatewayService = new GatewayService(this.app);
   }
