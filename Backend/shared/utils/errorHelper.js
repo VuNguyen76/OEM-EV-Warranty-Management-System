@@ -35,7 +35,27 @@ const handleControllerError = (res, functionName, error, userMessage, statusCode
     logError(functionName, error, context);
 
     const responseHelper = require('./responseHelper');
-    return responseHelper.error(res, userMessage, statusCode);
+    
+    // Use error's statusCode if available
+    const finalStatusCode = error.statusCode || statusCode;
+    
+    // Create error response object
+    const errorResponse = {
+        success: false,
+        error: {
+            type: error.name || 'Error',
+            message: userMessage || error.message,
+            code: finalStatusCode,
+            ...context
+        }
+    };
+
+    // Add validation fields if available
+    if (error instanceof ValidationError && error.fields?.length > 0) {
+        errorResponse.error.fields = error.fields;
+    }
+
+    return responseHelper.error(res, errorResponse.error.message, finalStatusCode, errorResponse.error);
 };
 
 /**
@@ -89,6 +109,32 @@ const validateRequiredFields = (body, requiredFields) => {
     };
 };
 
+// Custom Error Classes
+class ValidationError extends Error {
+    constructor(message, fields = []) {
+        super(message);
+        this.name = 'ValidationError';
+        this.statusCode = 400;
+        this.fields = fields;
+    }
+}
+
+class AuthenticationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'AuthenticationError';
+        this.statusCode = 401;
+    }
+}
+
+class BusinessLogicError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'BusinessLogicError';
+        this.statusCode = 400;
+    }
+}
+
 /**
  * Create validation error response
  * @param {Object} res - Express response object
@@ -97,6 +143,7 @@ const validateRequiredFields = (body, requiredFields) => {
  */
 const validationError = (res, missingFields) => {
     const responseHelper = require('./responseHelper');
+    const error = new ValidationError('Thiếu thông tin bắt buộc', missingFields);
     return responseHelper.error(
         res,
         `Thiếu thông tin bắt buộc: ${missingFields.join(', ')}`,

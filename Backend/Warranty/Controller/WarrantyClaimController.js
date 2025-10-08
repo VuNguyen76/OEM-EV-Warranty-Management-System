@@ -13,6 +13,8 @@ const { verifyVINInVehicleService, normalizeVIN } = require('../../shared/servic
  * - Gửi yêu cầu lên hãng
  * - NHIỀU LẦN trong warranty period
  */
+const { BusinessLogicError, ValidationError, handleControllerError } = require('../../shared/utils/errorHelper');
+
 const createWarrantyClaim = async (req, res) => {
     try {
         const {
@@ -27,15 +29,21 @@ const createWarrantyClaim = async (req, res) => {
             notes
         } = req.body;
 
+        const { ValidationError, handleControllerError } = require('../../shared/utils/errorHelper');
+
         // ✅ UC4 VALIDATION: Required fields
-        if (!vin) {
-            return responseHelper.error(res, "VIN là bắt buộc", 400);
-        }
-        if (!issueDescription) {
-            return responseHelper.error(res, "Mô tả vấn đề là bắt buộc", 400);
-        }
-        if (!issueCategory) {
-            return responseHelper.error(res, "Loại vấn đề là bắt buộc", 400);
+        const requiredFields = {
+            'vin': 'VIN',
+            'issueDescription': 'Mô tả vấn đề',
+            'issueCategory': 'Loại vấn đề'
+        };
+
+        const missingFields = Object.entries(requiredFields)
+            .filter(([field]) => !req.body[field])
+            .map(([, label]) => label);
+
+        if (missingFields.length > 0) {
+            throw new ValidationError('Thiếu thông tin bắt buộc', missingFields);
         }
 
         const vinUpper = normalizeVIN(vin);
@@ -48,13 +56,13 @@ const createWarrantyClaim = async (req, res) => {
         });
 
         if (!warrantyActivation) {
-            return responseHelper.error(res, "VIN này không có bảo hành hoạt động. Vui lòng kích hoạt bảo hành trước", 400);
+            throw new BusinessLogicError('VIN này không có bảo hành hoạt động. Vui lòng kích hoạt bảo hành trước');
         }
 
         // Step 2: Check if warranty is still valid
         const currentDate = new Date();
         if (currentDate > warrantyActivation.warrantyEndDate) {
-            return responseHelper.error(res, "Bảo hành đã hết hạn", 400);
+            throw new BusinessLogicError('Bảo hành đã hết hạn');
         }
 
         // Step 3: Verify VIN exists in Vehicle Service
@@ -62,9 +70,9 @@ const createWarrantyClaim = async (req, res) => {
             await verifyVINInVehicleService(vin, req.headers.authorization);
         } catch (error) {
             if (error.message === 'VEHICLE_NOT_FOUND') {
-                return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);
+                throw new BusinessLogicError('Không tìm thấy xe với VIN này');
             }
-            return responseHelper.error(res, "Không thể xác minh thông tin xe", 500);
+            throw new Error('Không thể xác minh thông tin xe');
         }
 
         // Step 4: Generate claim number
@@ -86,7 +94,7 @@ const createWarrantyClaim = async (req, res) => {
 
         // Validate required fields
         if (mileage === undefined || mileage === null) {
-            return responseHelper.error(res, "Mileage là bắt buộc", 400);
+            throw new ValidationError('Thiếu thông tin bắt buộc', ['Số km hiện tại']);
         }
 
         // Step 5: Create warranty claim
@@ -132,8 +140,14 @@ const createWarrantyClaim = async (req, res) => {
         }, "UC4: Tạo yêu cầu bảo hành thành công", 201);
 
     } catch (error) {
-        console.error('Error in createWarrantyClaim:', error);
-        return responseHelper.error(res, "Lỗi khi tạo yêu cầu bảo hành", 500);
+        return handleControllerError(
+            res,
+            'createWarrantyClaim',
+            error,
+            error.message || 'Lỗi khi tạo yêu cầu bảo hành',
+            error.statusCode || 500,
+            { vin, claimData: req.body }
+        );
     }
 };
 
