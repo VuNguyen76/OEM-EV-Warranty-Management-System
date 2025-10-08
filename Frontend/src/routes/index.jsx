@@ -10,6 +10,11 @@ import CreateClaim from "../page/Home/SC/CreateClaim";
 import ManageClaim from "../page/Home/SC/ManageClaim";
 import ManageCustomer from "../page/Home/SC/ManageCustomer";
 import ManageCampaign from "../page/Home/SC/ManageCampaign";
+import EVMHomePage from "../page/Home/EVM/EVMHomePage";
+import ModelsPage from "../page/Home/EVM/ModelsPage";
+import ProductionPage from "../page/Home/EVM/ProductionPage";
+import QualityPage from "../page/Home/EVM/QualityPage";
+import ReportsPage from "../page/Home/EVM/ReportsPage";
 
 const router = createBrowserRouter([
   {
@@ -53,6 +58,32 @@ const router = createBrowserRouter([
       {
         path: "manage-campaign",
         element: <ManageCampaign />,
+      },
+    ],
+  },
+  {
+    path: "/evm",
+    element: <DefaultLayout />,
+    children: [
+      {
+        index: true,
+        element: <EVMHomePage />,
+      },
+      {
+        path: "models",
+        element: <ModelsPage />,
+      },
+      {
+        path: "production",
+        element: <ProductionPage />,
+      },
+      {
+        path: "quality",
+        element: <QualityPage />,
+      },
+      {
+        path: "reports",
+        element: <ReportsPage />,
       },
     ],
   },
