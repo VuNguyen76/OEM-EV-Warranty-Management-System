@@ -23,7 +23,7 @@ const registerVehicle = async (req, res) => {
     try {
         const {
             vin,
-            // ✅ CUSTOMER INFORMATION (provided by customer to service staff)
+            // ✅ THÔNG TIN KHÁCH HÀNG (do khách hàng cung cấp cho nhân viên dịch vụ)
             ownerName,
             ownerPhone,
             ownerEmail,
@@ -105,7 +105,7 @@ const registerVehicle = async (req, res) => {
             serviceCenterId: serviceCenterInfo.id,
             serviceCenterName: serviceCenterInfo.name,
             serviceCenterCode: serviceCenterInfo.code,
-            // ✅ STAFF INFORMATION (who registered the vehicle on behalf of customer)
+            // ✅ THÔNG TIN NHÂN VIÊN (người đăng ký xe thay mặt khách hàng)
             registeredBy: req.user.email,
             registeredByRole: req.user.role,
             createdBy: req.user.email,
@@ -119,7 +119,7 @@ const registerVehicle = async (req, res) => {
 
         console.log(`✅ Vehicle registered successfully: ${vehicle.vin}`);
 
-        // ✅ AUTO-ACTIVATE WARRANTY after successful vehicle registration
+        // ✅ TỰ ĐỘNG KÍCH HOẠT BẢO HÀNH sau khi đăng ký xe thành công
         let warrantyActivation = null;
         try {
             const WarrantyActivationModel = require('../../Warranty/Model/WarrantyActivation');
@@ -140,7 +140,7 @@ const registerVehicle = async (req, res) => {
                 serviceCenterId: serviceCenterInfo.id,
                 serviceCenterName: serviceCenterInfo.name,
                 serviceCenterCode: serviceCenterInfo.code,
-                // ✅ STAFF INFORMATION (who activated warranty on behalf of customer)
+                // ✅ THÔNG TIN NHÂN VIÊN (người kích hoạt bảo hành thay mặt khách hàng)
                 activatedBy: req.user.email,
                 activatedByRole: req.user.role,
                 activatedDate: new Date(),
@@ -154,7 +154,7 @@ const registerVehicle = async (req, res) => {
 
         } catch (warrantyError) {
             console.error('⚠️ Warning: Failed to auto-activate warranty:', warrantyError.message);
-            // Don't fail vehicle registration if warranty activation fails
+            // Không làm thất bại đăng ký xe nếu kích hoạt bảo hành thất bại
         }
 
         return responseHelper.success(res, {

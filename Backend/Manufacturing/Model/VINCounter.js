@@ -51,7 +51,7 @@ const VINCounterSchema = new mongoose.Schema({
     collection: 'vin_counters'
 });
 
-// Compound unique index to ensure one counter per combination
+// Index unique kết hợp để đảm bảo một counter mỗi tổ hợp
 VINCounterSchema.index({
     manufacturerCode: 1,
     modelCode: 1,
@@ -59,10 +59,10 @@ VINCounterSchema.index({
     plantCode: 1
 }, { unique: true });
 
-// Index for queries
+// Index cho queries
 VINCounterSchema.index({ lastGenerated: -1 });
 
-// Static method to get next sequence number (atomic operation)
+// Phương thức static lấy số sequence tiếp theo (thao tác nguyên tử)
 VINCounterSchema.statics.getNextSequence = async function (manufacturerCode, modelCode, modelYear, plantCode) {
     const counter = await this.findOneAndUpdate(
         {
@@ -82,7 +82,7 @@ VINCounterSchema.statics.getNextSequence = async function (manufacturerCode, mod
         }
     );
 
-    // If this is the first time (counter was just created), set to 1
+    // Nếu là lần đầu (counter vừa được tạo), đặt thành 1
     if (counter.currentSequence === 0) {
         counter.currentSequence = 1;
         await counter.save();
@@ -91,7 +91,7 @@ VINCounterSchema.statics.getNextSequence = async function (manufacturerCode, mod
     return counter.currentSequence;
 };
 
-// Static method to reset counter (for testing or new production cycle)
+// Phương thức static reset counter (cho testing hoặc chu kỳ sản xuất mới)
 VINCounterSchema.statics.resetCounter = async function (manufacturerCode, modelCode, modelYear, plantCode) {
     return this.findOneAndUpdate(
         {

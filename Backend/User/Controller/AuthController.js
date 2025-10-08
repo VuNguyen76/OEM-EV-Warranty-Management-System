@@ -54,11 +54,11 @@ router.post("/register", validate(validationRules.register), async (req, res) =>
             });
         }
 
-        // Password will be hashed by pre-save hook in User model
+        // Mật khẩu sẽ được hash bởi pre-save hook trong User model
         const newUser = new User({
             username,
             email: email.toLowerCase(),
-            password: password, // Pass plain password, will be hashed by pre-save hook
+            password: password, // Truyền mật khẩu thô, sẽ được hash bởi pre-save hook
             role: role || "customer",
             status: "active",
             loginAttempts: 0,
@@ -135,7 +135,7 @@ router.post("/login", validate(validationRules.login), async (req, res) => {
         const isPasswordValid = await user.comparePassword(password);
 
         if (!isPasswordValid) {
-            // Use the model method instead of manual implementation
+            // Sử dụng phương thức model thay vì implement thủ công
             await user.incrementLoginAttempts();
 
             return res.status(401).json({

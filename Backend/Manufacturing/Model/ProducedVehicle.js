@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { getManufacturingConnection } = require('../../shared/database/manufacturingConnection');
 
-// Custom error classes for better error handling
+// Các class lỗi tùy chỉnh để xử lý lỗi tốt hơn
 class QualityCheckError extends Error {
     constructor(message, code) {
         super(message);
@@ -10,7 +10,7 @@ class QualityCheckError extends Error {
     }
 }
 
-// Produced Vehicle Schema (for individual vehicles in production)
+// Schema Xe Sản xuất (cho từng xe trong sản xuất)
 const ProducedVehicleSchema = new mongoose.Schema({
     vin: {
         type: String,
@@ -26,7 +26,7 @@ const ProducedVehicleSchema = new mongoose.Schema({
         required: true
     },
 
-    // Production Information
+    // Thông tin Sản xuất
     productionDate: {
         type: Date,
         required: true
@@ -58,7 +58,7 @@ const ProducedVehicleSchema = new mongoose.Schema({
         default: 'H'
     },
 
-    // Vehicle Specifications
+    // Thông số kỹ thuật Xe
     color: {
         type: String,
         required: true,
@@ -79,7 +79,7 @@ const ProducedVehicleSchema = new mongoose.Schema({
         sparse: true
     },
 
-    // Quality Control
+    // Kiểm soát Chất lượng
     qualityStatus: {
         type: String,
         enum: ["pending", "passed", "failed", "rework"],
@@ -104,19 +104,19 @@ const ProducedVehicleSchema = new mongoose.Schema({
         notes: String
     }],
 
-    // Production Status
+    // Trạng thái Sản xuất
     status: {
         type: String,
         enum: ["manufactured", "quality_check", "ready_for_delivery", "delivered", "recalled"],
         default: "manufactured"
     },
 
-    // Delivery Information
+    // Thông tin Giao hàng
     deliveryDate: Date,
     dealershipId: String,
     dealershipName: String,
 
-    // Recall Information
+    // Thông tin Thu hồi
     recallStatus: {
         type: String,
         enum: ["none", "pending", "completed"],
@@ -134,7 +134,7 @@ const ProducedVehicleSchema = new mongoose.Schema({
         }
     }],
 
-    // Cost Information
+    // Thông tin Chi phí
     productionCost: {
         materials: Number,
         labor: Number,
@@ -145,7 +145,7 @@ const ProducedVehicleSchema = new mongoose.Schema({
     // Notes
     productionNotes: String,
 
-    // Audit fields
+    // Các trường audit
     createdBy: {
         type: String,
         required: true
@@ -169,7 +169,7 @@ ProducedVehicleSchema.index({ productionBatch: 1, status: 1 });
 ProducedVehicleSchema.index({ qualityStatus: 1 });
 ProducedVehicleSchema.index({ createdAt: -1 });
 
-// Virtual fields
+// Trường ảo
 ProducedVehicleSchema.virtual('isReadyForDelivery').get(function () {
     return this.status === 'ready_for_delivery' && this.qualityStatus === 'passed';
 });
@@ -178,9 +178,9 @@ ProducedVehicleSchema.virtual('productionAge').get(function () {
     return Math.floor((Date.now() - this.productionDate) / (1000 * 60 * 60 * 24));
 });
 
-// Instance methods
+// Phương thức instance
 ProducedVehicleSchema.methods.passQualityCheck = function (checkType, checkedBy, notes) {
-    // Check if already passed this check type
+    // Kiểm tra đã pass loại kiểm tra này chưa
     const existingPassedCheck = this.qualityChecks.find(
         check => check.checkType === checkType && check.status === 'pass'
     );
@@ -189,12 +189,12 @@ ProducedVehicleSchema.methods.passQualityCheck = function (checkType, checkedBy,
         throw new QualityCheckError(`Quality check '${checkType}' đã được pass rồi`, 'DUPLICATE_CHECK');
     }
 
-    // Remove any previous failed checks of the same type
+    // Xóa các lần kiểm tra thất bại trước đó cùng loại
     this.qualityChecks = this.qualityChecks.filter(
         check => check.checkType !== checkType
     );
 
-    // Add new passed check
+    // Thêm lần kiểm tra pass mới
     this.qualityChecks.push({
         checkType,
         status: 'pass',
@@ -203,7 +203,7 @@ ProducedVehicleSchema.methods.passQualityCheck = function (checkType, checkedBy,
         notes
     });
 
-    // Check if all required quality checks are passed
+    // Kiểm tra tất cả kiểm tra chất lượng bắt buộc đã pass
     const requiredChecks = ['safety', 'performance', 'electrical', 'final'];
     const passedCheckTypes = new Set(
         this.qualityChecks
@@ -211,7 +211,7 @@ ProducedVehicleSchema.methods.passQualityCheck = function (checkType, checkedBy,
             .map(check => check.checkType)
     );
 
-    // Ensure exact match - all required checks passed, no extras
+    // Đảm bảo khớp chính xác - tất cả kiểm tra bắt buộc đã pass, không thừa
     if (requiredChecks.every(check => passedCheckTypes.has(check)) &&
         passedCheckTypes.size === requiredChecks.length) {
         this.qualityStatus = 'passed';
@@ -244,7 +244,7 @@ ProducedVehicleSchema.methods.markAsDelivered = function (dealershipId, dealersh
     return this.save();
 };
 
-// Static methods
+// Phương thức static
 ProducedVehicleSchema.statics.findByBatch = function (batchNumber) {
     return this.find({ productionBatch: batchNumber });
 };
@@ -279,13 +279,13 @@ ProducedVehicleSchema.statics.getProductionStats = function (startDate, endDate)
     ]);
 };
 
-// Pre-save middleware
+// Middleware trước khi lưu
 ProducedVehicleSchema.pre('save', function (next) {
     if (this.isModified('vin')) {
         this.vin = this.vin.toUpperCase();
     }
 
-    // Calculate total production cost
+    // Tính tổng chi phí sản xuất
     if (this.productionCost && this.isModified('productionCost')) {
         const { materials = 0, labor = 0, overhead = 0 } = this.productionCost;
         this.productionCost.total = materials + labor + overhead;

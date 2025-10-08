@@ -7,19 +7,19 @@
  * @param {mongoose.Schema} schema - Mongoose schema
  */
 const addCommonMiddleware = (schema) => {
-    // Update timestamps
+    // Cập nhật timestamps
     schema.pre('save', function (next) {
         this.updatedAt = new Date();
         next();
     });
 
-    // Update timestamps for update operations
+    // Cập nhật timestamps for update operations
     schema.pre(['updateOne', 'findOneAndUpdate'], function (next) {
         this.set({ updatedAt: new Date() });
         next();
     });
 
-    // Ensure virtual fields are serialized
+    // Đảm bảo trường ảo được serialize
     schema.set('toJSON', { virtuals: true });
     schema.set('toObject', { virtuals: true });
 };
@@ -29,7 +29,7 @@ const addCommonMiddleware = (schema) => {
  * @param {mongoose.Schema} schema - Mongoose schema
  */
 const addCommonIndexes = (schema) => {
-    // Common indexes for BaseEntity fields
+    // Index chung cho các trường BaseEntity
     schema.index({ status: 1 });
     schema.index({ createdAt: -1 });
     schema.index({ updatedAt: -1 });
@@ -68,12 +68,12 @@ const createModelFactory = (connectionGetter, modelName, schema, options = {}) =
         addVINIndexes: shouldAddVINIndexes = false
     } = options;
 
-    // Add middleware
+    // Thêm middleware
     if (shouldAddMiddleware) {
         addCommonMiddleware(schema);
     }
 
-    // Add indexes
+    // Thêm indexes
     if (shouldAddIndexes) {
         addCommonIndexes(schema);
     }
@@ -86,7 +86,7 @@ const createModelFactory = (connectionGetter, modelName, schema, options = {}) =
         addVINIndexes(schema);
     }
 
-    // Return factory function
+    // Trả về factory function
     return function () {
         const connection = connectionGetter();
         return connection.model(modelName, schema);

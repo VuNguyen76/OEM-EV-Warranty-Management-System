@@ -5,7 +5,7 @@ let WarrantyVehicle = null;
 const initializeWarrantyExpirationJob = (warrantyVehicleModel) => {
     WarrantyVehicle = warrantyVehicleModel;
     
-    // Run daily at midnight (0 0 * * *)
+    // Chạy hàng ngày lúc nửa đêm (0 0 * * *)
     const job = schedule.scheduleJob('0 0 * * *', async () => {
         try {
             console.log('🕛 Starting warranty expiration job...');

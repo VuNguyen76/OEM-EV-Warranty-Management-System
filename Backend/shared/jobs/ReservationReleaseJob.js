@@ -5,7 +5,7 @@ let Reservation = null;
 const initializeReservationReleaseJob = (reservationModel) => {
     Reservation = reservationModel;
     
-    // Run every 5 minutes (*/5 * * * *)
+    // Chạy mỗi 5 phút (*/5 * * * *)
     const job = schedule.scheduleJob('*/5 * * * *', async () => {
         try {
             if (!Reservation) {

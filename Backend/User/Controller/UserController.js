@@ -7,7 +7,7 @@ const getAllUsers = async (req, res) => {
     try {
         const cacheKey = "users:all";
 
-        // Try cache first
+        // Thử cache trước
         const cachedUsers = await safeCacheOperation(
             () => getCached(cacheKey),
             'getAllUsers-cache-get'
@@ -22,7 +22,7 @@ const getAllUsers = async (req, res) => {
 
         const users = await User.find().select("-password");
 
-        // Cache for 10 minutes
+        // Cache trong 10 minutes
         await safeCacheOperation(
             () => setCached(cacheKey, users, 600),
             'getAllUsers-cache-set'
@@ -48,7 +48,7 @@ const getUserById = async (req, res) => {
 
         const cacheKey = `user:${id}`;
 
-        // Try cache first
+        // Thử cache trước
         const cachedUser = await safeCacheOperation(
             () => getCached(cacheKey),
             'getUserById-cache-get'
@@ -63,7 +63,7 @@ const getUserById = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy user", 404);
         }
 
-        // Cache for 1 hour
+        // Cache trong 1 hour
         await safeCacheOperation(
             () => setCached(cacheKey, user, 3600),
             'getUserById-cache-set'
@@ -123,7 +123,7 @@ const updateUser = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy user", 404);
         }
 
-        // Clear cache
+        // Xóa cache
         const cachePatterns = ["users:*", `user:${id}`];
         if (updatedUser.role === "technician" ||
             (updateData.specialization || updateData.skills || updateData.availability !== undefined)) {
@@ -146,7 +146,7 @@ const getAvailableTechnicians = async (req, res) => {
         const { specialization, serviceCenter } = req.query;
         const cacheKey = `technicians:${specialization || 'all'}:${serviceCenter || 'all'}`;
 
-        // Try cache first
+        // Thử cache trước
         const cachedTechnicians = await safeCacheOperation(
             () => getCached(cacheKey),
             'getTechnicians-cache-get'
@@ -177,7 +177,7 @@ const getAvailableTechnicians = async (req, res) => {
             .select("-password -refreshToken")
             .sort({ workload: 1, "performanceMetrics.qualityScore": -1 });
 
-        // Cache for 5 minutes
+        // Cache trong 5 minutes
         await safeCacheOperation(
             () => setCached(cacheKey, technicians, 300),
             'getTechnicians-cache-set'
@@ -206,7 +206,7 @@ const deleteUser = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy user", 404);
         }
 
-        // Clear cache
+        // Xóa cache
         await safeCacheOperation(
             () => clearCachePatterns(["users:*", `user:${id}`, "technicians:*"]),
             'deleteUser-cache-clear'
@@ -227,12 +227,12 @@ const changePassword = async (req, res) => {
         const { oldPassword, newPassword } = req.body;
         const userId = req.user.sub || req.user.userId;
 
-        // Check permission - only admin or own user
+        // Kiểm tra quyền - only admin or own user
         if (req.user.role !== "admin" && userId !== id) {
             return responseHelper.error(res, "Không có quyền thay đổi mật khẩu của user này", 403);
         }
 
-        // Validate input
+        // Kiểm tra dữ liệu đầu vào
         if (!newPassword || newPassword.length < 6) {
             return responseHelper.error(res, "Mật khẩu mới phải có ít nhất 6 ký tự", 400);
         }
@@ -242,7 +242,7 @@ const changePassword = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy user", 404);
         }
 
-        // If not admin, verify old password
+        // Nếu không phải admin, xác minh mật khẩu cũ
         if (req.user.role !== "admin") {
             if (!oldPassword) {
                 return responseHelper.error(res, "Cần nhập mật khẩu cũ", 400);
@@ -258,7 +258,7 @@ const changePassword = async (req, res) => {
         user.password = newPassword;
         await user.save();
 
-        // Clear cache
+        // Xóa cache
         await safeCacheOperation(
             () => clearCachePatterns(["users:*", `user:${id}`]),
             'changePassword-cache-clear'

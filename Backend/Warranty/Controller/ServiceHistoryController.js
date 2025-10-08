@@ -5,7 +5,7 @@ const { verifyVINInVehicleService, normalizeVIN } = require("../../shared/servic
 
 let ServiceHistory, WarrantyVehicle, VehiclePart;
 
-// Initialize models
+// Khởi tạo models
 async function initializeModels() {
     try {
         if (!ServiceHistory || !WarrantyVehicle || !VehiclePart) {
@@ -20,7 +20,19 @@ async function initializeModels() {
     }
 }
 
-// UC3: Add Service History
+/**
+ * Thêm lịch sử dịch vụ cho xe
+ * Ghi lại các hoạt động bảo dưỡng, sửa chữa đã thực hiện trên xe
+ *
+ * @route POST /api/warranty/service-history
+ * @access technician, service_staff, admin
+ * @param {string} vin - VIN của xe
+ * @param {string} serviceType - Loại dịch vụ (maintenance, repair, inspection)
+ * @param {string} description - Mô tả chi tiết công việc
+ * @param {number} mileage - Số km hiện tại của xe
+ * @param {Array} files - Danh sách file đính kèm (tùy chọn)
+ * @param {string} notes - Ghi chú bổ sung (tùy chọn)
+ */
 const addServiceHistory = async (req, res) => {
     try {
         const {
@@ -38,7 +50,7 @@ const addServiceHistory = async (req, res) => {
             notes
         } = req.body;
 
-        // ✅ UC3 VALIDATION: Required fields
+        // Các trường bắt buộc
         if (!vin || !serviceType || !description) {
             return responseHelper.error(res, "Thiếu thông tin bắt buộc: VIN, loại dịch vụ, mô tả", 400);
         }
@@ -48,17 +60,17 @@ const addServiceHistory = async (req, res) => {
             return responseHelper.error(res, "User ID không hợp lệ trong token", 401);
         }
 
-        // ✅ Check if vehicle exists in Vehicle service
+        // ✅ Kiểm tra xe có tồn tại trong Vehicle service
         try {
             await verifyVINInVehicleService(vin, req.headers.authorization);
         } catch (error) {
             if (error.message === 'VEHICLE_NOT_FOUND') {
-                return responseHelper.error(res, "Không tìm thấy xe với VIN này. Vui lòng đăng ký xe trước (UC1)", 404);
+                return responseHelper.error(res, "Không tìm thấy xe với VIN này. Vui lòng đăng ký xe trước", 404);
             }
-            return responseHelper.error(res, "Không thể xác minh xe trong hệ thống. Vui lòng đăng ký xe trước (UC1)", 400);
+            return responseHelper.error(res, "Không thể xác minh xe trong hệ thống. Vui lòng đăng ký xe trước", 400);
         }
 
-        // ✅ Process attachments if files uploaded (UC3 Step 4)
+        // Xử lý file đính kèm nếu có
         const attachments = [];
         if (req.files && req.files.length > 0) {
             const { generateFileUrl } = require('../../shared/middleware/MulterMiddleware');
@@ -75,13 +87,13 @@ const addServiceHistory = async (req, res) => {
             }
         }
 
-        // Create service history record
+        // Tạo bản ghi lịch sử dịch vụ
         const serviceHistory = new ServiceHistory({
-            vin: normalizeVIN(vin), // ✅ Use VIN directly (no vehicleId needed)
+            vin: normalizeVIN(vin), // ✅ Sử dụng VIN trực tiếp (không cần vehicleId)
             serviceType,
             title: `${serviceType} - ${description.substring(0, 50)}`,
             description,
-            performedBy: req.user.email, // ✅ Use email instead of ObjectId
+            performedBy: req.user.email, // ✅ Sử dụng email thay vì ObjectId
             serviceCenter: {
                 name: serviceCenterInfo?.name || req.user.serviceCenterName || 'Default Service Center',
                 code: serviceCenterInfo?.code || req.user.serviceCenterCode || 'SC001',
@@ -95,34 +107,34 @@ const addServiceHistory = async (req, res) => {
             serviceDate: serviceDate ? new Date(serviceDate) : new Date(),
             nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
             odometerReading: mileage !== undefined ? mileage : 0,
-            attachments, // ✅ UC3 Step 4: Attach files
+            attachments, // Đính kèm files
             notes,
             status: 'completed',
             createdBy: req.user.email
         });
 
-        // Use transaction to ensure data consistency
+        // Sử dụng giao dịch to ensure data consistency
         const mongoose = require('mongoose');
         const session = await mongoose.startSession();
         let savedServiceHistory = null;
 
         try {
             await session.withTransaction(async () => {
-                // Save service history
+                // Lưu lịch sử dịch vụ
                 savedServiceHistory = await serviceHistory.save({ session });
 
-                // ✅ No need to update WarrantyVehicle - Vehicle service handles vehicle data
-                // Service history is independent tracking
+                // ✅ Không cần cập nhật WarrantyVehicle - Vehicle service xử lý dữ liệu xe
+                // Lịch sử dịch vụ là theo dõi độc lập
             });
 
-            // Transaction successful - clear cache
+            // Giao dịch thành công - clear cache
             await clearCachePatterns(["service-history:*"]);
 
             return responseHelper.success(res, {
                 serviceHistory: savedServiceHistory,
                 message: `Ghi lịch sử ${serviceType} cho xe ${vin.toUpperCase()} thành công`,
                 attachmentsCount: attachments.length
-            }, "UC3: Lưu lịch sử dịch vụ thành công", 201);
+            }, "Lưu lịch sử dịch vụ thành công", 201);
         } catch (transactionError) {
             console.error('❌ Transaction failed in addServiceHistory:', {
                 error: transactionError.message,
@@ -150,21 +162,21 @@ const addServiceHistory = async (req, res) => {
     }
 };
 
-// Get Service History by VIN
+// Lấy Lịch sử Dịch vụ theo VIN
 const getServiceHistoryByVIN = async (req, res) => {
     try {
         const { vin } = req.params;
         const { page = 1, limit = 10, serviceType, startDate, endDate } = req.query;
-        // Better cache key generation (avoid JSON.stringify issues)
+        // Tạo cache key tốt hơn (tránh vấn đề JSON.stringify)
         const cacheKey = `service-history:${vin}:page:${page}:limit:${limit}:type:${serviceType || 'all'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
-        // Try cache first
+        // Thử cache trước
         const cachedData = await getCached(cacheKey);
         if (cachedData) {
             return responseHelper.success(res, cachedData, "Lấy lịch sử bảo dưỡng thành công (từ cache)");
         }
 
-        // ✅ Use VIN directly (no need to lookup vehicleId)
+        // ✅ Sử dụng VIN trực tiếp (không cần lookup vehicleId)
         const searchQuery = { vin: normalizeVIN(vin) };
 
         if (serviceType) {
@@ -177,14 +189,14 @@ const getServiceHistoryByVIN = async (req, res) => {
             if (endDate) searchQuery.serviceDate.$lte = new Date(endDate);
         }
 
-        // Get paginated results
+        // Lấy kết quả phân trang
         const { skip, limitNum } = queryHelper.parsePagination(page, limit);
         const [serviceHistories, total] = await Promise.all([
             ServiceHistory.find(searchQuery)
                 .populate('performedBy', 'username email role')
                 .populate('vehicleId', 'vin modelName ownerName')
                 .select('serviceType serviceDate description laborCost partsCost mileage performedBy vehicleId createdAt')
-                .lean() // 5x faster, 5x less memory
+                .lean() // Nhanh hơn 5 lần, ít bộ nhớ hơn 5 lần
                 .sort({ serviceDate: -1 })
                 .skip(skip)
                 .limit(limitNum),
@@ -196,7 +208,7 @@ const getServiceHistoryByVIN = async (req, res) => {
             pagination: responseHelper.createPagination(page, limit, total)
         };
 
-        // Cache for 5 minutes
+        // Cache trong 5 minutes
         await setCached(cacheKey, result, 300);
 
         return responseHelper.success(res, result, "Lấy lịch sử bảo dưỡng thành công");
@@ -206,20 +218,20 @@ const getServiceHistoryByVIN = async (req, res) => {
     }
 };
 
-// Get All Service Histories
+// Lấy Tất cả Lịch sử Dịch vụ
 const getAllServiceHistories = async (req, res) => {
     try {
         const { page = 1, limit = 10, serviceType, startDate, endDate, search } = req.query;
-        // Better cache key generation (avoid JSON.stringify issues)
+        // Tạo cache key tốt hơn (tránh vấn đề JSON.stringify)
         const cacheKey = `service-history:all:page:${page}:limit:${limit}:type:${serviceType || 'all'}:search:${search || 'none'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
-        // Try cache first
+        // Thử cache trước
         const cachedData = await getCached(cacheKey);
         if (cachedData) {
             return responseHelper.success(res, cachedData, "Lấy tất cả lịch sử bảo dưỡng thành công (từ cache)");
         }
 
-        // Build search query
+        // Xây dựng query tìm kiếm
         const searchQuery = {};
 
         if (serviceType) {
@@ -241,7 +253,7 @@ const getAllServiceHistories = async (req, res) => {
             if (endDate) searchQuery.serviceDate.$lte = new Date(endDate);
         }
 
-        // Get paginated results
+        // Lấy kết quả phân trang
         const { skip, limitNum } = queryHelper.parsePagination(page, limit);
         const [serviceHistories, total] = await Promise.all([
             ServiceHistory.find(searchQuery)
@@ -256,7 +268,7 @@ const getAllServiceHistories = async (req, res) => {
             pagination: responseHelper.createPagination(page, limit, total)
         };
 
-        // Cache for 3 minutes
+        // Cache trong 3 minutes
         await setCached(cacheKey, result, 180);
 
         return responseHelper.success(res, result, "Lấy tất cả lịch sử bảo dưỡng thành công");
@@ -266,13 +278,13 @@ const getAllServiceHistories = async (req, res) => {
     }
 };
 
-// Get Service History by ID
+// Lấy Lịch sử Dịch vụ theo ID
 const getServiceHistoryById = async (req, res) => {
     try {
         const { id } = req.params;
         const cacheKey = `service-history:${id}`;
 
-        // Try cache first
+        // Thử cache trước
         const cachedData = await getCached(cacheKey);
         if (cachedData) {
             return responseHelper.success(res, cachedData, "Lấy chi tiết lịch sử bảo dưỡng thành công (từ cache)");
@@ -283,7 +295,7 @@ const getServiceHistoryById = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy lịch sử bảo dưỡng", 404);
         }
 
-        // Cache for 10 minutes
+        // Cache trong 10 minutes
         await setCached(cacheKey, serviceHistory, 600);
 
         return responseHelper.success(res, serviceHistory, "Lấy chi tiết lịch sử bảo dưỡng thành công");
@@ -293,7 +305,7 @@ const getServiceHistoryById = async (req, res) => {
     }
 };
 
-// Update Service History
+// Cập nhật Lịch sử Dịch vụ
 const updateServiceHistory = async (req, res) => {
     try {
         const { id } = req.params;
@@ -304,7 +316,7 @@ const updateServiceHistory = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy lịch sử bảo dưỡng", 404);
         }
 
-        // Clear cache
+        // Xóa cache
         await clearCachePatterns(["service-history:*"]);
 
         return responseHelper.success(res, serviceHistory, "Cập nhật lịch sử bảo dưỡng thành công");
@@ -314,20 +326,20 @@ const updateServiceHistory = async (req, res) => {
     }
 };
 
-// Get Service Statistics
+// Lấy Thống kê Dịch vụ
 const getServiceStatistics = async (req, res) => {
     try {
         const { startDate, endDate, serviceType } = req.query;
-        // Better cache key generation (avoid JSON.stringify issues)
+        // Tạo cache key tốt hơn (tránh vấn đề JSON.stringify)
         const cacheKey = `service-history:stats:type:${serviceType || 'all'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
 
-        // Try cache first
+        // Thử cache trước
         const cachedData = await getCached(cacheKey);
         if (cachedData) {
             return responseHelper.success(res, cachedData, "Lấy thống kê bảo dưỡng thành công (từ cache)");
         }
 
-        // Build date filter
+        // Xây dựng bộ lọc ngày
         const dateFilter = {};
         if (startDate || endDate) {
             dateFilter.serviceDate = {};
@@ -335,13 +347,13 @@ const getServiceStatistics = async (req, res) => {
             if (endDate) dateFilter.serviceDate.$lte = new Date(endDate);
         }
 
-        // Build service type filter
+        // Xây dựng bộ lọc loại dịch vụ
         const serviceTypeFilter = serviceType ? { serviceType } : {};
 
-        // Combine filters
+        // Kết hợp bộ lọc
         const matchFilter = { ...dateFilter, ...serviceTypeFilter };
 
-        // Get statistics
+        // Lấy thống kê
         const [
             totalServices,
             totalCost,
@@ -387,7 +399,7 @@ const getServiceStatistics = async (req, res) => {
             servicesByMonth
         };
 
-        // Cache for 10 minutes
+        // Cache trong 10 minutes
         await setCached(cacheKey, statistics, 600);
 
         return responseHelper.success(res, statistics, "Lấy thống kê bảo dưỡng thành công");

@@ -5,29 +5,29 @@ const { ServiceCenterMixin } = require('../../shared/Base/ServiceCenterMixin');
 const { VINMixin } = require('../../shared/Base/VINMixin');
 
 const warrantyClaimSchema = new mongoose.Schema({
-    // ✅ INHERIT BASE PATTERNS
+    // ✅ KẾ THỪA CÁC PATTERN CƠ BẢN
     ...BaseEntity,
     ...VINMixin,
     ...ServiceCenterMixin,
 
-    // Claim identification
+    // Nhận dạng claim
     claimNumber: {
         type: String,
         unique: true,
         required: true,
-        // Format: WC-YYYY-XXXXX
+        // Định dạng: WC-YYYY-XXXXX
     },
 
     // ✅ VIN FIELD INHERITED FROM VINMixin
 
-    // Warranty reference
+    // Tham chiếu bảo hành
     warrantyActivationId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "WarrantyActivation",
         required: true,
     },
 
-    // Issue information
+    // Thông tin vấn đề
     issueDescription: {
         type: String,
         required: true,
@@ -40,7 +40,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         required: true,
     },
 
-    // Parts to replace
+    // Phụ tùng cần thay
     partsToReplace: [{
         partId: {
             type: mongoose.Schema.Types.ObjectId,
@@ -96,23 +96,23 @@ const warrantyClaimSchema = new mongoose.Schema({
             "under_review",
             "approved",
             "rejected",
-            "parts_shipped",        // UC9: Parts have been shipped
-            "parts_received",       // UC9: Parts received and verified
-            "parts_rejected",       // UC9: Parts rejected due to quality issues
-            "repair_in_progress",   // UC10: Repair work is in progress
-            "repair_on_hold",       // UC10: Repair work is on hold due to issues
-            "repair_completed",     // UC10: Repair work completed, awaiting final check
-            "uploading_results",    // UC11: Uploading result photos
-            "ready_for_handover",   // UC11: Ready for vehicle handover
-            "handed_over",          // UC11: Vehicle handed over to customer
-            "in_progress",          // Legacy status
+            "parts_shipped",        // Parts đã được gửi
+            "parts_received",       // Parts đã nhận và xác minh
+            "parts_rejected",       // Parts bị từ chối do vấn đề chất lượng
+            "repair_in_progress",   // Công việc sửa chữa đang tiến hành
+            "repair_on_hold",       // Công việc sửa chữa tạm dừng do vấn đề
+            "repair_completed",     // Công việc sửa chữa hoàn thành, chờ kiểm tra cuối
+            "uploading_results",    // Đang upload ảnh kết quả
+            "ready_for_handover",   // Sẵn sàng bàn giao xe
+            "handed_over",          // Xe đã bàn giao cho khách hàng
+            "in_progress",          // Trạng thái cũ
             "completed",
             "cancelled",
         ],
         default: "pending",
     },
 
-    // UC6: Status History Tracking
+    // Theo dõi lịch sử trạng thái
     statusHistory: [{
         status: {
             type: String,
@@ -121,16 +121,16 @@ const warrantyClaimSchema = new mongoose.Schema({
                 "under_review",
                 "approved",
                 "rejected",
-                "parts_shipped",        // UC9: Parts have been shipped
-                "parts_received",       // UC9: Parts received and verified
-                "parts_rejected",       // UC9: Parts rejected due to quality issues
-                "repair_in_progress",   // UC10: Repair work is in progress
-                "repair_on_hold",       // UC10: Repair work is on hold due to issues
-                "repair_completed",     // UC10: Repair work completed, awaiting final check
-                "uploading_results",    // UC11: Uploading result photos
-                "ready_for_handover",   // UC11: Ready for vehicle handover
-                "handed_over",          // UC11: Vehicle handed over to customer
-                "in_progress",          // Legacy status
+                "parts_shipped",        // Parts đã được gửi
+                "parts_received",       // Parts đã nhận và xác minh
+                "parts_rejected",       // Parts bị từ chối do vấn đề chất lượng
+                "repair_in_progress",   // Công việc sửa chữa đang tiến hành
+                "repair_on_hold",       // Công việc sửa chữa tạm dừng do vấn đề
+                "repair_completed",     // Công việc sửa chữa hoàn thành, chờ kiểm tra cuối
+                "uploading_results",    // Đang upload ảnh kết quả
+                "ready_for_handover",   // Sẵn sàng bàn giao xe
+                "handed_over",          // Xe đã bàn giao cho khách hàng
+                "in_progress",          // Trạng thái cũ
                 "completed",
                 "cancelled",
             ],
@@ -154,7 +154,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         }
     }],
 
-    // Attachments
+    // Đính kèm
     attachments: [{
         fileName: {
             type: String,
@@ -190,7 +190,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         required: true
     },
 
-    // Manufacturer response
+    // Phản hồi nhà sản xuất
     reviewedBy: {
         type: String,
         required: false
@@ -211,7 +211,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         min: 0
     },
 
-    // Additional notes (extends BaseEntity.note)
+    // Ghi chú bổ sung (mở rộng BaseEntity.note)
     notes: {
         type: String,
         maxlength: 2000
@@ -224,7 +224,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         required: false
     },
 
-    // UC7: Approval/Rejection fields
+    // Các trường phê duyệt/từ chối
     approvedAt: {
         type: Date,
         required: false
@@ -251,7 +251,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         required: false
     },
 
-    // UC7: Approval notes array
+    // Mảng ghi chú phê duyệt
     approvalNotes: [{
         note: {
             type: String,
@@ -268,7 +268,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         }
     }],
 
-    // UC9: Parts Shipment Management
+    // Quản lý vận chuyển phụ tùng
     partsShipment: {
         status: {
             type: String,
@@ -328,7 +328,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         }]
     },
 
-    // UC10: Repair Progress Management
+    // Quản lý tiến độ sửa chữa
     repairProgress: {
         status: {
             type: String,
@@ -476,7 +476,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         }
     },
 
-    // UC11: Warranty Results Management
+    // Quản lý kết quả bảo hành
     warrantyResults: {
         // Ảnh kết quả
         resultPhotos: [{
@@ -587,7 +587,7 @@ const warrantyClaimSchema = new mongoose.Schema({
         }
     }
 }, {
-    timestamps: true // This will automatically manage createdAt and updatedAt
+    timestamps: true // Điều này sẽ tự động quản lý createdAt and updatedAt
 });
 
 // Indexes for better performance
@@ -597,31 +597,31 @@ warrantyClaimSchema.index({ serviceCenterId: 1 });
 warrantyClaimSchema.index({ claimStatus: 1 });
 warrantyClaimSchema.index({ createdAt: -1 });
 
-// UC10: Repair Progress indexes
+// Indexes cho tiến độ sửa chữa
 warrantyClaimSchema.index({ 'repairProgress.status': 1 });
 warrantyClaimSchema.index({ 'repairProgress.assignedTechnician': 1 });
 warrantyClaimSchema.index({ 'repairProgress.startDate': 1 });
 warrantyClaimSchema.index({ claimStatus: 1, 'repairProgress.status': 1 });
 
-// UC11: Warranty Results indexes
+// Indexes cho kết quả bảo hành
 warrantyClaimSchema.index({ 'warrantyResults.status': 1 });
 warrantyClaimSchema.index({ 'warrantyResults.completionInfo.completedAt': 1 });
 warrantyClaimSchema.index({ 'warrantyResults.handoverInfo.handoverDate': 1 });
 warrantyClaimSchema.index({ claimStatus: 1, 'warrantyResults.status': 1 });
 
-// Pre-save middleware to update updatedAt and track status changes
+// Middleware trước khi lưu to update updatedAt and track status changes
 warrantyClaimSchema.pre('save', function (next) {
     this.updatedAt = new Date();
 
-    // UC6: Track status changes in statusHistory
+    // Theo dõi thay đổi trạng thái trong lịch sử
     if (this.isModified('claimStatus')) {
-        // Initialize statusHistory if it doesn't exist
+        // Khởi tạo statusHistory nếu chưa tồn tại
         if (!this.statusHistory) {
             this.statusHistory = [];
         }
 
-        // Add new status to history
-        // Note: changedBy should be set by the controller before saving
+        // Thêm trạng thái mới vào lịch sử
+        // Lưu ý: changedBy nên được đặt bởi controller trước khi lưu
         const statusEntry = {
             status: this.claimStatus,
             changedAt: new Date(),
@@ -632,7 +632,7 @@ warrantyClaimSchema.pre('save', function (next) {
 
         this.statusHistory.push(statusEntry);
 
-        // Clean up temporary fields
+        // Dọn dẹp các trường tạm thời
         this._statusChangedBy = undefined;
         this._statusChangeReason = undefined;
         this._statusChangeNotes = undefined;
@@ -641,7 +641,7 @@ warrantyClaimSchema.pre('save', function (next) {
     next();
 });
 
-// Virtual for calculating estimated total cost
+// Trường ảo cho calculating estimated total cost
 warrantyClaimSchema.virtual('estimatedTotalCost').get(function () {
     if (!this.partsToReplace || !Array.isArray(this.partsToReplace)) {
         return 0;
@@ -651,21 +651,21 @@ warrantyClaimSchema.virtual('estimatedTotalCost').get(function () {
     }, 0);
 });
 
-// Virtual for checking if claim is still editable
+// Trường ảo cho checking if claim is still editable
 warrantyClaimSchema.virtual('isEditable').get(function () {
     return ['pending', 'under_review'].includes(this.claimStatus);
 });
 
-// Virtual for checking if claim is closed
+// Trường ảo cho checking if claim is closed
 warrantyClaimSchema.virtual('isClosed').get(function () {
     return ['completed', 'cancelled', 'rejected', 'handed_over'].includes(this.claimStatus);
 });
 
-// Ensure virtual fields are serialized
+// Đảm bảo trường ảo được serialize
 warrantyClaimSchema.set('toJSON', { virtuals: true });
 warrantyClaimSchema.set('toObject', { virtuals: true });
 
-// Export as factory function to use correct connection
+// Export dưới dạng factory function to use correct connection
 module.exports = function () {
     const connection = getWarrantyConnection();
     return connection.model('WarrantyClaim', warrantyClaimSchema);

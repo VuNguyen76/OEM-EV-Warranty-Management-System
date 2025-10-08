@@ -104,7 +104,7 @@ class RedisService {
         }
     }
 
-    // Cache vehicle model data (for UC1: Vehicle Registration by VIN)
+    // Cache dữ liệu model xe cho việc đăng ký xe theo VIN
     async cacheVehicleModel(model, modelData, ttl = 3600) {
         if (!this.isConnected) return false;
 
@@ -199,7 +199,7 @@ class RedisService {
             let deletedCount = 0;
             let cursor = '0';
 
-            // Use SCAN instead of KEYS to avoid blocking Redis
+            // Sử dụng SCAN thay vì KEYS để tránh block Redis
             do {
                 const result = await this.client.scan(cursor, {
                     MATCH: 'technicians:*',
@@ -280,7 +280,7 @@ class RedisService {
         }
     }
 
-    // Cache warranty policy data (for UC20)
+    // Cache dữ liệu chính sách bảo hành
     async cacheWarrantyPolicy(policyId, policyData, ttl = 86400) {
         if (!this.isConnected) return false;
 
@@ -305,7 +305,7 @@ class RedisService {
         }
     }
 
-    // Health check
+    // Kiểm tra sức khỏe
     async ping() {
         if (!this.isConnected) return false;
 

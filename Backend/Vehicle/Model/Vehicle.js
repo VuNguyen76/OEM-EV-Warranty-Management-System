@@ -6,13 +6,13 @@ const { AuditableMixin } = require('../../shared/Base/AuditableMixin');
 const { VINMixin } = require('../../shared/Base/VINMixin');
 
 const VehicleSchema = new mongoose.Schema({
-    // ✅ INHERIT BASE PATTERNS
+    // ✅ KẾ THỪA CÁC PATTERN CƠ BẢN
     ...BaseEntity,
     ...VINMixin,
     ...ServiceCenterMixin,
     ...AuditableMixin,
 
-    // ✅ VIN is unique in Vehicle collection
+    // ✅ VIN là duy nhất trong collection Vehicle
     vin: {
         ...VINMixin.vin,
         unique: true
@@ -78,7 +78,7 @@ const VehicleSchema = new mongoose.Schema({
         required: true
     },
 
-    // ✅ VEHICLE-SPECIFIC FIELDS - Unique per vehicle instance
+    // ✅ CÁC TRƯỜNG ĐẶC THÙ XE - Duy nhất cho mỗi instance xe
     color: {
         type: String,
         required: true,
@@ -112,7 +112,7 @@ const VehicleSchema = new mongoose.Schema({
         required: true
     },
 
-    // ✅ VIN Validation Timestamp
+    // ✅ Timestamp Xác thực VIN
     vinValidatedAt: {
         type: Date,
         default: Date.now
@@ -142,7 +142,7 @@ const VehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    // ✅ PURCHASE INFORMATION - Required for warranty calculation
+    // ✅ THÔNG TIN MUA HÀNG - Bắt buộc để tính toán bảo hành
     purchaseDate: {
         type: Date,
         required: true,
@@ -194,7 +194,7 @@ const VehicleSchema = new mongoose.Schema({
         required: true
     },
 
-    // ✅ VEHICLE-SPECIFIC STATUS (overrides BaseEntity.status)
+    // ✅ TRẠNG THÁI ĐẶC THÙ XE (ghi đè BaseEntity.status)
     status: {
         type: String,
         enum: ["active", "inactive", "maintenance", "recalled"],
@@ -210,11 +210,11 @@ const VehicleSchema = new mongoose.Schema({
     // ✅ AUDIT FIELDS INHERITED FROM AuditableMixin
     // ✅ TIMESTAMPS INHERITED FROM BaseEntity
 }, {
-    timestamps: false, // ✅ Using BaseEntity timestamps
+    timestamps: false, // ✅ Sử dụng timestamps của BaseEntity
     collection: "vehicles"
 });
 
-// ✅ VEHICLE-SPECIFIC INDEXES
+// ✅ CÁC INDEX ĐẶC THÙ XE
 VehicleSchema.index({ modelCode: 1, year: 1 });
 VehicleSchema.index({ ownerPhone: 1 });
 VehicleSchema.index({ registrationDate: -1 });
@@ -263,9 +263,9 @@ VehicleSchema.statics.getActiveVehicles = function () {
     return this.find({ status: 'active' });
 };
 
-// ✅ BUSINESS LOGIC METHODS
+// ✅ CÁC PHƯƠNG THỨC LOGIC NGHIỆP VỤ
 VehicleSchema.methods.canActivateWarranty = function () {
-    // Can only activate warranty if vehicle is active and quality passed
+    // Chỉ có thể kích hoạt bảo hành nếu xe đang hoạt động và đã qua kiểm tra chất lượng
     return this.status === 'active' && this.qualityStatus === 'passed';
 };
 
@@ -296,7 +296,7 @@ VehicleSchema.virtual('warrantyInfo').get(function () {
     };
 });
 
-// ✅ VEHICLE-SPECIFIC MIDDLEWARE
+// ✅ MIDDLEWARE ĐẶC THÙ XE
 VehicleSchema.pre('save', function (next) {
     if (this.isNew) {
         this.createdBy = this.registeredBy;
@@ -304,7 +304,7 @@ VehicleSchema.pre('save', function (next) {
     next();
 });
 
-// ✅ USE MODEL FACTORY PATTERN
+// ✅ SỬ DỤNG PATTERN MODEL FACTORY
 const { createModelFactory } = require('../../shared/Base/ModelFactory');
 
 module.exports = createModelFactory(

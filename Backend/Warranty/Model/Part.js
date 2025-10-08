@@ -145,19 +145,19 @@ partSchema.index({ category: 1, status: 1 });
 partSchema.index({ compatibleModels: 1 });
 partSchema.index({ stockQuantity: 1, minimumStock: 1 });
 
-// Virtual cho available quantity
+// Virtual cho số lượng có sẵn
 partSchema.virtual('availableQuantity').get(function () {
   return this.stockQuantity - this.reservedQuantity;
 });
 
-// Virtual cho low stock warning
+// Virtual cho cảnh báo hết hàng
 partSchema.virtual('isLowStock').get(function () {
   return this.availableQuantity <= this.minimumStock;
 });
 
 // Methods
 partSchema.methods.updateStock = function (quantity, operation = 'add') {
-  // Validate input
+  // Kiểm tra dữ liệu đầu vào
   if (typeof quantity !== 'number' || isNaN(quantity) || !isFinite(quantity)) {
     throw new Error('Quantity phải là số hợp lệ');
   }
@@ -187,7 +187,7 @@ partSchema.methods.updateStock = function (quantity, operation = 'add') {
 };
 
 partSchema.methods.reserveStock = function (quantity, reservedBy, expirationMinutes = 30) {
-  // Validate input
+  // Kiểm tra dữ liệu đầu vào
   if (typeof quantity !== 'number' || isNaN(quantity) || quantity <= 0) {
     throw new Error('Quantity phải là số dương hợp lệ');
   }
@@ -200,12 +200,12 @@ partSchema.methods.reserveStock = function (quantity, reservedBy, expirationMinu
     throw new Error('Không đủ tồn kho để đặt trước');
   }
 
-  // Create reservation record (would need separate Reservation model in production)
+  // Tạo bản ghi reservation (sẽ cần model Reservation riêng trong production)
   this.reservedQuantity += quantity;
   this.lastReserved = new Date();
 
-  // Note: In production, should create separate Reservation document with expiration
-  // For now, just add to reserved quantity
+  // Lưu ý: Trong production, nên tạo document Reservation riêng với expiration
+  // Hiện tại, chỉ thêm vào số lượng reserved
   return this.save();
 };
 
@@ -253,7 +253,7 @@ partSchema.statics.searchParts = function (searchTerm, filters = {}) {
     ]
   };
 
-  // Apply filters
+  // Áp dụng bộ lọc
   if (filters.category) {
     query.$and.push({ category: filters.category });
   }
@@ -280,14 +280,14 @@ partSchema.statics.searchParts = function (searchTerm, filters = {}) {
   return this.find(query);
 };
 
-// Pre-save middleware
+// Middleware trước khi lưu
 partSchema.pre('save', function (next) {
-  // Ensure reserved quantity doesn't exceed stock quantity
+  // Đảm bảo số lượng reserved không vượt quá số lượng stock
   if (this.reservedQuantity > this.stockQuantity) {
     this.reservedQuantity = this.stockQuantity;
   }
 
-  // Update lastUsed when stock decreases
+  // Cập nhật lastUsed khi stock giảm
   if (this.isModified('stockQuantity') && this.stockQuantity < this.constructor.findOne({ _id: this._id }).stockQuantity) {
     this.lastUsed = new Date();
   }

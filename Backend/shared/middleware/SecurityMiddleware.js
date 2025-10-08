@@ -1,24 +1,24 @@
 // shared/middleware/SecurityMiddleware.js
-// Security middleware for enhanced protection
+// Middleware bảo mật để tăng cường bảo vệ
 
 /**
  * Security headers middleware
  * Adds various security headers to responses
  */
 const securityHeaders = (req, res, next) => {
-    // Prevent clickjacking
+    // Ngăn clickjacking
     res.setHeader('X-Frame-Options', 'DENY');
     
-    // Prevent MIME type sniffing
+    // Ngăn MIME type sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
     
-    // Enable XSS protection
+    // Bật bảo vệ XSS
     res.setHeader('X-XSS-Protection', '1; mode=block');
     
-    // Referrer policy
+    // Chính sách Referrer
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     
-    // Content Security Policy
+    // Chính sách Bảo mật Nội dung
     res.setHeader('Content-Security-Policy', 
         "default-src 'self'; " +
         "script-src 'self' 'unsafe-inline'; " +
@@ -29,12 +29,12 @@ const securityHeaders = (req, res, next) => {
         "frame-ancestors 'none';"
     );
     
-    // Strict Transport Security (HTTPS only)
+    // Strict Transport Security (chỉ HTTPS)
     if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
         res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     }
     
-    // Remove server information
+    // Xóa thông tin server
     res.removeHeader('X-Powered-By');
     
     next();
@@ -45,7 +45,7 @@ const securityHeaders = (req, res, next) => {
  * Sanitizes request data to prevent injection attacks
  */
 const sanitizeRequest = (req, res, next) => {
-    // Sanitize query parameters
+    // Làm sạch query parameters
     if (req.query) {
         for (const key in req.query) {
             if (typeof req.query[key] === 'string') {
@@ -54,7 +54,7 @@ const sanitizeRequest = (req, res, next) => {
         }
     }
     
-    // Sanitize request body
+    // Làm sạch request body
     if (req.body && typeof req.body === 'object') {
         sanitizeObject(req.body);
     }
@@ -70,12 +70,12 @@ const sanitizeRequest = (req, res, next) => {
 function sanitizeString(str) {
     if (typeof str !== 'string') return str;
     
-    // Remove potentially dangerous characters
+    // Xóa các ký tự có thể nguy hiểm
     return str
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
-        .replace(/javascript:/gi, '') // Remove javascript: protocol
-        .replace(/on\w+\s*=/gi, '') // Remove event handlers
-        .replace(/[<>]/g, '') // Remove < and > characters
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Xóa script tags
+        .replace(/javascript:/gi, '') // Xóa javascript: protocol
+        .replace(/on\w+\s*=/gi, '') // Xóa event handlers
+        .replace(/[<>]/g, '') // Xóa ký tự < và >
         .trim();
 }
 
@@ -149,7 +149,7 @@ function parseSize(size) {
 const ipWhitelist = (allowedIPs = []) => {
     return (req, res, next) => {
         if (allowedIPs.length === 0) {
-            return next(); // No whitelist configured, allow all
+            return next(); // Không cấu hình whitelist, cho phép tất cả
         }
         
         const clientIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
@@ -172,11 +172,11 @@ const ipWhitelist = (allowedIPs = []) => {
 const securityLogger = (req, res, next) => {
     const startTime = Date.now();
     
-    // Log suspicious patterns
+    // Ghi log các pattern đáng nghi
     const suspiciousPatterns = [
         /\.\.\//g, // Directory traversal
-        /<script/gi, // XSS attempts
-        /union\s+select/gi, // SQL injection
+        /<script/gi, // Thử XSS
+        /union\s+select/gi, // SQL injection (giữ nguyên thuật ngữ bảo mật)
         /javascript:/gi, // JavaScript injection
         /eval\(/gi, // Code injection
     ];
@@ -188,7 +188,7 @@ const securityLogger = (req, res, next) => {
     let isSuspicious = false;
     const suspiciousReasons = [];
     
-    // Check URL for suspicious patterns
+    // Kiểm tra URL có pattern đáng nghi
     suspiciousPatterns.forEach(pattern => {
         if (pattern.test(url)) {
             isSuspicious = true;
@@ -196,7 +196,7 @@ const securityLogger = (req, res, next) => {
         }
     });
     
-    // Check for suspicious user agents
+    // Kiểm tra user agents đáng nghi
     if (userAgent.toLowerCase().includes('bot') && !userAgent.toLowerCase().includes('googlebot')) {
         isSuspicious = true;
         suspiciousReasons.push('Suspicious user agent');
@@ -214,10 +214,10 @@ const securityLogger = (req, res, next) => {
         });
     }
     
-    // Log response time on finish
+    // Ghi log thời gian phản hồi khi hoàn thành
     res.on('finish', () => {
         const duration = Date.now() - startTime;
-        if (duration > 5000) { // Log slow requests
+        if (duration > 5000) { // Ghi log requests chậm
             console.warn(`⏱️ Slow request: ${req.method} ${url} - ${duration}ms`);
         }
     });

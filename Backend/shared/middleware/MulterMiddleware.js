@@ -23,7 +23,7 @@ const warrantyClaimStorage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
-        // Format: claimId_timestamp_originalname
+        // Định dạng: claimId_timestamp_originalname
         const claimId = req.params.claimId || 'unknown';
         const timestamp = Date.now();
         const ext = path.extname(file.originalname);
@@ -35,7 +35,7 @@ const warrantyClaimStorage = multer.diskStorage({
 
 // File filter - chỉ cho phép các loại file an toàn
 const fileFilter = (req, file, cb) => {
-    // Allowed file types
+    // Loại file được phép
     const allowedTypes = [
         // Images
         'image/jpeg',
@@ -51,7 +51,7 @@ const fileFilter = (req, file, cb) => {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'text/plain',
         'text/csv',
-        // Video (for inspection videos)
+        // Video (cho video kiểm tra)
         'video/mp4',
         'video/avi',
         'video/mov',
@@ -78,8 +78,8 @@ const uploadWarrantyClaimFiles = multer({
     storage: warrantyClaimStorage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 50 * 1024 * 1024, // 50MB per file
-        files: 10 // Maximum 10 files per upload
+        fileSize: 50 * 1024 * 1024, // 50MB mỗi file
+        files: 10 // Tối đa 10 files mỗi lần upload
     }
 });
 
@@ -89,7 +89,7 @@ const uploadMultipleFiles = uploadWarrantyClaimFiles.array('files', 10);
 // Middleware cho upload single file
 const uploadSingleFile = uploadWarrantyClaimFiles.single('file');
 
-// Error handling middleware
+// Xử lý lỗi middleware
 const handleMulterError = (error, req, res, next) => {
     if (error instanceof multer.MulterError) {
         switch (error.code) {

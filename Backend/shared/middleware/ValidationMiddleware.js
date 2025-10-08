@@ -1,9 +1,9 @@
 const { body, validationResult } = require('express-validator');
 
-// Reusable validation middleware
+// Middleware validation có thể tái sử dụng
 const validate = (validations) => {
     return async (req, res, next) => {
-        // Run all validations in parallel
+        // Chạy tất cả validations song song
         await Promise.all(validations.map(validation => validation.run(req)));
 
         const errors = validationResult(req);
@@ -11,7 +11,7 @@ const validate = (validations) => {
             return next();
         }
 
-        // Return standardized error response
+        // Trả về phản hồi lỗi chuẩn hóa
         return res.status(400).json({
             success: false,
             message: "Dữ liệu không hợp lệ",
@@ -24,9 +24,9 @@ const validate = (validations) => {
     };
 };
 
-// Common validation rules
+// Quy tắc validation chung
 const validationRules = {
-    // User registration validation
+    // Validation đăng ký người dùng
     register: [
         body('username')
             .trim()
@@ -50,7 +50,7 @@ const validationRules = {
             .withMessage('Role không hợp lệ')
     ],
 
-    // User login validation
+    // Validation đăng nhập người dùng
     login: [
         body('email')
             .trim()
@@ -65,7 +65,7 @@ const validationRules = {
             .withMessage('Password không được để trống')
     ],
 
-    // User update validation
+    // Validation cập nhật người dùng
     updateUser: [
         body('username')
             .optional()
@@ -89,7 +89,7 @@ const validationRules = {
             .isIn(['admin', 'service_staff', 'technician', 'manufacturer_staff', 'customer'])
             .withMessage('Role không hợp lệ'),
 
-        // Full address validation for customer role
+        // Validation địa chỉ đầy đủ cho vai trò khách hàng
         body('fullAddress')
             .custom((value, { req }) => {
                 if (req.body.role === 'customer') {
@@ -104,7 +104,7 @@ const validationRules = {
             })
     ],
 
-    // Vehicle registration validation - Simplified
+    // Validation đăng ký xe - Đơn giản hóa
     vehicleRegister: [
         body('vin')
             .trim()

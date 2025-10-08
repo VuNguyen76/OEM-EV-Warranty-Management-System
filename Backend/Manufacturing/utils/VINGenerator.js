@@ -14,7 +14,7 @@ class VINGenerator {
      * @returns {string} 5-character VDS
      */
     static encodeVDS(vehicleModel) {
-        // Character 1: Vehicle type
+        // Ký tự 1: Loại xe
         const typeMap = {
             'sedan': 'S',
             'suv': 'U',
@@ -26,17 +26,17 @@ class VINGenerator {
         };
         const type = typeMap[vehicleModel.category?.toLowerCase()] || 'X';
 
-        // Character 2: Battery capacity (encoded)
+        // Ký tự 2: Dung lượng pin (mã hóa)
         const batteryCode = Math.min(9, Math.floor((vehicleModel.batteryCapacity || 50) / 10));
 
-        // Character 3: Motor power (encoded)
+        // Ký tự 3: Công suất motor (mã hóa)
         const motorPower = vehicleModel.motorPower || 200;
         const motorCode = motorPower > 400 ? '9' :
             motorPower > 300 ? '7' :
                 motorPower > 200 ? '5' :
                     motorPower > 100 ? '3' : '1';
 
-        // Characters 4-5: Variant/trim level
+        // Ký tự 4-5: Phiên bản/mức trang bị
         const variantMap = {
             'base': 'BA',
             'plus': 'PL',
@@ -66,7 +66,7 @@ class VINGenerator {
 
         let sum = 0;
         for (let i = 0; i < 17; i++) {
-            if (i === 8) continue; // Skip check digit position
+            if (i === 8) continue; // Bỏ qua vị trí check digit
             const char = vin17[i];
             if (values[char] === undefined) {
                 throw new Error(`Invalid character '${char}' at position ${i + 1}`);
@@ -86,7 +86,7 @@ class VINGenerator {
      */
     static async generateVIN(vehicleModel, plantCode) {
         try {
-            // Validate required parameters
+            // Kiểm tra các tham số bắt buộc
             if (!vehicleModel || !vehicleModel.manufacturer) {
                 throw new Error('Vehicle model and manufacturer are required');
             }
@@ -100,7 +100,7 @@ class VINGenerator {
                 throw new Error(`Unsupported manufacturer: ${vehicleModel.manufacturer}`);
             }
 
-            // Get VDS (Vehicle Descriptor Section)
+            // Lấy VDS (Vehicle Descriptor Section)
             const vds = this.encodeVDS(vehicleModel);
 
             // Get model year code from shared constants
@@ -109,16 +109,16 @@ class VINGenerator {
                 throw new Error(`Unsupported model year: ${vehicleModel.year}`);
             }
 
-            // Validate plant code
+            // Kiểm tra mã nhà máy
             const validPlantCode = plantCode.toUpperCase();
             if (!/^[A-HJ-NPR-Z0-9]$/.test(validPlantCode)) {
                 throw new Error(`Invalid plant code: ${plantCode}`);
             }
 
-            // Get VIN Counter model
+            // Lấy model VIN Counter
             const VINCounter = require('../Model/VINCounter')();
 
-            // Get next sequential number (atomic operation)
+            // Lấy số tuần tự tiếp theo (thao tác nguyên tử)
             const sequence = await VINCounter.getNextSequence(
                 wmi,
                 vehicleModel.modelCode,
@@ -126,19 +126,19 @@ class VINGenerator {
                 validPlantCode
             );
 
-            // Format sequential number (6 digits)
+            // Định dạng số tuần tự (6 chữ số)
             const sequential = sequence.toString().padStart(6, '0');
 
-            // Build VIN without check digit (position 9 = X temporarily)
+            // Xây dựng VIN không có check digit (vị trí 9 = X tạm thời)
             const vinWithoutCheck = `${wmi}${vds}X${yearCode}${validPlantCode}${sequential}`;
 
-            // Calculate check digit
+            // Tính check digit
             const checkDigit = this.calculateCheckDigit(vinWithoutCheck);
 
-            // Build final VIN
+            // Xây dựng VIN cuối cùng
             const finalVIN = `${wmi}${vds}${checkDigit}${yearCode}${validPlantCode}${sequential}`;
 
-            // Validate final VIN
+            // Kiểm tra VIN cuối cùng
             const validation = this.validateVIN(finalVIN);
             if (!validation.valid) {
                 throw new Error(`Generated invalid VIN: ${validation.error}`);
@@ -159,13 +159,13 @@ class VINGenerator {
      */
     static validateVIN(vin) {
         try {
-            // Use shared format validation
+            // Sử dụng validation format chung
             const formatValidation = validateVINFormat(vin);
             if (!formatValidation.valid) {
                 return formatValidation;
             }
 
-            // Validate check digit
+            // Kiểm tra check digit
             const checkDigit = vin[8];
             const calculatedCheck = this.calculateCheckDigit(vin);
 
@@ -201,13 +201,13 @@ class VINGenerator {
         const plantCode = vin[10];
         const sequential = vin.substring(11, 17);
 
-        // Find manufacturer using shared reverse mapping
+        // Tìm nhà sản xuất bằng reverse mapping chung
         const manufacturer = WMI_REVERSE[wmi] || 'Unknown';
 
-        // Find year using shared reverse mapping
+        // Tìm năm bằng reverse mapping chung
         const year = YEAR_REVERSE[yearCode] || 'Unknown';
 
-        // Find plant using shared reverse mapping
+        // Tìm nhà máy bằng reverse mapping chung
         const plant = PLANT_REVERSE[plantCode] || 'Unknown';
 
         return {

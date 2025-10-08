@@ -33,18 +33,18 @@ const initializeServices = async () => {
     }
 };
 
-// Vehicle Management (root paths for API Gateway compatibility)
-// Specific routes FIRST (no params)
+// Quản lý Xe (đường dẫn gốc để tương thích API Gateway)
+// Routes cụ thể TRƯỚC (không có params)
 app.get('/search', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.searchVehicles);
 app.get('/statistics', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getVehicleStatistics);
 
-// Root route for getAllVehicles
+// Route gốc cho getAllVehicles
 app.get('/', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getAllVehicles);
 
-// Parameterized routes LAST
+// Routes có tham số CUỐI CÙNG
 app.get('/vin/:vin', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.getVehicleByVIN);
 
-// POST/PUT routes
+// Routes POST/PUT
 app.post('/register', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.registerVehicle);
 app.put('/:id', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.updateVehicle);
 
@@ -55,7 +55,7 @@ const startServer = async () => {
         console.log(`🚀 Vehicle Service running on port ${port}`);
     });
 
-    // Graceful shutdown
+    // Tắt server một cách nhẹ nhàng
     const gracefulShutdown = async (signal) => {
         console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
 

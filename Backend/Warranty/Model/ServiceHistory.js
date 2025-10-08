@@ -6,7 +6,7 @@ const serviceHistorySchema = new mongoose.Schema({
   ...BaseEntity,
   ...VINMixin,
 
-  // ✅ CORE UC3 FIELDS
+  // Các trường cốt lõi cho lịch sử dịch vụ
 
   // Thông tin dịch vụ
   serviceType: {
@@ -34,7 +34,7 @@ const serviceHistorySchema = new mongoose.Schema({
 
   // Thông tin thực hiện
   performedBy: {
-    type: String, // ✅ Staff email who performed the service
+    type: String, // ✅ Email nhân viên thực hiện dịch vụ
     required: true,
     trim: true
   },
@@ -156,13 +156,13 @@ const serviceHistorySchema = new mongoose.Schema({
 
   issuesFound: [{
     description: String,
-    severity: String, // low, medium, high, critical
+    severity: String, // thấp, trung bình, cao, tới hạn
     resolved: Boolean,
     resolution: String
   }],
 
   recommendations: [{
-    type: String, // maintenance, repair, replacement
+    type: String, // bảo dưỡng, sửa chữa, thay thế
     description: String,
     priority: String,
     estimatedCost: Number,
@@ -178,7 +178,7 @@ const serviceHistorySchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     },
-    result: String, // passed, failed, conditional
+    result: String, // đạt, không đạt, có điều kiện
     notes: String,
     checkedAt: Date
   },
@@ -196,7 +196,7 @@ const serviceHistorySchema = new mongoose.Schema({
   // Tài liệu đính kèm
   attachments: [{
     name: String,
-    type: String, // image, document, video, report
+    type: String, // ảnh, tài liệu, video, báo cáo
     url: String,
     description: String,
     uploadedAt: Date,
@@ -228,7 +228,7 @@ const serviceHistorySchema = new mongoose.Schema({
   nextServiceType: String,
   nextServiceDescription: String,
 
-  // Odometer/Mileage
+  // Đồng hồ đo km/Số km
   odometerReading: {
     type: Number,
     required: true,
@@ -247,7 +247,7 @@ const serviceHistorySchema = new mongoose.Schema({
   internalNotes: String, // chỉ nhân viên xem được
   tags: [String],
 
-  // Approval workflow
+  // Quy trình phê duyệt
   approvalRequired: {
     type: Boolean,
     default: false
@@ -280,17 +280,17 @@ serviceHistorySchema.index({ warrantyRequestId: 1 });
 serviceHistorySchema.index({ nextServiceDate: 1 });
 serviceHistorySchema.index({ 'qualityCheck.result': 1 });
 
-// Additional indexes for search performance
+// Index bổ sung for search performance
 serviceHistorySchema.index({ 'serviceCenter.code': 1 });
 serviceHistorySchema.index({ 'serviceCenter.name': 1 });
 serviceHistorySchema.index({ title: 'text', description: 'text' });
 serviceHistorySchema.index({ totalCost: 1 });
-serviceHistorySchema.index({ serviceDate: 1, serviceType: 1 }); // For statistics
-// Compound indexes for complex queries (fix N+1 problem)
+serviceHistorySchema.index({ serviceDate: 1, serviceType: 1 }); // Cho thống kê
+// Index kết hợp for complex queries (fix N+1 problem)
 serviceHistorySchema.index({ vehicleId: 1, serviceDate: -1, serviceType: 1 });
 serviceHistorySchema.index({ serviceDate: -1, serviceType: 1, performedBy: 1 });
 
-// Virtual cho duration
+// Virtual cho thời lượng
 serviceHistorySchema.virtual('duration').get(function () {
   if (this.startTime && this.endTime) {
     return Math.round((this.endTime - this.startTime) / (1000 * 60)); // minutes
@@ -298,7 +298,7 @@ serviceHistorySchema.virtual('duration').get(function () {
   return this.actualDuration || this.estimatedDuration || 0;
 });
 
-// Virtual cho efficiency
+// Virtual cho hiệu suất
 serviceHistorySchema.virtual('efficiency').get(function () {
   if (this.estimatedDuration && this.actualDuration) {
     return Math.round((this.estimatedDuration / this.actualDuration) * 100);
@@ -439,9 +439,9 @@ serviceHistorySchema.statics.getServiceStats = function (filters = {}) {
   ]);
 };
 
-// Pre-save middleware
+// Middleware trước khi lưu
 serviceHistorySchema.pre('save', function (next) {
-  // Auto-calculate costs if not set
+  // Tự động tính toán costs if not set
   if (this.isModified('laborHours') || this.isModified('laborRate')) {
     this.calculateLaborCost();
   }
@@ -450,7 +450,7 @@ serviceHistorySchema.pre('save', function (next) {
     this.calculatePartsCost();
   }
 
-  // Set actual duration if end time is set
+  // Đặt thời lượng thực tế nếu thời gian kết thúc được đặt
   if (this.startTime && this.endTime && !this.actualDuration) {
     this.actualDuration = Math.round((this.endTime - this.startTime) / (1000 * 60));
   }

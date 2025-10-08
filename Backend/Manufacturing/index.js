@@ -13,7 +13,7 @@ const ProductionController = require('./Controller/ProductionController');
 const app = express();
 const PORT = process.env.PORT || process.env.MANUFACTURING_PORT || 3003;
 
-// Swagger configuration
+// Cấu hình Swagger
 const swaggerOptions = {
     definition: {
         openapi: '3.0.0',
@@ -32,10 +32,10 @@ const swaggerOptions = {
     apis: ['./Manufacturing/Service/*.js']
 };
 
-// Rate limiting
+// Giới hạn tốc độ
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000, // 15 phút
+    max: 100, // giới hạn mỗi IP 100 requests mỗi windowMs
     message: 'Quá nhiều requests từ IP này, vui lòng thử lại sau.'
 });
 
@@ -49,7 +49,7 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
+// Kiểm tra sức khỏe
 app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
@@ -59,20 +59,20 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Demo endpoint - no auth required
+// Endpoint demo - không cần xác thực
 app.get('/demo/models', VehicleModelController.getAllVehicleModels);
 app.get('/demo/production', ProductionController.getAllProducedVehicles);
 app.post('/demo/quality-check/:vin', ProductionController.passQualityCheck);
 
-// Initialize database connection
+// Khởi tạo kết nối database
 const { connectToManufacturingDB } = require('../shared/database/manufacturingConnection');
 
-// Initialize database on startup
+// Khởi tạo database khi khởi động
 connectToManufacturingDB().catch(err => {
     process.exit(1);
 });
 
-// Initialize models once on startup
+// Khởi tạo models once on startup
 try {
     VehicleModelController.initializeModels();
     ProductionController.initializeModels();
@@ -83,30 +83,30 @@ try {
 }
 
 // Routes
-// Vehicle Model Management
+// Quản lý Model Xe
 app.post('/models', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), VehicleModelController.createVehicleModel);
 app.get('/models', authenticateToken, VehicleModelController.getAllVehicleModels);
 app.get('/models/:id', authenticateToken, VehicleModelController.getVehicleModelById);
 app.put('/models/:id', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), VehicleModelController.updateVehicleModel);
 app.delete('/models/:id', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), VehicleModelController.deleteVehicleModel);
 
-// Vehicle Production
+// Sản xuất Xe
 app.post('/production', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), ProductionController.createVehicle);
 app.get('/production', authenticateToken, ProductionController.getAllProducedVehicles);
 app.get('/production/:vin', authenticateToken, ProductionController.getVehicleByVIN);
 app.put('/production/:vin', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), ProductionController.updateVehicle);
 
-// Quality Check
+// Kiểm tra Chất lượng
 app.post('/production/:vin/quality-check', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), ProductionController.passQualityCheck);
 app.post('/production/:vin/quality-fail', authenticateToken, authorizeRole('admin', 'manufacturer_staff'), ProductionController.failQualityCheck);
 
-// Production Statistics
+// Thống kê Sản xuất
 app.get('/statistics/production', authenticateToken, ProductionController.getProductionStatistics);
 app.get('/statistics/models', authenticateToken, VehicleModelController.getModelStatistics);
 
-// Error handling middleware
+// Xử lý lỗi middleware
 app.use((err, req, res, next) => {
-    // Check if response already sent
+    // Kiểm tra response đã được gửi chưa
     if (res.headersSent) {
         return next(err);
     }
@@ -140,7 +140,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 404 handler
+// Xử lý 404
 app.use((req, res) => {
     res.status(404).json({
         success: false,
@@ -149,12 +149,12 @@ app.use((req, res) => {
     });
 });
 
-// Start server
+// Khởi động server
 const server = app.listen(PORT, () => {
     console.log(`🚀 Manufacturing Service running on port ${PORT}`);
 });
 
-// Graceful shutdown
+// Tắt server một cách nhẹ nhàng
 const gracefulShutdown = async (signal) => {
     console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
 

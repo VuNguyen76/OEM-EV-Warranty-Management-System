@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { getManufacturingConnection } = require('../../shared/database/manufacturingConnection');
 
-// Vehicle Model Schema (for manufacturers to define vehicle specifications)
+// Schema Model Xe (để nhà sản xuất định nghĩa thông số xe)
 const VehicleModelSchema = new mongoose.Schema({
     modelName: {
         type: String,
@@ -36,7 +36,7 @@ const VehicleModelSchema = new mongoose.Schema({
         max: new Date().getFullYear() + 2
     },
 
-    // EV Specifications
+    // Thông số kỹ thuật EV
     batteryCapacity: {
         type: Number,
         required: true,
@@ -58,7 +58,7 @@ const VehicleModelSchema = new mongoose.Schema({
         max: 1000 // km
     },
 
-    // Warranty Information
+    // Thông tin Bảo hành
     vehicleWarrantyMonths: {
         type: Number,
         required: true,
@@ -77,7 +77,7 @@ const VehicleModelSchema = new mongoose.Schema({
     basePrice: {
         type: Number,
         required: true,
-        min: 100000000 // 100 million VND minimum
+        min: 100000000 // Tối thiểu 100 triệu VND
     },
 
     // Status
@@ -87,11 +87,11 @@ const VehicleModelSchema = new mongoose.Schema({
         default: "development"
     },
 
-    // Technical Specifications
+    // Thông số kỹ thuật
     specifications: {
-        chargingTime: Number, // hours for 0-80%
+        chargingTime: Number, // giờ cho 0-80%
         topSpeed: Number, // km/h
-        acceleration: Number, // 0-100 km/h in seconds
+        acceleration: Number, // 0-100 km/h trong giây
         weight: Number, // kg
         dimensions: {
             length: Number, // mm
@@ -113,7 +113,7 @@ const VehicleModelSchema = new mongoose.Schema({
         trim: true
     },
 
-    // Audit fields
+    // Các trường audit
     createdBy: {
         type: String,
         required: true
@@ -132,7 +132,7 @@ VehicleModelSchema.index({ manufacturer: 1, year: 1 });
 VehicleModelSchema.index({ category: 1, status: 1 });
 VehicleModelSchema.index({ createdAt: -1 });
 
-// Virtual fields
+// Trường ảo
 VehicleModelSchema.virtual('fullName').get(function () {
     return `${this.manufacturer} ${this.modelName} ${this.year}`;
 });
@@ -141,7 +141,7 @@ VehicleModelSchema.virtual('isActive').get(function () {
     return this.status === 'production';
 });
 
-// Instance methods
+// Phương thức instance
 VehicleModelSchema.methods.activate = function () {
     this.status = 'production';
     return this.save();
@@ -152,7 +152,7 @@ VehicleModelSchema.methods.discontinue = function () {
     return this.save();
 };
 
-// Static methods
+// Phương thức static
 VehicleModelSchema.statics.findByManufacturer = function (manufacturer) {
     return this.find({ manufacturer: new RegExp(manufacturer, 'i') });
 };
@@ -161,7 +161,7 @@ VehicleModelSchema.statics.findActiveModels = function () {
     return this.find({ status: 'production' });
 };
 
-// Pre-save middleware
+// Middleware trước khi lưu
 VehicleModelSchema.pre('save', function (next) {
     if (this.isModified('modelCode')) {
         this.modelCode = this.modelCode.toUpperCase();

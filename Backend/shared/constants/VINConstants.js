@@ -3,7 +3,7 @@
  * Single source of truth for VIN-related mappings
  */
 
-// World Manufacturer Identifier codes (WMI) - ISO 3779
+// Mã World Manufacturer Identifier (WMI) - ISO 3779
 const WMI_CODES = {
     'VinFast': 'LVG',
     'Tesla': '5YJ',
@@ -25,7 +25,7 @@ const WMI_CODES = {
     'EV Motors': 'EVM'
 };
 
-// Model year codes (ISO 3779)
+// Mã năm model (ISO 3779)
 const YEAR_CODES = {
     2020: 'L',
     2021: 'M',
@@ -49,7 +49,7 @@ const YEAR_CODES = {
     2039: '9'
 };
 
-// Plant codes
+// Mã nhà máy
 const PLANT_CODES = {
     'Hanoi': 'H',
     'HoChiMinh': 'S',
@@ -74,7 +74,7 @@ const createReverseMapping = (mapping) => {
     return reverse;
 };
 
-// Reverse mappings for parsing
+// Reverse mappings cho parsing
 const WMI_REVERSE = createReverseMapping(WMI_CODES);
 const YEAR_REVERSE = createReverseMapping(YEAR_CODES);
 const PLANT_REVERSE = createReverseMapping(PLANT_CODES);
@@ -91,7 +91,7 @@ const validateVINFormat = (vin) => {
 
     const cleanVIN = vin.trim().toUpperCase();
 
-    // Basic VIN validation (17 characters, alphanumeric except I, O, Q)
+    // Validation VIN cơ bản (17 ký tự, chữ số trừ I, O, Q)
     if (cleanVIN.length !== 17) {
         return { valid: false, error: 'VIN must be exactly 17 characters' };
     }
@@ -187,11 +187,11 @@ module.exports = {
     YEAR_REVERSE,
     PLANT_REVERSE,
 
-    // Validation & Parsing
+    // Kiểm tra dữ liệu & Parsing
     validateVINFormat,
     parseVINBasic,
 
-    // Utility functions
+    // Các hàm tiện ích
     getManufacturerFromVIN,
     getYearFromVIN,
     getPlantFromVIN
