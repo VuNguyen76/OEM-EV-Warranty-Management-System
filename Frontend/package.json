@@ -18,12 +18,15 @@
     "axios": "^1.12.2",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.9.3",
+    "react-toastify": "^11.0.5",
     "recharts": "^3.2.1",
-    "tailwindcss": "^4.1.14"
+    "redux-persist": "^6.0.0",
+    "tailwindcss": "^4.1.14",
+    "toastify": "^2.0.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.4",

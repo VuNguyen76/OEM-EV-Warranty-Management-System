@@ -1,5 +1,5 @@
 services:
-  # MongoDB Database
+  # 🗄️ MongoDB Database
   mongodb:
     image: mongo:7.0
     container_name: warranty_mongodb
@@ -16,7 +16,7 @@ services:
     networks:
       - warranty_network
 
-  # Redis Cache
+  # ⚡ Redis Cache
   redis:
     image: redis:7.2-alpine
     container_name: warranty_redis
@@ -43,7 +43,7 @@ services:
     networks:
       - warranty_network
 
-  # User Service
+  # 👤 User Service
   user-service:
     build:
       context: .
@@ -68,7 +68,7 @@ services:
       - ./shared:/app/shared
       - ./node_modules:/app/node_modules
 
-  # Manufacturing Service
+  # 🏭 Manufacturing Service (hãng)
   manufacturing-service:
     build:
       context: .
@@ -78,7 +78,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3003
-      MANUFACTURING_PORT: 3003
       MANUFACTURING_DB_URI: ${MANUFACTURING_DB_URI}
       REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
       JWT_SECRET: ${JWT_SECRET}
@@ -94,7 +93,7 @@ services:
       - ./shared:/app/shared
       - ./node_modules:/app/node_modules
 
-  # Warranty Service
+  # 🧾 Warranty Service (quản lý claim)
   warranty-service:
     build:
       context: .
@@ -104,7 +103,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3002
-      WARRANTY_PORT: 3002
       WARRANTY_DB_URI: ${WARRANTY_DB_URI}
       REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
       JWT_SECRET: ${JWT_SECRET}
@@ -120,12 +118,13 @@ services:
       - ./shared:/app/shared
       - ./node_modules:/app/node_modules
 
-  # Vehicle Service
-  warranty_vehicle_service:
-    container_name: warranty_vehicle_service
+  # 🚗 Vehicle Service (xe + VIN)
+  vehicle-service:
     build:
       context: .
       dockerfile: Vehicle/Dockerfile
+    container_name: warranty_vehicle_service
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3004
@@ -144,7 +143,7 @@ services:
       - ./shared:/app/shared
       - ./node_modules:/app/node_modules
 
-  # API Gateway
+  # 🌐 API Gateway
   api-gateway:
     build:
       context: .
@@ -160,7 +159,7 @@ services:
       USER_SERVICE_URL: http://user-service:3001
       MANUFACTURING_SERVICE_URL: http://manufacturing-service:3003
       WARRANTY_SERVICE_URL: http://warranty-service:3002
-      VEHICLE_SERVICE_URL: http://warranty_vehicle_service:3004
+      VEHICLE_SERVICE_URL: http://vehicle-service:3004
       REDIS_URL: redis://:warranty123@redis:6379
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       JWT_SECRET: ${JWT_SECRET}
@@ -170,7 +169,7 @@ services:
       - user-service
       - manufacturing-service
       - warranty-service
-      - warranty_vehicle_service
+      - vehicle-service
       - redis
     networks:
       - warranty_network
@@ -181,9 +180,7 @@ services:
 
 volumes:
   mongodb_data:
-    driver: local
   redis_data:
-    driver: local
 
 networks:
   warranty_network:
