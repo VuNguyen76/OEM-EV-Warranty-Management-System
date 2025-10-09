@@ -48,7 +48,7 @@ const UserSchema = new mongoose.Schema({
     role: {
         type: String,
         enum: Enum.getValues(),
-        default: "service_staff" // ✅ Default role for new staff accounts
+        default: "service_staff" // ✅ Vai trò mặc định cho tài khoản nhân viên mới
     },
     serviceCenter: {
         id: {
@@ -114,7 +114,7 @@ UserSchema.methods.incrementLoginAttempts = function () {
     return this.updateOne(updates);
 };
 
-// Hash password before saving
+// Mã hóa mật khẩu before saving
 UserSchema.pre('save', async function (next) {
     if (!this.isModified('password')) return next();
 
@@ -127,7 +127,7 @@ UserSchema.pre('save', async function (next) {
     }
 });
 
-// Compare password method
+// So sánh mật khẩu method
 UserSchema.methods.comparePassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
 };

@@ -1,5 +1,5 @@
 // shared/database/userConnection.js
-// Database connection specifically for User Service
+// Kết nối database riêng cho User Service
 
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
@@ -19,9 +19,9 @@ const connectToUserDatabase = async () => {
         }
 
         await mongoose.connect(mongoUri, {
-            maxPoolSize: 20, // Increased pool size for better performance
-            minPoolSize: 5, // Minimum connections to maintain
-            maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+            maxPoolSize: 20, // Tăng pool size để hiệu suất tốt hơn
+            minPoolSize: 5, // Số kết nối tối thiểu duy trì
+            maxIdleTimeMS: 30000, // Đóng kết nối sau 30 giây không hoạt động
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
         });
@@ -29,7 +29,7 @@ const connectToUserDatabase = async () => {
         console.log("✅ Connected to User MongoDB database");
         console.log(`📍 Database: ${mongoUri.split('@')[1]?.split('/')[0] || 'localhost'}`);
 
-        // Handle connection events
+        // Xử lý sự kiện kết nối
         mongoose.connection.on('error', (err) => {
             console.error('❌ User Database connection error:', err);
         });

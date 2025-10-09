@@ -27,7 +27,7 @@ class App {
     } else {
       console.log("Rate limiting is disabled");
     }
-        // Remove body parsing middleware to avoid conflicts with proxy
+        // Xóa middleware parse body để tránh xung đột với proxy
         // this.app.use(express.json());
         // this.app.use(express.urlencoded({ extended: true }));
 

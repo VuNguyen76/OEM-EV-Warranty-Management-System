@@ -1,5 +1,5 @@
 // shared/utils/queryHelper.js
-// Helper functions for database queries and search
+// Các hàm helper cho database queries và tìm kiếm
 
 /**
  * Parse pagination parameters from request query
@@ -44,22 +44,22 @@ const buildVehicleSearchQuery = (queryParams) => {
     const { q, type, status, year, model } = queryParams;
     const query = {};
     
-    // Status filter
+    // Lọc theo trạng thái
     if (status) {
         query.status = status;
     }
     
-    // Year filter
+    // Lọc theo năm
     if (year) {
         query.year = parseInt(year);
     }
     
-    // Model filter
+    // Lọc theo model
     if (model) {
         query.model = new RegExp(model, 'i');
     }
     
-    // Search query
+    // Query tìm kiếm
     if (q) {
         if (type === 'vin') {
             query.vin = new RegExp(q, 'i');
@@ -69,7 +69,7 @@ const buildVehicleSearchQuery = (queryParams) => {
                 { ownerPhone: new RegExp(q, 'i') }
             ];
         } else {
-            // General search across multiple fields
+            // Tìm kiếm chung trên nhiều trường
             query.$or = [
                 { vin: new RegExp(q, 'i') },
                 { model: new RegExp(q, 'i') },
@@ -92,22 +92,22 @@ const buildUserSearchQuery = (queryParams) => {
     const { q, role, status, serviceCenter } = queryParams;
     const query = {};
     
-    // Role filter
+    // Lọc theo vai trò
     if (role) {
         query.role = role;
     }
     
-    // Status filter
+    // Lọc theo trạng thái
     if (status) {
         query.status = status;
     }
     
-    // Service center filter
+    // Lọc theo trung tâm dịch vụ
     if (serviceCenter) {
         query.serviceCenter = serviceCenter;
     }
     
-    // Search query
+    // Query tìm kiếm
     if (q) {
         query.$or = [
             { username: new RegExp(q, 'i') },
@@ -189,12 +189,12 @@ const sanitizeQuery = (query, allowedFields = []) => {
 const buildStatsPipeline = (matchStage = {}, groupFields = []) => {
     const pipeline = [];
     
-    // Match stage
+    // Giai đoạn Match
     if (Object.keys(matchStage).length > 0) {
         pipeline.push({ $match: matchStage });
     }
     
-    // Group stage
+    // Giai đoạn Group
     const groupStage = {
         _id: groupFields.length > 0 ? groupFields.reduce((acc, field) => {
             acc[field] = `$${field}`;
@@ -205,7 +205,7 @@ const buildStatsPipeline = (matchStage = {}, groupFields = []) => {
     
     pipeline.push({ $group: groupStage });
     
-    // Sort by count descending
+    // Sắp xếp theo count descending
     pipeline.push({ $sort: { count: -1 } });
     
     return pipeline;

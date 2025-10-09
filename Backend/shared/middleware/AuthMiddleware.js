@@ -14,13 +14,13 @@ const authenticateToken = async (req, res, next) => {
     }
 
     try {
-        // Verify access token with proper claims validation
+        // Xác minh access token với validation claims đúng
         const decoded = jwt.verify(token, process.env.JWT_SECRET, {
             issuer: 'warranty-system',
             audience: 'warranty-users'
         });
 
-        // Validate required claims
+        // Kiểm tra các claims bắt buộc
         if (!decoded.sub) {
             return res.status(401).json({
                 success: false,
@@ -35,7 +35,7 @@ const authenticateToken = async (req, res, next) => {
             });
         }
 
-        // Check if token is blacklisted
+        // Kiểm tra token có bị blacklist không
         const isBlacklisted = await redisService.get(`blacklist:${token}`);
         if (isBlacklisted) {
             return res.status(401).json({
@@ -44,7 +44,7 @@ const authenticateToken = async (req, res, next) => {
             });
         }
 
-        // Add userId alias for backward compatibility
+        // Thêm userId alias để tương thích ngược
         req.user = {
             ...decoded,
             userId: decoded.sub
@@ -88,7 +88,7 @@ const authorizeRole = (...allowedRoles) => {
             });
         }
 
-        // Check token role first (fast check)
+        // Kiểm tra token role first (fast check)
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
@@ -98,8 +98,8 @@ const authorizeRole = (...allowedRoles) => {
             });
         }
 
-        // TODO: Add database role validation for sensitive operations
-        // For now, rely on token role to avoid startup issues
+        // TODO: Thêm validation role database cho các thao tác nhạy cảm
+        // Hiện tại, dựa vào role token để tránh vấn đề khởi động
 
         next();
     };

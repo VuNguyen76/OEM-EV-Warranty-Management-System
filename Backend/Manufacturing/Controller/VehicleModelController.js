@@ -34,7 +34,7 @@ const createVehicleModel = async (req, res) => {
             return responseHelper.error(res, "Mã model đã tồn tại", 400);
         }
 
-        // Validate required fields
+        // Kiểm tra các trường bắt buộc
         if (!range) {
             return responseHelper.error(res, "Range là bắt buộc", 400);
         }

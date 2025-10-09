@@ -24,14 +24,14 @@ const connectToWarrantyDB = async () => {
         });
 
         warrantyConnection.on('error', () => {
-            // Connection error
+            // Lỗi kết nối
         });
 
         warrantyConnection.on('disconnected', () => {
-            // Disconnected
+            // Mất kết nối
         });
 
-        // Wait for connection
+        // Chờ kết nối
         await new Promise((resolve, reject) => {
             warrantyConnection.once('open', resolve);
             warrantyConnection.once('error', reject);

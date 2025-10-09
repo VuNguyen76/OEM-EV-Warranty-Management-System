@@ -1,5 +1,5 @@
 // shared/database/vehicleConnection.js
-// Database connection specifically for Vehicle Service
+// Kết nối database riêng cho Vehicle Service
 
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
@@ -8,7 +8,7 @@ const path = require("path");
 // Load .env từ thư mục Backend
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-// Create separate connection for Vehicle Service
+// Tạo kết nối riêng cho Vehicle Service
 let vehicleConnection = null;
 
 const connectToVehicleDatabase = async () => {
@@ -19,30 +19,30 @@ const connectToVehicleDatabase = async () => {
             throw new Error("VEHICLE_MONGODB_URI is not defined in environment variables");
         }
 
-        // Create separate connection for Vehicle Service
+        // Tạo kết nối riêng cho Vehicle Service
         vehicleConnection = mongoose.createConnection(mongoUri, {
             maxPoolSize: 10,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
         });
 
-        // Wait for connection to be established
+        // Chờ kết nối to be established
         await new Promise((resolve, reject) => {
             vehicleConnection.once('open', resolve);
             vehicleConnection.once('error', reject);
         });
 
-        // Handle connection events
+        // Xử lý sự kiện kết nối
         vehicleConnection.on('error', () => {
-            // Connection error
+            // Lỗi kết nối
         });
 
         vehicleConnection.on('disconnected', () => {
-            // Disconnected
+            // Mất kết nối
         });
 
         vehicleConnection.on('reconnected', () => {
-            // Reconnected
+            // Kết nối lại
         });
 
         return vehicleConnection;

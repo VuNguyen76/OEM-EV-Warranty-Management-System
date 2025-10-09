@@ -18,10 +18,10 @@ const app = express();
 const PORT = process.env.PORT || process.env.WARRANTY_PORT || 3002;
 
 
-// Rate limiting
+// Giới hạn tốc độ
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000, // 15 phút
+    max: 100, // giới hạn mỗi IP 100 requests mỗi windowMs
     message: 'Quá nhiều requests từ IP này, vui lòng thử lại sau.'
 });
 
@@ -35,10 +35,10 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Static file serving cho uploads
+// Phục vụ file tĩnh cho uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Health check
+// Kiểm tra sức khỏe
 app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
@@ -116,7 +116,7 @@ app.post('/claims/:claimId/parts/ship', authenticateToken, authorizeRole('servic
 app.post('/claims/:claimId/parts/receive', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.receiveParts);
 app.get('/claims/:claimId/parts/shipment', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.getPartsShipmentStatus);
 
-// Repair Progress Management
+// Quản lý Tiến độ Sửa chữa
 app.post('/claims/:claimId/repair/start', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.startRepair);
 app.post('/claims/:claimId/repair/progress', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.updateProgressStep);
 app.post('/claims/:claimId/repair/issue', authenticateToken, authorizeRole('technician', 'service_staff', 'admin'), WarrantyClaimController.reportIssue);
@@ -126,7 +126,7 @@ app.post('/claims/:claimId/repair/complete', authenticateToken, authorizeRole('t
 app.get('/claims/:claimId/repair/progress', authenticateToken, authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'), WarrantyClaimController.getRepairProgress);
 app.get('/claims/:claimId/repair/history', authenticateToken, authorizeRole('technician', 'service_staff', 'admin', 'oem_staff'), WarrantyClaimController.getRepairHistory);
 
-// Warranty Results Management
+// Quản lý Kết quả Bảo hành
 app.post('/claims/:claimId/results/photos',
     authenticateToken,
     authorizeRole('technician', 'service_staff', 'admin'),
@@ -160,14 +160,14 @@ app.get('/claims/:claimId/results',
     WarrantyClaimController.getWarrantyResults
 );
 
-// Get claims - specific routes first
+// Lấy claims - routes cụ thể trước
 app.get('/claims/vin/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);
 app.get('/claims/:claimId', authenticateToken, WarrantyClaimController.getClaimById);
 app.get('/claims', authenticateToken, WarrantyClaimController.getClaimsByServiceCenter);
 
-// Error handling middleware
+// Xử lý lỗi middleware
 app.use((err, req, res, next) => {
-    // Check if response already sent
+    // Kiểm tra response đã được gửi chưa
     if (res.headersSent) {
         return next(err);
     }
@@ -201,7 +201,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 404 handler
+// Xử lý 404
 app.use((req, res) => {
     res.status(404).json({
         success: false,
@@ -210,7 +210,7 @@ app.use((req, res) => {
     });
 });
 
-// Initialize services
+// Khởi tạo services
 const initializeServices = async () => {
     try {
         process.stderr.write('🔄 Starting Warranty service initialization...\n');
@@ -226,12 +226,12 @@ const initializeServices = async () => {
         process.stderr.write('✅ Redis connected\n');
         console.log('✅ Redis connected');
 
-        // Initialize controllers
+        // Khởi tạo controllers
         process.stderr.write('Initializing controllers...\n');
-        // TODO: Initialize controllers when needed
+        // TODO: Khởi tạo controllers khi cần
         process.stderr.write('✅ Controllers initialized\n');
 
-        // Initialize warranty expiration job
+        // Khởi tạo job hết hạn bảo hành
         process.stderr.write('Initializing jobs...\n');
         const { initializeWarrantyExpirationJob } = require('../shared/jobs/WarrantyExpirationJob');
         const { initializeReservationReleaseJob } = require('../shared/jobs/ReservationReleaseJob');
@@ -242,7 +242,7 @@ const initializeServices = async () => {
         const warrantyJob = initializeWarrantyExpirationJob(WarrantyVehicle);
         const reservationJob = initializeReservationReleaseJob(Reservation);
 
-        // Store jobs for graceful shutdown
+        // Lưu trữ jobs để tắt nhẹ nhàng
         process.warrantyExpirationJob = warrantyJob;
         process.reservationReleaseJob = reservationJob;
         process.stderr.write('✅ Jobs initialized\n');
@@ -257,19 +257,19 @@ const initializeServices = async () => {
     }
 };
 
-// Start server
+// Khởi động server
 initializeServices().then(() => {
     const server = app.listen(PORT, () => {
         console.log(`🚀 Warranty Service running on port ${PORT}`);
     });
 
-    // Graceful shutdown
+    // Tắt server một cách nhẹ nhàng
     const gracefulShutdown = async (signal) => {
         console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
 
         server.close(async () => {
             try {
-                // Stop scheduled jobs
+                // Dừng các jobs đã lên lịch
                 if (process.warrantyExpirationJob) {
                     const { stopWarrantyExpirationJob } = require('../shared/jobs/WarrantyExpirationJob');
                     stopWarrantyExpirationJob(process.warrantyExpirationJob);

@@ -6,7 +6,7 @@ class RoleEnum {
             "service_staff",      // Nhân viên trung tâm dịch vụ
             "technician",         // Kỹ thuật viên
             "manufacturer_staff"  // Nhân viên hãng sản xuất
-            // ✅ REMOVED "customer" - customers don't have accounts
+            // ✅ ĐÃ XÓA "customer" - khách hàng không có tài khoản
         ];
     }
 

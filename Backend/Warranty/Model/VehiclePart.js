@@ -6,7 +6,7 @@ const vehiclePartSchema = new mongoose.Schema({
   ...BaseEntity,
   ...VINMixin,
 
-  // ✅ CORE UC2 FIELDS
+  // Các trường cốt lõi cho phụ tùng xe
   partId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Part',
@@ -28,7 +28,7 @@ const vehiclePartSchema = new mongoose.Schema({
   },
 
   installedBy: {
-    type: String, // ✅ Staff email who installed the part
+    type: String, // ✅ Email nhân viên lắp đặt phụ tùng
     required: true,
     trim: true
   },
@@ -41,9 +41,9 @@ const vehiclePartSchema = new mongoose.Schema({
   },
 
   location: {
-    zone: String, // front, rear, left, right, center
-    section: String, // engine, battery, interior, exterior
-    specificLocation: String // detailed location description
+    zone: String, // trước, sau, trái, phải, giữa
+    section: String, // động cơ, pin, nội thất, ngoại thất
+    specificLocation: String // mô tả vị trí chi tiết
   },
 
   // Trạng thái
@@ -91,13 +91,13 @@ const vehiclePartSchema = new mongoose.Schema({
   // Lịch sử bảo trì
   maintenanceHistory: [{
     date: Date,
-    type: String, // inspection, cleaning, calibration, repair
+    type: String, // kiểm tra, làm sạch, hiệu chuẩn, sửa chữa
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     },
     description: String,
-    result: String, // good, needs_attention, replaced
+    result: String, // tốt, cần chú ý, đã thay thế
     nextMaintenanceDate: Date
   }],
 
@@ -132,9 +132,9 @@ const vehiclePartSchema = new mongoose.Schema({
 
   // Cảnh báo và vấn đề
   alerts: [{
-    type: String, // warning, error, maintenance_due
+    type: String, // cảnh báo, lỗi, đến hạn bảo dưỡng
     message: String,
-    severity: String, // low, medium, high, critical
+    severity: String, // thấp, trung bình, cao, tới hạn
     createdAt: Date,
     resolvedAt: Date,
     resolvedBy: {
@@ -146,7 +146,7 @@ const vehiclePartSchema = new mongoose.Schema({
   // Tài liệu
   documents: [{
     name: String,
-    type: String, // installation_report, test_certificate, warranty_card
+    type: String, // báo cáo lắp đặt, chứng chỉ kiểm tra, thẻ bảo hành
     url: String,
     uploadedAt: Date,
     uploadedBy: {
@@ -187,7 +187,7 @@ vehiclePartSchema.index({ warrantyEndDate: 1 });
 vehiclePartSchema.index({ nextMaintenanceDate: 1 });
 vehiclePartSchema.index({ 'recallStatus.isRecalled': 1 });
 
-// Virtual cho warranty remaining days
+// Virtual cho số ngày bảo hành còn lại
 vehiclePartSchema.virtual('warrantyRemainingDays').get(function () {
   if (this.warrantyStatus !== 'active') return 0;
   const now = new Date();
@@ -195,7 +195,7 @@ vehiclePartSchema.virtual('warrantyRemainingDays').get(function () {
   return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 });
 
-// Virtual cho maintenance due
+// Virtual cho hạn bảo dưỡng
 vehiclePartSchema.virtual('isMaintenanceDue').get(function () {
   if (!this.nextMaintenanceDate) return false;
   return new Date() >= this.nextMaintenanceDate;
@@ -203,7 +203,7 @@ vehiclePartSchema.virtual('isMaintenanceDue').get(function () {
 
 // Methods
 vehiclePartSchema.methods.replacePart = function (newSerialNumber, replacedBy, reason, warrantyRequestId = null) {
-  // Add to replacement history
+  // Thêm vào lịch sử thay thế
   this.replacementHistory.push({
     replacedDate: new Date(),
     replacedBy: replacedBy,
@@ -213,7 +213,7 @@ vehiclePartSchema.methods.replacePart = function (newSerialNumber, replacedBy, r
     warrantyRequestId: warrantyRequestId
   });
 
-  // Update current info
+  // Cập nhật thông tin hiện tại
   this.serialNumber = newSerialNumber;
   this.status = 'installed';
   this.warrantyStartDate = new Date();
@@ -314,9 +314,9 @@ vehiclePartSchema.statics.findRecalledParts = function (campaignId = null) {
   return this.find(query).populate(['vehicleId', 'partId']);
 };
 
-// Pre-save middleware
+// Middleware trước khi lưu
 vehiclePartSchema.pre('save', function (next) {
-  // Auto-update warranty status based on end date
+  // Tự động cập nhật warranty status based on end date
   if (this.warrantyEndDate && this.warrantyEndDate < new Date()) {
     this.warrantyStatus = 'expired';
   }
@@ -324,9 +324,9 @@ vehiclePartSchema.pre('save', function (next) {
   next();
 });
 
-// Pre-remove middleware
+// Middleware trước khi xóa
 vehiclePartSchema.pre('remove', function (next) {
-  // Log removal for audit trail
+  // Ghi log xóa cho audit trail
   console.log(`VehiclePart removed: ${this.serialNumber} from vehicle ${this.vehicleId}`);
   next();
 });

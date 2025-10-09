@@ -1,5 +1,5 @@
 // shared/middleware/RateLimitMiddleware.js
-// Rate limiting middleware using Redis
+// Giới hạn tốc độ middleware using Redis
 
 const redisService = require('../services/RedisService');
 
@@ -15,8 +15,8 @@ const redisService = require('../services/RedisService');
  */
 function createRateLimit(options = {}) {
     const {
-        windowMs = 15 * 60 * 1000, // 15 minutes
-        max = 100, // 100 requests per window
+        windowMs = 15 * 60 * 1000, // 15 phút
+        max = 100, // 100 requests mỗi window
         keyGenerator = (req) => req.ip,
         message = 'Quá nhiều yêu cầu từ IP này, vui lòng thử lại sau',
         statusCode = 429,
@@ -26,7 +26,7 @@ function createRateLimit(options = {}) {
 
     return async (req, res, next) => {
         if (!redisService.isConnected) {
-            // If Redis is not connected, allow the request
+            // Nếu Redis không kết nối, cho phép request
             console.warn('⚠️ Rate limiting disabled - Redis not connected');
             return next();
         }
@@ -36,11 +36,11 @@ function createRateLimit(options = {}) {
             const windowStart = Math.floor(Date.now() / windowMs) * windowMs;
             const windowKey = `${key}:${windowStart}`;
 
-            // Get current count
+            // Lấy số đếm hiện tại
             const current = await redisService.client.get(windowKey);
             const count = current ? parseInt(current) : 0;
 
-            // Set headers
+            // Đặt headers
             res.set({
                 'X-RateLimit-Limit': max,
                 'X-RateLimit-Remaining': Math.max(0, max - count - 1),
@@ -55,13 +55,13 @@ function createRateLimit(options = {}) {
                 });
             }
 
-            // Increment counter
+            // Tăng counter
             const pipeline = redisService.client.multi();
             pipeline.incr(windowKey);
             pipeline.expire(windowKey, Math.ceil(windowMs / 1000));
             await pipeline.exec();
 
-            // Add response handler to track success/failure
+            // Thêm response handler để theo dõi thành công/thất bại
             const originalSend = res.send;
             res.send = function (data) {
                 const shouldSkip = (
@@ -70,7 +70,7 @@ function createRateLimit(options = {}) {
                 );
 
                 if (shouldSkip) {
-                    // Decrement counter if we should skip this request
+                    // Giảm counter nếu nên bỏ qua request này
                     redisService.client.decr(windowKey).catch(err => {
                         console.error('Failed to decrement rate limit counter:', err);
                     });
@@ -82,7 +82,7 @@ function createRateLimit(options = {}) {
             next();
         } catch (error) {
             console.error('Rate limiting error:', error);
-            // On error, allow the request to proceed
+            // Khi có lỗi, cho phép request tiếp tục
             next();
         }
     };
@@ -92,11 +92,11 @@ function createRateLimit(options = {}) {
  * Rate limit for login attempts
  */
 const loginRateLimit = createRateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 login attempts per 15 minutes
+    windowMs: 15 * 60 * 1000, // 15 phút
+    max: 5, // 5 lần đăng nhập mỗi 15 phút
     keyGenerator: (req) => `login:${req.ip}:${req.body?.email || 'unknown'}`,
     message: 'Quá nhiều lần đăng nhập thất bại, vui lòng thử lại sau 15 phút',
-    skipSuccessfulRequests: true // Don't count successful logins
+    skipSuccessfulRequests: true // Không đếm các lần đăng nhập thành công
 });
 
 /**
@@ -104,7 +104,7 @@ const loginRateLimit = createRateLimit({
  */
 const registerRateLimit = createRateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 20, // 20 registrations per hour per IP (increased for testing)
+    max: 20, // 20 đăng ký mỗi giờ mỗi IP (tăng để test)
     keyGenerator: (req) => `register:${req.ip}`,
     message: 'Quá nhiều lần đăng ký từ IP này, vui lòng thử lại sau 1 giờ'
 });
@@ -113,10 +113,10 @@ const registerRateLimit = createRateLimit({
  * Rate limit for API calls
  */
 const apiRateLimit = createRateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // 1000 requests per 15 minutes
+    windowMs: 15 * 60 * 1000, // 15 phút
+    max: 1000, // 1000 requests mỗi 15 phút
     keyGenerator: (req) => {
-        // Use user ID if authenticated, otherwise IP
+        // Dùng user ID nếu đã xác thực, nếu không thì IP
         return req.user ? `api:user:${req.user.userId}` : `api:ip:${req.ip}`;
     },
     message: 'Quá nhiều yêu cầu API, vui lòng thử lại sau'
@@ -127,7 +127,7 @@ const apiRateLimit = createRateLimit({
  */
 const passwordResetRateLimit = createRateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 3, // 3 password reset attempts per hour
+    max: 3, // 3 lần reset mật khẩu mỗi giờ
     keyGenerator: (req) => `password_reset:${req.ip}:${req.body?.email || 'unknown'}`,
     message: 'Quá nhiều yêu cầu đặt lại mật khẩu, vui lòng thử lại sau 1 giờ'
 });
@@ -137,7 +137,7 @@ const passwordResetRateLimit = createRateLimit({
  */
 const strictRateLimit = createRateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 10, // 10 requests per hour
+    max: 10, // 10 requests mỗi giờ
     keyGenerator: (req) => {
         return req.user ? `strict:user:${req.user.userId}` : `strict:ip:${req.ip}`;
     },

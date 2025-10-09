@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { getWarrantyConnection } = require('../../shared/database/warrantyConnection');
 
-// Warranty Vehicle Schema (for vehicles registered in warranty system)
+// Schema Xe Bảo hành (cho xe đăng ký trong hệ thống bảo hành)
 const WarrantyVehicleSchema = new mongoose.Schema({
     vin: {
         type: String,
@@ -54,7 +54,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
 
     productionDate: Date,
 
-    // Vehicle Specifications (from Model)
+    // Thông số kỹ thuật Xe (from Model)
     batteryCapacity: {
         type: Number // kWh
     },
@@ -68,7 +68,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    // Owner Information
+    // Thông tin Chủ sở hữu
     ownerName: {
         type: String,
         required: true,
@@ -93,7 +93,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    // Service Center Information
+    // Thông tin Trung tâm Dịch vụ
     serviceCenterId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
@@ -112,13 +112,13 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         trim: true
     },
 
-    // Vehicle Reference
+    // Tham chiếu Xe
     vehicleId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Vehicle'
     },
 
-    // Warranty Information
+    // Thông tin Bảo hành
     warrantyStartDate: {
         type: Date,
         required: true
@@ -155,7 +155,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         required: true
     },
 
-    // Registration Information
+    // Thông tin Đăng ký
     registrationDate: {
         type: Date,
         default: Date.now,
@@ -164,7 +164,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
 
     registrationNumber: String,
 
-    // Vehicle Status
+    // Trạng thái Xe
     status: {
         type: String,
         enum: ["registered", "active", "inactive", "recalled"],
@@ -172,7 +172,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
 
     },
 
-    // Mileage tracking
+    // Theo dõi số km
     currentMileage: {
         type: Number,
         required: true,
@@ -185,7 +185,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
         min: 0
     },
 
-    // Recall Information
+    // Thông tin Thu hồi
     recallStatus: {
         type: String,
         enum: ["none", "pending", "completed"],
@@ -206,7 +206,7 @@ const WarrantyVehicleSchema = new mongoose.Schema({
     // Notes
     notes: String,
 
-    // Audit fields
+    // Các trường audit
     createdBy: {
         type: String,
         required: true
@@ -229,20 +229,20 @@ WarrantyVehicleSchema.index({ warrantyEndDate: 1 });
 WarrantyVehicleSchema.index({ ownerPhone: 1 });
 WarrantyVehicleSchema.index({ createdAt: -1 });
 
-// Additional indexes for search performance
+// Index bổ sung for search performance
 WarrantyVehicleSchema.index({ ownerName: 1 });
 WarrantyVehicleSchema.index({ modelName: 1 });
 WarrantyVehicleSchema.index({ warrantyStatus: 1, warrantyEndDate: 1 });
-WarrantyVehicleSchema.index({ ownerName: 'text', modelName: 'text' }); // Text search
+WarrantyVehicleSchema.index({ ownerName: 'text', modelName: 'text' }); // Tìm kiếm văn bản
 
-// Compound indexes for common queries
+// Index kết hợp for common queries
 WarrantyVehicleSchema.index({ serviceCenterId: 1, warrantyStatus: 1 });
 WarrantyVehicleSchema.index({ warrantyStatus: 1, createdAt: -1 });
 WarrantyVehicleSchema.index({ ownerPhone: 1, warrantyStatus: 1 });
 WarrantyVehicleSchema.index({ modelName: 1, warrantyStatus: 1 });
-WarrantyVehicleSchema.index({ warrantyEndDate: 1, warrantyStatus: 1 }); // For expiration queries
+WarrantyVehicleSchema.index({ warrantyEndDate: 1, warrantyStatus: 1 }); // Cho các queries hết hạn
 
-// Virtual fields
+// Trường ảo
 WarrantyVehicleSchema.virtual('isWarrantyActive').get(function () {
     return this.warrantyStatus === 'active' && this.warrantyEndDate > new Date();
 });
@@ -259,7 +259,7 @@ WarrantyVehicleSchema.virtual('fullOwnerInfo').get(function () {
     return `${this.ownerName} - ${this.ownerPhone}`;
 });
 
-// Instance methods
+// Phương thức instance
 WarrantyVehicleSchema.methods.activateWarranty = function (startDate, ownerInfo, serviceCenterInfo, activatedBy) {
     this.warrantyStatus = 'active';
     this.warrantyStartDate = startDate || new Date();
@@ -300,7 +300,7 @@ WarrantyVehicleSchema.methods.updateMileage = function (newMileage, updatedBy) {
     return Promise.resolve(this);
 };
 
-// Static methods
+// Phương thức static
 WarrantyVehicleSchema.statics.findByServiceCenter = function (serviceCenterId) {
     return this.find({ serviceCenterId });
 };
@@ -339,7 +339,7 @@ WarrantyVehicleSchema.statics.getWarrantyStats = function (serviceCenterId = nul
     ]);
 };
 
-// Pre-save middleware
+// Middleware trước khi lưu
 WarrantyVehicleSchema.pre('save', function (next) {
     if (this.isModified('vin')) {
         this.vin = this.vin.toUpperCase();
@@ -349,7 +349,7 @@ WarrantyVehicleSchema.pre('save', function (next) {
         this.modelCode = this.modelCode.toUpperCase();
     }
 
-    // Auto-expire warranty if past end date
+    // Tự động hết hạn warranty if past end date
     if (this.warrantyStatus === 'active' && this.warrantyEndDate < new Date()) {
         this.warrantyStatus = 'expired';
     }
@@ -357,12 +357,12 @@ WarrantyVehicleSchema.pre('save', function (next) {
     next();
 });
 
-// Static methods
+// Phương thức static
 WarrantyVehicleSchema.statics.findActiveWarranties = function (query = {}) {
     return this.find({
         ...query,
         warrantyStatus: 'active',
-        warrantyEndDate: { $gt: new Date() } // Only truly active warranties
+        warrantyEndDate: { $gt: new Date() } // Chỉ bảo hành thực sự hoạt động
     });
 };
 
@@ -384,7 +384,7 @@ WarrantyVehicleSchema.statics.expireOverdueWarranties = async function () {
     return result;
 };
 
-// Virtual field for actual status
+// Trường ảo cho trạng thái thực tế
 WarrantyVehicleSchema.virtual('actualStatus').get(function () {
     if (this.warrantyStatus === 'active' && this.warrantyEndDate < new Date()) {
         return 'expired';

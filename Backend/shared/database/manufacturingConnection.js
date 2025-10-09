@@ -23,14 +23,14 @@ const connectToManufacturingDB = async () => {
         });
 
         manufacturingConnection.on('error', () => {
-            // Connection error
+            // Lỗi kết nối
         });
 
         manufacturingConnection.on('disconnected', () => {
-            // Disconnected
+            // Mất kết nối
         });
 
-        // Wait for connection
+        // Chờ kết nối
         await new Promise((resolve, reject) => {
             manufacturingConnection.once('open', resolve);
             manufacturingConnection.once('error', reject);

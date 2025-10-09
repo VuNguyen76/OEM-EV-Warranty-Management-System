@@ -1,5 +1,5 @@
 // shared/utils/responseHelper.js
-// Helper functions for consistent API responses
+// Các hàm helper cho API responses nhất quán
 
 /**
  * Send success response
@@ -84,24 +84,24 @@ const createPagination = (page, limit, total) => {
  * @param {Function} next - Express next function
  */
 const errorHandler = (err, req, res, next) => {
-    // Mongoose validation error
+    // Lỗi validation Mongoose
     if (err.name === 'ValidationError') {
         const errors = Object.values(err.errors).map(e => e.message);
         return sendError(res, 'Dữ liệu không hợp lệ', 400, errors.join(', '));
     }
 
-    // Mongoose cast error (invalid ObjectId)
+    // Lỗi cast Mongoose (ObjectId không hợp lệ)
     if (err.name === 'CastError') {
         return sendError(res, 'ID không hợp lệ', 400, err.message);
     }
 
-    // Mongoose duplicate key error
+    // Lỗi duplicate key Mongoose
     if (err.code === 11000) {
         const field = Object.keys(err.keyValue)[0];
         return sendError(res, `${field} đã tồn tại`, 400, 'Duplicate field value');
     }
 
-    // JWT errors
+    // Lỗi JWT
     if (err.name === 'JsonWebTokenError') {
         return sendError(res, 'Token không hợp lệ', 401, err.message);
     }
@@ -110,7 +110,7 @@ const errorHandler = (err, req, res, next) => {
         return sendError(res, 'Token đã hết hạn', 401, err.message);
     }
 
-    // Default server error
+    // Lỗi server mặc định
     sendError(res, 'Lỗi server nội bộ', 500, err.message);
 };
 
@@ -123,7 +123,7 @@ const notFoundHandler = (req, res) => {
     sendError(res, `Route ${req.originalUrl} không tồn tại`, 404);
 };
 
-// Aliases for backward compatibility
+// Aliases để tương thích ngược
 const success = (res, data, message, statusCode = 200) => {
     return sendSuccess(res, message, data, statusCode);
 };

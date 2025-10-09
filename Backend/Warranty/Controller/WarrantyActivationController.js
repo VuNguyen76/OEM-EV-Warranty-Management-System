@@ -20,20 +20,20 @@ class WarrantyActivationController {
         try {
             const { vin, warrantyStartDate, notes } = req.body;
 
-            // Validate required fields
+            // Kiểm tra các trường bắt buộc
             if (!vin) {
                 return responseHelper.error(res, "VIN là bắt buộc", 400);
             }
 
             const vinUpper = normalizeVIN(vin);
 
-            // Step 1: Check if warranty already activated for this VIN
+            // Bước 1: Kiểm tra bảo hành đã được kích hoạt cho VIN này chưa
             const existingWarranty = await WarrantyActivation.findOne({ vin: vinUpper });
             if (existingWarranty) {
                 return responseHelper.error(res, "VIN này đã được kích hoạt bảo hành", 400);
             }
 
-            // Step 2: Verify VIN exists in Vehicle Service
+            // Bước 2: Xác minh VIN tồn tại trong Vehicle Service
             let vehicleData;
             try {
                 vehicleData = await verifyVINInVehicleService(vin, req.headers.authorization);
@@ -52,16 +52,16 @@ class WarrantyActivationController {
             const warrantyMonths = vehicleData.vehicleWarrantyMonths;
             const warrantySource = `model:${vehicleData.modelCode}`;
 
-            // Step 4: Calculate warranty dates
+            // Bước 4: Tính toán ngày bảo hành
             const startDate = warrantyStartDate ? new Date(warrantyStartDate) : new Date();
             const endDate = new Date(startDate);
             endDate.setMonth(endDate.getMonth() + warrantyMonths);
 
-            // Step 5: Get consistent service center info
+            // Bước 5: Lấy thông tin trung tâm dịch vụ nhất quán
             const VINLookupService = require('../../Vehicle/services/VINLookupService');
             const serviceCenterInfo = await VINLookupService.getServiceCenterInfo(req.user.serviceCenterId || req.user.sub);
 
-            // Step 6: Create warranty activation
+            // Bước 6: Tạo warranty activation
             const warrantyActivation = new WarrantyActivation({
                 vin: vinUpper,
                 warrantyStartDate: startDate,
@@ -70,20 +70,20 @@ class WarrantyActivationController {
                 warrantySource: warrantySource,
                 warrantyStatus: 'active',
 
-                // Service center information (consistent with Vehicle model)
+                // Thông tin trung tâm dịch vụ (nhất quán với Vehicle model)
                 serviceCenterId: serviceCenterInfo.id,
                 serviceCenterName: serviceCenterInfo.name,
                 serviceCenterCode: serviceCenterInfo.code,
 
-                // Activation information
+                // Thông tin kích hoạt
                 activatedBy: req.user.email,
                 activatedByRole: req.user.role,
                 activatedDate: new Date(),
 
-                // Additional information
+                // Thông tin bổ sung
                 notes: notes || '',
 
-                // System fields
+                // Các trường hệ thống
                 createdBy: req.user.email,
                 createdByRole: req.user.role
             });
@@ -99,7 +99,7 @@ class WarrantyActivationController {
                 warrantyMonths: warrantyActivation.warrantyMonths,
                 warrantySource: warrantyActivation.warrantySource,
                 serviceCenterName: warrantyActivation.serviceCenterName,
-                activatedBy: warrantyActivation.activatedBy, // Staff who activated
+                activatedBy: warrantyActivation.activatedBy, // Nhân viên đã kích hoạt
                 activatedDate: warrantyActivation.activatedDate,
                 remainingDays: warrantyActivation.remainingDays,
                 isValid: warrantyActivation.isValid

@@ -22,7 +22,7 @@ const createVehicle = async (req, res) => {
             productionBatch,
             productionLine,
             productionLocation,
-            plantCode = 'H', // Default to Hanoi
+            plantCode = 'H', // Mặc định là Hanoi
             color,
             qualityInspector,
             productionCost,
@@ -38,7 +38,7 @@ const createVehicle = async (req, res) => {
             return responseHelper.error(res, "Không tìm thấy model xe", 404);
         }
 
-        // ✅ GENERATE VIN USING ISO 3779 STANDARD
+        // ✅ TẠO VIN SỬ DỤNG TIÊU CHUẨN ISO 3779
         console.log(`🔧 Starting VIN generation for model:`, {
             manufacturer: model.manufacturer,
             modelCode: model.modelCode,
@@ -56,7 +56,7 @@ const createVehicle = async (req, res) => {
             return responseHelper.error(res, `Lỗi tạo VIN: ${error.message}`, 500);
         }
 
-        // Double-check VIN uniqueness (should not happen with proper counter)
+        // Kiểm tra lại tính duy nhất của VIN (không nên xảy ra với counter đúng)
         const existingVehicle = await ProducedVehicle.findOne({ vin });
         if (existingVehicle) {
             return responseHelper.error(res, "VIN đã tồn tại trong hệ thống", 500);
@@ -80,17 +80,17 @@ const createVehicle = async (req, res) => {
             createdByRole: req.user.role
         });
 
-        // Save with retry logic for race condition
+        // Lưu với logic retry cho race condition
         let saveAttempts = 0;
         const maxSaveAttempts = 3;
 
         while (saveAttempts < maxSaveAttempts) {
             try {
                 await producedVehicle.save();
-                break; // Success, exit loop
+                break; // Thành công, thoát vòng lặp
             } catch (error) {
                 if (error.code === 11000 && saveAttempts < maxSaveAttempts - 1) {
-                    // Duplicate key error, generate new VIN and retry
+                    // Lỗi key trùng, tạo VIN mới và thử lại
                     saveAttempts++;
                     try {
                         vin = await VINGenerator.generateVIN(model, plantCode);
@@ -101,14 +101,14 @@ const createVehicle = async (req, res) => {
                         throw new Error(`Failed to generate VIN on retry: ${vinError.message}`);
                     }
 
-                    // Check if new VIN exists (should be very rare with proper counter)
+                    // Kiểm tra VIN mới có tồn tại (rất hiếm với counter đúng)
                     const existingVehicle = await ProducedVehicle.findOne({ vin });
                     if (existingVehicle) {
                         console.log(`⚠️ VIN ${vin} still exists, retrying...`);
-                        continue; // Try again with another VIN
+                        continue; // Thử lại với VIN khác
                     }
                 } else {
-                    throw error; // Re-throw if not duplicate key or max attempts reached
+                    throw error; // Ném lại lỗi nếu không phải duplicate key hoặc đã hết số lần thử
                 }
             }
         }
@@ -310,7 +310,7 @@ const passQualityCheck = async (req, res) => {
         try {
             await vehicle.passQualityCheck(checkType, checkedBy, notes);
 
-            // Clear cache
+            // Xóa cache
             await clearCachePatterns(["manufacturing:production:*"]);
 
             return responseHelper.success(res, {
@@ -320,7 +320,7 @@ const passQualityCheck = async (req, res) => {
                 qualityChecks: vehicle.qualityChecks
             }, "Quality check passed thành công");
         } catch (error) {
-            // Handle custom QualityCheckError with proper error codes
+            // Xử lý QualityCheckError tùy chỉnh với mã lỗi phù hợp
             if (error.name === 'QualityCheckError') {
                 if (error.code === 'DUPLICATE_CHECK') {
                     return responseHelper.error(res, error.message, 400);
@@ -352,7 +352,7 @@ const failQualityCheck = async (req, res) => {
 
         await vehicle.failQualityCheck(checkType, checkedBy, notes);
 
-        // Clear cache
+        // Xóa cache
         await clearCachePatterns(["manufacturing:production:*"]);
 
         return responseHelper.success(res, {

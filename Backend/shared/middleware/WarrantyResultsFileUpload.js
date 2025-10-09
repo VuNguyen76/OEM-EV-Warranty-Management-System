@@ -62,7 +62,7 @@ const uploadResultPhotos = multer({
     fileFilter: imageFilter,
     limits: {
         fileSize: 10 * 1024 * 1024, // 10MB per file
-        files: 10 // Maximum 10 files per upload
+        files: 10 // Tối đa 10 files mỗi lần upload
     }
 });
 
@@ -88,7 +88,7 @@ const handleWarrantyResultsUploadError = (error, req, res, next) => {
     next();
 };
 
-// Validation middleware cho result photos
+// Kiểm tra dữ liệu middleware cho result photos
 const validateResultPhotos = (req, res, next) => {
     // Kiểm tra có files không
     if (!req.files || req.files.length === 0) {

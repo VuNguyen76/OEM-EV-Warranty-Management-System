@@ -11,19 +11,19 @@ const { VINMixin } = require('../../shared/Base/VINMixin');
  * Separate from WarrantyClaim (UC4 - multiple claims during warranty period)
  */
 const warrantyActivationSchema = new mongoose.Schema({
-    // ✅ INHERIT BASE PATTERNS
+    // ✅ KẾ THỪA CÁC PATTERN CƠ BẢN
     ...BaseEntity,
     ...VINMixin,
     ...ServiceCenterMixin,
     ...AuditableMixin,
 
-    // ✅ VIN is unique in WarrantyActivation collection (one warranty per VIN)
+    // ✅ VIN là duy nhất trong collection WarrantyActivation (một bảo hành mỗi VIN)
     vin: {
         ...VINMixin.vin,
-        unique: true // One warranty activation per VIN
+        unique: true // Một kích hoạt bảo hành mỗi VIN
     },
 
-    // Warranty period information
+    // Thông tin thời hạn bảo hành
     warrantyStartDate: {
         type: Date,
         required: true,
@@ -39,7 +39,7 @@ const warrantyActivationSchema = new mongoose.Schema({
         type: Number,
         required: true,
         min: 1,
-        max: 120 // Max 10 years
+        max: 120 // Tối đa 10 năm
     },
 
     warrantySource: {
@@ -49,7 +49,7 @@ const warrantyActivationSchema = new mongoose.Schema({
         default: 'default'
     },
 
-    // Warranty status
+    // Trạng thái bảo hành
     warrantyStatus: {
         type: String,
         required: true,
@@ -59,7 +59,7 @@ const warrantyActivationSchema = new mongoose.Schema({
 
     // ✅ SERVICE CENTER FIELDS INHERITED FROM ServiceCenterMixin
 
-    // Activation information
+    // Thông tin kích hoạt
     activatedBy: {
         type: String,
         required: true,
@@ -78,7 +78,7 @@ const warrantyActivationSchema = new mongoose.Schema({
         default: Date.now
     },
 
-    // Additional information (extends BaseEntity.note)
+    // Thông tin bổ sung (extends BaseEntity.note)
     notes: {
         type: String,
         trim: true,
@@ -92,19 +92,19 @@ const warrantyActivationSchema = new mongoose.Schema({
     collection: 'warranty_activations'
 });
 
-// Indexes for performance
+// Index để tăng hiệu suất
 warrantyActivationSchema.index({ vin: 1 }, { unique: true });
 warrantyActivationSchema.index({ warrantyStatus: 1 });
 warrantyActivationSchema.index({ serviceCenterId: 1 });
 warrantyActivationSchema.index({ warrantyEndDate: 1 });
 warrantyActivationSchema.index({ createdAt: -1 });
 
-// Virtual for checking if warranty is still valid
+// Trường ảo cho checking if warranty is still valid
 warrantyActivationSchema.virtual('isValid').get(function () {
     return this.warrantyStatus === 'active' && new Date() <= this.warrantyEndDate;
 });
 
-// Virtual for remaining warranty days
+// Trường ảo cho remaining warranty days
 warrantyActivationSchema.virtual('remainingDays').get(function () {
     if (this.warrantyStatus !== 'active') return 0;
     const now = new Date();
@@ -113,13 +113,13 @@ warrantyActivationSchema.virtual('remainingDays').get(function () {
     return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 });
 
-// Pre-save middleware to update timestamps
+// Middleware trước khi lưu to update timestamps
 warrantyActivationSchema.pre('save', function (next) {
     this.updatedAt = new Date();
     next();
 });
 
-// Static method to find active warranty by VIN
+// Phương thức static tìm bảo hành hoạt động theo VIN
 warrantyActivationSchema.statics.findActiveByVIN = function (vin) {
     return this.findOne({
         vin: vin.toUpperCase(),
@@ -128,7 +128,7 @@ warrantyActivationSchema.statics.findActiveByVIN = function (vin) {
     });
 };
 
-// Static method to check if VIN has warranty
+// Phương thức static kiểm tra VIN có bảo hành
 warrantyActivationSchema.statics.hasWarranty = function (vin) {
     return this.exists({
         vin: vin.toUpperCase(),
@@ -137,13 +137,13 @@ warrantyActivationSchema.statics.hasWarranty = function (vin) {
     });
 };
 
-// Instance method to expire warranty
+// Phương thức instance hết hạn bảo hành
 warrantyActivationSchema.methods.expire = function () {
     this.warrantyStatus = 'expired';
     return this.save();
 };
 
-// Instance method to void warranty
+// Phương thức instance hủy bảo hành
 warrantyActivationSchema.methods.void = function (reason) {
     this.warrantyStatus = 'voided';
     this.notes = (this.notes || '') + `\nVoided: ${reason}`;

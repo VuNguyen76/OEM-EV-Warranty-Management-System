@@ -23,7 +23,7 @@ class GatewayService {
                 if (requiresAuth && req.headers.authorization) {
                     proxyReq.setHeader('Authorization', req.headers.authorization);
                 }
-                // Let http-proxy-middleware handle body automatically
+                // Để http-proxy-middleware tự động xử lý body
             },
             onError: (err, req, res) => {
                 if (!res.headersSent) {
