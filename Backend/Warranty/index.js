@@ -13,6 +13,7 @@ const { connectToWarrantyDB } = require('../shared/database/warrantyConnection')
 const WarrantyController = require('./Controller/WarrantyController');
 const PartsController = require('./Controller/PartsController');
 const ServiceHistoryController = require('./Controller/ServiceHistoryController');
+const RecallCampaignController = require('./Controller/RecallCampaignController');
 
 const app = express();
 const PORT = process.env.PORT || process.env.WARRANTY_PORT || 3002;
@@ -160,6 +161,18 @@ app.get('/claims/:claimId/results',
     WarrantyClaimController.getWarrantyResults
 );
 
+// UC12: Quản lý Chiến dịch Recall
+app.post('/recalls/campaigns', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.createCampaign);
+app.post('/recalls/campaigns/:campaignId/find-affected-vehicles', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.findAffectedVehicles);
+app.post('/recalls/campaigns/:campaignId/publish', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.publishCampaign);
+app.put('/recalls/campaigns/:campaignId', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.updateCampaign);
+app.post('/recalls/campaigns/:campaignId/cancel', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.cancelCampaign);
+app.get('/recalls/campaigns', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), RecallCampaignController.getCampaigns);
+app.get('/recalls/campaigns/:campaignId', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), RecallCampaignController.getCampaignById);
+app.get('/recalls/campaigns/:campaignId/affected-vehicles/my-center', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getAffectedVehiclesByServiceCenter);
+app.put('/recalls/campaigns/:campaignId/vehicles/:vin/status', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.updateVehicleStatus);
+app.get('/recalls/campaigns/:campaignId/statistics', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.getCampaignStatistics);
+
 // Lấy claims - routes cụ thể trước
 app.get('/claims/vin/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);
 app.get('/claims/:claimId', authenticateToken, WarrantyClaimController.getClaimById);
@@ -228,7 +241,11 @@ const initializeServices = async () => {
 
         // Khởi tạo controllers
         process.stderr.write('Initializing controllers...\n');
-        // TODO: Khởi tạo controllers khi cần
+
+        // Initialize PartsController
+        await PartsController.initializeModels();
+        console.log('✅ PartsController initialized');
+
         process.stderr.write('✅ Controllers initialized\n');
 
         // Khởi tạo job hết hạn bảo hành

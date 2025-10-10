@@ -4,17 +4,17 @@ const { verifyVINInVehicleService, normalizeVIN } = require('../../shared/servic
 
 /**
  * WarrantyActivationController
- * Handles warranty activation (one-time activation when vehicle is sold)
- * Separate from WarrantyClaim (UC4 - multiple claims during warranty period)
+ * Xử lý kích hoạt bảo hành (kích hoạt một lần khi xe được bán)
+ * Tách biệt với WarrantyClaim (UC4 - nhiều yêu cầu bảo hành trong thời gian bảo hành)
  */
 class WarrantyActivationController {
 
     /**
-     * Activate warranty for a vehicle (one-time only)
-     * Vehicle must already exist in Vehicle Service (UC1)
+     * Kích hoạt bảo hành cho xe (chỉ một lần)
+     * Xe phải đã tồn tại trong Vehicle Service (UC1)
      * 
-     * FLOW: Customer comes to Service Center → Staff activates warranty on behalf of customer
-     * Actor: Service Center Staff (not customer)
+     * LUỒNG: Khách hàng đến Trung tâm dịch vụ → Nhân viên kích hoạt bảo hành thay khách hàng
+     * Actor: Nhân viên trung tâm dịch vụ (không phải khách hàng)
      */
     static async activateWarranty(req, res) {
         try {
@@ -39,12 +39,12 @@ class WarrantyActivationController {
                 vehicleData = await verifyVINInVehicleService(vin, req.headers.authorization);
             } catch (error) {
                 if (error.message === 'VEHICLE_NOT_FOUND') {
-                    return responseHelper.error(res, "VIN không tồn tại trong hệ thống. Vui lòng đăng ký xe trước (UC1)", 404);
+                    return responseHelper.error(res, "VIN không tồn tại trong hệ thống. Vui lòng đăng ký xe trước", 404);
                 }
-                return responseHelper.error(res, "Không thể xác minh VIN trong hệ thống xe. Vui lòng đăng ký xe trước (UC1)", 400);
+                return responseHelper.error(res, "Không thể xác minh VIN trong hệ thống xe. Vui lòng đăng ký xe trước", 400);
             }
 
-            // Step 3: Get warranty period from vehicle data
+            // Bước 3: Lấy thời gian bảo hành từ dữ liệu xe
             if (!vehicleData.vehicleWarrantyMonths) {
                 return responseHelper.error(res, "Xe này không có thông tin thời gian bảo hành. Vui lòng liên hệ hãng sản xuất", 400);
             }
@@ -106,13 +106,13 @@ class WarrantyActivationController {
             }, `Kích hoạt bảo hành thành công bởi ${req.user.email}`, 201);
 
         } catch (error) {
-            console.error('Error in activateWarranty:', error);
+            console.error('Lỗi trong activateWarranty:', error);
             return responseHelper.error(res, "Lỗi khi kích hoạt bảo hành", 500);
         }
     }
 
     /**
-     * Get warranty activation by VIN
+     * Lấy thông tin kích hoạt bảo hành theo VIN
      */
     static async getWarrantyByVIN(req, res) {
         try {
@@ -145,13 +145,13 @@ class WarrantyActivationController {
             }, "Lấy thông tin bảo hành thành công");
 
         } catch (error) {
-            console.error('Error in getWarrantyByVIN:', error);
+            console.error('Lỗi trong getWarrantyByVIN:', error);
             return responseHelper.error(res, "Lỗi khi lấy thông tin bảo hành", 500);
         }
     }
 
     /**
-     * Get all warranty activations by service center
+     * Lấy tất cả kích hoạt bảo hành theo trung tâm dịch vụ
      */
     static async getWarrantiesByServiceCenter(req, res) {
         try {
@@ -193,13 +193,13 @@ class WarrantyActivationController {
             }, "Lấy danh sách bảo hành thành công");
 
         } catch (error) {
-            console.error('Error in getWarrantiesByServiceCenter:', error);
+            console.error('Lỗi trong getWarrantiesByServiceCenter:', error);
             return responseHelper.error(res, "Lỗi khi lấy danh sách bảo hành", 500);
         }
     }
 
     /**
-     * Check if VIN has active warranty
+     * Kiểm tra xem VIN có bảo hành đang hoạt động không
      */
     static async checkWarrantyStatus(req, res) {
         try {
@@ -225,7 +225,7 @@ class WarrantyActivationController {
             }, "Kiểm tra trạng thái bảo hành thành công");
 
         } catch (error) {
-            console.error('Error in checkWarrantyStatus:', error);
+            console.error('Lỗi trong checkWarrantyStatus:', error);
             return responseHelper.error(res, "Lỗi khi kiểm tra trạng thái bảo hành", 500);
         }
     }

@@ -34,12 +34,14 @@ const initializeServices = async () => {
 };
 
 // Quản lý Xe (đường dẫn gốc để tương thích API Gateway)
-// Routes cụ thể TRƯỚC (không có params)
 app.get('/search', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.searchVehicles);
 app.get('/statistics', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getVehicleStatistics);
 
 // Route gốc cho getAllVehicles
 app.get('/', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getAllVehicles);
+
+// Route chuẩn cho getAllVehicles (for consistency)
+app.get('/vehicles', authenticateToken, authorizeRole('service_staff', 'admin'), VehicleController.getAllVehicles);
 
 // Routes có tham số CUỐI CÙNG
 app.get('/vin/:vin', authenticateToken, authorizeRole('service_staff', 'admin', 'technician'), VehicleController.getVehicleByVIN);
