@@ -168,10 +168,16 @@ app.post('/recalls/campaigns/:campaignId/publish', authenticateToken, authorizeR
 app.put('/recalls/campaigns/:campaignId', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.updateCampaign);
 app.post('/recalls/campaigns/:campaignId/cancel', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.cancelCampaign);
 app.get('/recalls/campaigns', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), RecallCampaignController.getCampaigns);
+
+// UC13: Service Center Recall Management (specific routes BEFORE parameterized routes)
+app.get('/recalls/campaigns/my-center', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getMyCampaigns);
+
 app.get('/recalls/campaigns/:campaignId', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), RecallCampaignController.getCampaignById);
 app.get('/recalls/campaigns/:campaignId/affected-vehicles/my-center', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getAffectedVehiclesByServiceCenter);
 app.put('/recalls/campaigns/:campaignId/vehicles/:vin/status', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.updateVehicleStatus);
 app.get('/recalls/campaigns/:campaignId/statistics', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.getCampaignStatistics);
+app.post('/recalls/campaigns/:campaignId/acknowledge', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.acknowledgeCampaign);
+app.get('/recalls/campaigns/:campaignId/vehicles/:vin', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getVehicleDetail);
 
 // Lấy claims - routes cụ thể trước
 app.get('/claims/vin/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);

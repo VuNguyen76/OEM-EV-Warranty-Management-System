@@ -338,6 +338,59 @@ class VehicleLookupService {
             errors
         };
     }
+
+    /**
+     * UC13: Enrich vehicles with owner information from Vehicle Service
+     * @param {Array} vehicles - List of vehicles
+     * @param {string} authToken - JWT token
+     * @returns {Array} Vehicles with owner info
+     */
+    async enrichWithOwnerInfo(vehicles, authToken) {
+        try {
+            const enrichedVehicles = [];
+
+            for (const vehicle of vehicles) {
+                try {
+                    // Get full vehicle info from Vehicle Service
+                    const headers = {};
+                    if (authToken) {
+                        headers.Authorization = `Bearer ${authToken}`;
+                    }
+
+                    const response = await axios.get(
+                        `${this.vehicleServiceUrl}/vin/${vehicle.vin}`,
+                        {
+                            headers,
+                            timeout: 5000
+                        }
+                    );
+
+                    if (response.data.success && response.data.data) {
+                        const vehicleData = response.data.data;
+                        enrichedVehicles.push({
+                            ...vehicle,
+                            ownerName: vehicleData.ownerName,
+                            ownerPhone: vehicleData.ownerPhone,
+                            ownerEmail: vehicleData.ownerEmail,
+                            ownerAddress: vehicleData.ownerAddress
+                        });
+                    } else {
+                        // If can't get owner info, keep original
+                        enrichedVehicles.push(vehicle);
+                    }
+                } catch (error) {
+                    console.warn(`Failed to get owner info for VIN ${vehicle.vin}:`, error.message);
+                    // Keep original vehicle data
+                    enrichedVehicles.push(vehicle);
+                }
+            }
+
+            return enrichedVehicles;
+        } catch (error) {
+            console.error('Error enriching with owner info:', error);
+            return vehicles; // Return original if enrichment fails
+        }
+    }
 }
 
 module.exports = VehicleLookupService;

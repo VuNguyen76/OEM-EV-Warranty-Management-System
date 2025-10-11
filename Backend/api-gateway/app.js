@@ -17,25 +17,19 @@ class App {
 
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
+
+    // Parse body cho POST requests trước khi proxy
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+    // Rate limiting configuration
     if (process.env.ENABLE_RATE_LIMIT === "true") {
       this.app.use(apiRateLimit);
       this.app.use("/api/auth/login", loginRateLimit);
       this.app.use("/api/auth/register", registerRateLimit);
       this.app.use("/api/users/delete", strictRateLimit);
       this.app.use("/api/users/update-role", strictRateLimit);
-      console.log("Rate limiting ENABLED");
-    } else {
-      console.log("Rate limiting is disabled");
     }
-        // Xóa middleware parse body để tránh xung đột với proxy
-        // this.app.use(express.json());
-        // this.app.use(express.urlencoded({ extended: true }));
-
-        this.app.use(apiRateLimit);
-        this.app.use('/api/auth/login', loginRateLimit);
-        this.app.use('/api/auth/register', registerRateLimit);
-        this.app.use('/api/users/delete', strictRateLimit);
-        this.app.use('/api/users/update-role', strictRateLimit);
 
     this.gatewayService = new GatewayService(this.app);
   }
@@ -43,17 +37,15 @@ class App {
   async start(port) {
     try {
       await redisService.connect();
-      console.log("✅ Redis connected for rate limiting");
     } catch (error) {
-      console.warn(
-        "⚠️ Redis connection failed, rate limiting will be disabled:",
-        error.message
-      );
+      // Redis connection failed, rate limiting will be disabled
     }
 
-    this.gatewayService.initRoutes();
+    this.gatewayService.initializeRoutes();
 
-    this.app.listen(port, () => {});
+    this.app.listen(port, () => {
+      console.log(`API Gateway running on port ${port}`);
+    });
   }
 }
 
