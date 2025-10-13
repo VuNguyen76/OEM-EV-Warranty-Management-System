@@ -5,7 +5,6 @@ const { ServiceCenterMixin } = require('../../shared/Base/ServiceCenterMixin');
 const { VINMixin } = require('../../shared/Base/VINMixin');
 
 const warrantyClaimSchema = new mongoose.Schema({
-    // ✅ KẾ THỪA CÁC PATTERN CƠ BẢN
     ...BaseEntity,
     ...VINMixin,
     ...ServiceCenterMixin,
@@ -17,8 +16,6 @@ const warrantyClaimSchema = new mongoose.Schema({
         required: true,
         // Định dạng: WC-YYYY-XXXXX
     },
-
-    // ✅ VIN FIELD INHERITED FROM VINMixin
 
     // Tham chiếu bảo hành
     warrantyActivationId: {
@@ -183,8 +180,6 @@ const warrantyClaimSchema = new mongoose.Schema({
         }
     }],
 
-    // ✅ SERVICE CENTER FIELDS INHERITED FROM ServiceCenterMixin
-
     requestedBy: {
         type: String,
         required: true
@@ -216,8 +211,6 @@ const warrantyClaimSchema = new mongoose.Schema({
         type: String,
         maxlength: 2000
     },
-
-    // ✅ TIMESTAMPS INHERITED FROM BaseEntity
 
     completedAt: {
         type: Date,
@@ -596,6 +589,7 @@ warrantyClaimSchema.index({ claimNumber: 1 });
 warrantyClaimSchema.index({ serviceCenterId: 1 });
 warrantyClaimSchema.index({ claimStatus: 1 });
 warrantyClaimSchema.index({ createdAt: -1 });
+warrantyClaimSchema.index({ serviceCenterId: 1, claimStatus: 1 }); // For getClaimsByServiceCenter queries
 
 // Indexes cho tiến độ sửa chữa
 warrantyClaimSchema.index({ 'repairProgress.status': 1 });

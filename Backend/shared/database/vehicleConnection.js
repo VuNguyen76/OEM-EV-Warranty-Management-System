@@ -18,12 +18,16 @@ const connectToVehicleDatabase = async () => {
         if (!mongoUri) {
             throw new Error("VEHICLE_MONGODB_URI is not defined in environment variables");
         }
-
-        // Tạo kết nối riêng cho Vehicle Service
         vehicleConnection = mongoose.createConnection(mongoUri, {
-            maxPoolSize: 10,
+            maxPoolSize: 50,
+            minPoolSize: 10,
+            maxIdleTimeMS: 30000,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
+            connectTimeoutMS: 30000,
+            heartbeatFrequencyMS: 10000,
+            retryWrites: true,
+            retryReads: true,
         });
 
         // Chờ kết nối to be established

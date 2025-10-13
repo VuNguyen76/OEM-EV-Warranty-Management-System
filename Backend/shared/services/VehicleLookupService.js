@@ -341,22 +341,24 @@ class VehicleLookupService {
 
     /**
      * UC13: Enrich vehicles with owner information from Vehicle Service
+     * ✅ PERFORMANCE FIX: Use Promise.all() to avoid N+1 query problem
      * @param {Array} vehicles - List of vehicles
      * @param {string} authToken - JWT token
      * @returns {Array} Vehicles with owner info
      */
     async enrichWithOwnerInfo(vehicles, authToken) {
         try {
-            const enrichedVehicles = [];
+            if (!vehicles || vehicles.length === 0) {
+                return vehicles;
+            }
+            const headers = {};
+            if (authToken) {
+                headers.Authorization = `Bearer ${authToken}`;
+            }
 
-            for (const vehicle of vehicles) {
+            // Create promises for all vehicles at once
+            const enrichmentPromises = vehicles.map(async (vehicle) => {
                 try {
-                    // Get full vehicle info from Vehicle Service
-                    const headers = {};
-                    if (authToken) {
-                        headers.Authorization = `Bearer ${authToken}`;
-                    }
-
                     const response = await axios.get(
                         `${this.vehicleServiceUrl}/vin/${vehicle.vin}`,
                         {
@@ -367,25 +369,28 @@ class VehicleLookupService {
 
                     if (response.data.success && response.data.data) {
                         const vehicleData = response.data.data;
-                        enrichedVehicles.push({
+                        return {
                             ...vehicle,
                             ownerName: vehicleData.ownerName,
                             ownerPhone: vehicleData.ownerPhone,
                             ownerEmail: vehicleData.ownerEmail,
                             ownerAddress: vehicleData.ownerAddress
-                        });
+                        };
                     } else {
                         // If can't get owner info, keep original
-                        enrichedVehicles.push(vehicle);
+                        return vehicle;
                     }
                 } catch (error) {
                     console.warn(`Failed to get owner info for VIN ${vehicle.vin}:`, error.message);
-                    // Keep original vehicle data
-                    enrichedVehicles.push(vehicle);
+                    // Keep original vehicle data on error
+                    return vehicle;
                 }
-            }
+            });
+            const enrichedVehicles = await Promise.all(enrichmentPromises);
 
+            console.log(`✅ Successfully enriched ${enrichedVehicles.length} vehicles with owner info in parallel`);
             return enrichedVehicles;
+
         } catch (error) {
             console.error('Error enriching with owner info:', error);
             return vehicles; // Return original if enrichment fails

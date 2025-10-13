@@ -11,13 +11,10 @@ const { VINMixin } = require('../../shared/Base/VINMixin');
  * Separate from WarrantyClaim (UC4 - multiple claims during warranty period)
  */
 const warrantyActivationSchema = new mongoose.Schema({
-    // ✅ KẾ THỪA CÁC PATTERN CƠ BẢN
     ...BaseEntity,
     ...VINMixin,
     ...ServiceCenterMixin,
     ...AuditableMixin,
-
-    // ✅ VIN là duy nhất trong collection WarrantyActivation (một bảo hành mỗi VIN)
     vin: {
         ...VINMixin.vin,
         unique: true // Một kích hoạt bảo hành mỗi VIN
@@ -57,8 +54,6 @@ const warrantyActivationSchema = new mongoose.Schema({
         default: 'active'
     },
 
-    // ✅ SERVICE CENTER FIELDS INHERITED FROM ServiceCenterMixin
-
     // Thông tin kích hoạt
     activatedBy: {
         type: String,
@@ -85,8 +80,6 @@ const warrantyActivationSchema = new mongoose.Schema({
         maxlength: 1000
     }
 
-    // ✅ TIMESTAMPS INHERITED FROM BaseEntity
-    // ✅ AUDIT FIELDS INHERITED FROM AuditableMixin
 }, {
     timestamps: true,
     collection: 'warranty_activations'

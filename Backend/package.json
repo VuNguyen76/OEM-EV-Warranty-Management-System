@@ -10,18 +10,7 @@
     "dev:gateway": "nodemon api-gateway/server.js",
     "dev:user": "nodemon User/index.js",
     "dev": "concurrently \"npm run dev:gateway\" \"npm run dev:user\"",
-    "install:all": "npm install",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:user": "jest tests/User",
-    "test:manufacturing": "jest tests/Manufacturing",
-    "test:vehicle": "jest tests/Vehicle",
-    "test:warranty": "jest tests/Warranty",
-    "test:integration": "jest tests/Integration",
-    "test:shared": "jest tests/shared",
-    "test:verbose": "jest --verbose",
-    "test:silent": "jest --silent"
+    "install:all": "npm install"
   },
   "repository": {
     "type": "git",

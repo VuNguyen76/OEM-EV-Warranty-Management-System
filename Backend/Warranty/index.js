@@ -11,13 +11,14 @@ const { authenticateToken, authorizeRole } = require('../shared/middleware/AuthM
 const redisService = require('../shared/services/RedisService');
 const { connectToWarrantyDB } = require('../shared/database/warrantyConnection');
 const WarrantyController = require('./Controller/WarrantyController');
+const WarrantyActivationController = require('./Controller/WarrantyActivationController');
 const PartsController = require('./Controller/PartsController');
 const ServiceHistoryController = require('./Controller/ServiceHistoryController');
 const RecallCampaignController = require('./Controller/RecallCampaignController');
+const CostController = require('./Controller/CostController');
 
 const app = express();
 const PORT = process.env.PORT || process.env.WARRANTY_PORT || 3002;
-
 
 // Giới hạn tốc độ
 const limiter = rateLimit({
@@ -50,6 +51,7 @@ app.get('/health', (req, res) => {
 });
 
 // Quản lý bảo hành
+app.post('/warranties/activate', authenticateToken, authorizeRole('admin', 'service_staff', 'technician'), WarrantyActivationController.activateWarranty);
 app.get('/warranties/:vin', authenticateToken, WarrantyController.getWarrantyByVIN);
 app.get('/warranties', authenticateToken, WarrantyController.getWarrantiesByServiceCenter);
 app.get('/warranties/status/:vin', authenticateToken, WarrantyController.checkWarrantyStatus);
@@ -61,8 +63,6 @@ app.get('/parts/low-stock', authenticateToken, PartsController.getLowStockParts)
 app.get('/parts/:id', authenticateToken, PartsController.getPartById);
 app.put('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.updatePart);
 app.delete('/parts/:id', authenticateToken, authorizeRole('admin', 'service_staff'), PartsController.deletePart);
-
-// ✅ IMPORT MULTER MIDDLEWARE FIRST (before using)
 const WarrantyClaimController = require('./Controller/WarrantyClaimController');
 const { uploadMultipleFiles, handleMulterError } = require('../shared/middleware/MulterMiddleware');
 // Import warranty results specific middleware
@@ -110,6 +110,7 @@ app.get('/claims/:claimId/status-history', authenticateToken, WarrantyClaimContr
 // Phê Duyệt/Từ Chối Yêu Cầu (specific claim actions)
 app.put('/claims/:claimId/approve', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.approveWarrantyClaim);
 app.put('/claims/:claimId/reject', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.rejectWarrantyClaim);
+// app.put('/claims/:claimId/status', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.updateClaimStatus);
 app.post('/claims/:claimId/notes', authenticateToken, authorizeRole('service_staff', 'admin'), WarrantyClaimController.addApprovalNotes);
 
 // Quản Lý Kho Linh Kiện (Parts Management)
@@ -171,6 +172,7 @@ app.get('/recalls/campaigns', authenticateToken, authorizeRole('oem_staff', 'adm
 
 // UC13: Service Center Recall Management (specific routes BEFORE parameterized routes)
 app.get('/recalls/campaigns/my-center', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getMyCampaigns);
+app.get('/recalls/campaigns/active', authenticateToken, authorizeRole('service_staff', 'admin', 'oem_staff'), RecallCampaignController.getActiveCampaigns);
 
 app.get('/recalls/campaigns/:campaignId', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), RecallCampaignController.getCampaignById);
 app.get('/recalls/campaigns/:campaignId/affected-vehicles/my-center', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getAffectedVehiclesByServiceCenter);
@@ -178,6 +180,13 @@ app.put('/recalls/campaigns/:campaignId/vehicles/:vin/status', authenticateToken
 app.get('/recalls/campaigns/:campaignId/statistics', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.getCampaignStatistics);
 app.post('/recalls/campaigns/:campaignId/acknowledge', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.acknowledgeCampaign);
 app.get('/recalls/campaigns/:campaignId/vehicles/:vin', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getVehicleDetail);
+
+// UC8: Cost Management
+app.get('/costs/statistics', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), CostController.getCostStatistics);
+app.get('/costs/by-category', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), CostController.getCostsByCategory);
+app.get('/costs/by-service-center', authenticateToken, authorizeRole('oem_staff', 'admin'), CostController.getCostsByServiceCenter);
+app.get('/costs/trends', authenticateToken, authorizeRole('oem_staff', 'admin'), CostController.getCostTrends);
+app.get('/costs/claim/:claimId', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), CostController.getClaimCostDetails);
 
 // Lấy claims - routes cụ thể trước
 app.get('/claims/vin/:vin', authenticateToken, WarrantyClaimController.getClaimsByVIN);

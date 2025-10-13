@@ -28,7 +28,7 @@ const vehiclePartSchema = new mongoose.Schema({
   },
 
   installedBy: {
-    type: String, // ✅ Email nhân viên lắp đặt phụ tùng
+    type: String,
     required: true,
     trim: true
   },
@@ -219,7 +219,7 @@ vehiclePartSchema.methods.replacePart = function (newSerialNumber, replacedBy, r
   this.warrantyStartDate = new Date();
 
   // Calculate new warranty end date (get from part info)
-  return this.populate('partId').then(() => {
+  return this.populate('partId', 'partName warrantyPeriod').then(() => {
     this.warrantyEndDate = new Date(Date.now() + (this.partId.warrantyPeriod * 30 * 24 * 60 * 60 * 1000));
     this.warrantyStatus = 'active';
     return this.save();
@@ -282,11 +282,14 @@ vehiclePartSchema.statics.findByVehicle = function (vehicleId, status = null) {
   if (status) {
     query.status = status;
   }
-  return this.find(query).populate('partId');
+  return this.find(query).populate('partId', 'partName partNumber category price');
 };
 
 vehiclePartSchema.statics.findBySerialNumber = function (serialNumber) {
-  return this.findOne({ serialNumber: serialNumber }).populate(['vehicleId', 'partId', 'installedBy']);
+  return this.findOne({ serialNumber: serialNumber })
+    .populate('vehicleId', 'vin modelName')
+    .populate('partId', 'partName partNumber')
+    .populate('installedBy', 'username email');
 };
 
 vehiclePartSchema.statics.findWarrantyExpiring = function (days = 30) {
@@ -296,14 +299,16 @@ vehiclePartSchema.statics.findWarrantyExpiring = function (days = 30) {
   return this.find({
     warrantyStatus: 'active',
     warrantyEndDate: { $lte: futureDate }
-  }).populate(['vehicleId', 'partId']);
+  }).populate('vehicleId', 'vin modelName')
+    .populate('partId', 'partName partNumber');
 };
 
 vehiclePartSchema.statics.findMaintenanceDue = function () {
   return this.find({
     nextMaintenanceDate: { $lte: new Date() },
     status: 'installed'
-  }).populate(['vehicleId', 'partId']);
+  }).populate('vehicleId', 'vin modelName')
+    .populate('partId', 'partName partNumber');
 };
 
 vehiclePartSchema.statics.findRecalledParts = function (campaignId = null) {
@@ -311,7 +316,9 @@ vehiclePartSchema.statics.findRecalledParts = function (campaignId = null) {
   if (campaignId) {
     query['recallStatus.recallCampaignId'] = campaignId;
   }
-  return this.find(query).populate(['vehicleId', 'partId']);
+  return this.find(query)
+    .populate('vehicleId', 'vin modelName')
+    .populate('partId', 'partName partNumber');
 };
 
 // Middleware trước khi lưu

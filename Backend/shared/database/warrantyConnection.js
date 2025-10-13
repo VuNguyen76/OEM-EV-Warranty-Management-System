@@ -8,27 +8,32 @@ const connectToWarrantyDB = async () => {
             return warrantyConnection;
         }
 
-        const WARRANTY_DB_URI = process.env.WARRANTY_DB_URI || 'mongodb://mongo:cTNxYIJzmVIoQKWUdmOlxojqaNzBvtEs@shuttle.proxy.rlwy.net:25448';
-
+        const WARRANTY_DB_URI = process.env.WARRANTY_DB_URI;
         warrantyConnection = mongoose.createConnection(WARRANTY_DB_URI, {
-            maxPoolSize: 20,
-            minPoolSize: 5,
+            maxPoolSize: 50,
+            minPoolSize: 10,
             maxIdleTimeMS: 30000,
-            serverSelectionTimeoutMS: 30000,
+            serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
-            connectTimeoutMS: 30000
+            connectTimeoutMS: 30000,
+            heartbeatFrequencyMS: 10000,
+            retryWrites: true,
+            retryReads: true,
         });
 
         warrantyConnection.on('connected', () => {
             // Connected
+            console.log('Đã kết nối đến DB')
         });
 
         warrantyConnection.on('error', () => {
             // Lỗi kết nối
+            console.log('Lỗi kết nối đến DB')
         });
 
         warrantyConnection.on('disconnected', () => {
             // Mất kết nối
+            console.log('Mất kết nối đến DB')
         });
 
         // Chờ kết nối

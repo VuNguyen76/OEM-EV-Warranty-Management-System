@@ -51,7 +51,7 @@ RefreshTokenSchema.statics.findValidToken = async function (token) {
         token,
         isRevoked: false,
         expiresAt: { $gt: new Date() }
-    }).populate('userId');
+    }).populate('userId', 'username email role');
 };
 
 RefreshTokenSchema.statics.revokeToken = async function (token) {

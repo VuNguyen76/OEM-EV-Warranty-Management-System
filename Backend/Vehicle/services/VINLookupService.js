@@ -10,13 +10,22 @@ class VINLookupService {
 
     /**
      * Lookup vehicle information from Manufacturing DB
+     * ✅ PERFORMANCE FIX: Cache Manufacturing service responses to reduce API calls
      * @param {string} vin - VIN to lookup
      * @param {string} authToken - JWT token for authentication
      * @returns {Promise<Object>} Vehicle production information
      */
     static async lookupVehicleProduction(vin, authToken) {
         try {
-            // Call Manufacturing service API to get vehicle info
+            const vinUpper = vin.toUpperCase();
+            const redisService = require('../../shared/services/RedisService');
+            const cachedData = await redisService.getVehicleByVin(vinUpper);
+
+            if (cachedData) {
+                console.log(`✅ VIN ${vinUpper} found in cache, skipping Manufacturing API call`);
+                return cachedData;
+            }
+
             const axios = require('axios');
             const manufacturingServiceUrl = process.env.MANUFACTURING_SERVICE_URL || 'http://manufacturing-service:3003';
 
@@ -25,7 +34,8 @@ class VINLookupService {
                 headers.Authorization = `Bearer ${authToken}`;
             }
 
-            const response = await axios.get(`${manufacturingServiceUrl}/production/${vin.toUpperCase()}`, { headers });
+            console.log(`🔍 Fetching VIN ${vinUpper} from Manufacturing service (cache miss)`);
+            const response = await axios.get(`${manufacturingServiceUrl}/production/${vinUpper}`, { headers });
 
             if (!response.data || !response.data.success) {
                 throw new Error(`VIN ${vin} not found in Manufacturing database. Vehicle may not be produced yet.`);
@@ -38,19 +48,15 @@ class VINLookupService {
                 throw new Error(`VIN ${vin} has failed quality inspection. Current status: ${vehicleData.qualityStatus}`);
             }
 
-            // Ghi log cảnh báo cho trạng thái pending
             if (vehicleData.qualityStatus === 'pending') {
                 console.warn(`⚠️ VIN ${vin} quality status is still pending. Proceeding with registration.`);
             }
 
-            // ✅ EXPECT COMPLETE DATA FROM MANUFACTURING - NO FALLBACK
-            // Manufacturing service MUST return complete vehicle + model data
+            // Manufacturing service PHẢI trả về đầy đủ dữ liệu xe + model
             const model = vehicleData.modelId;
             if (!model || !model._id || !model.modelName) {
                 throw new Error(`Incomplete model information from Manufacturing service for VIN ${vin}. Manufacturing service must populate modelId.`);
             }
-
-            // ✅ KIỂM TRA NGHIÊM NGẶT - KHÔNG CÓ LOGIC DỰ PHÒNG
             const requiredFields = ['vin', 'color', 'productionDate', 'qualityStatus'];
             const requiredModelFields = ['modelName', 'modelCode', 'manufacturer', 'year', 'batteryCapacity', 'motorPower', 'vehicleWarrantyMonths'];
 
@@ -65,9 +71,7 @@ class VINLookupService {
                     throw new Error(`Missing required model field '${field}' from Manufacturing service for VIN ${vin}`);
                 }
             }
-
-            // ✅ TRẢ VỀ DỮ LIỆU SẠCH - KHÔNG CÓ DỰ PHÒNG
-            return {
+            const productionData = {
                 vin: vehicleData.vin,
                 modelId: model._id,
                 modelName: model.modelName,
@@ -88,6 +92,10 @@ class VINLookupService {
                 variant: model.variant,
                 vehicleWarrantyMonths: model.vehicleWarrantyMonths
             };
+            await redisService.cacheVehicleByVin(vinUpper, productionData, 3600);
+            console.log(`✅ Cached VIN ${vinUpper} production data for 1 hour`);
+
+            return productionData;
         } catch (error) {
             console.error('❌ VIN Lookup Error:', error);
             if (error.response && error.response.status === 404) {
@@ -167,23 +175,11 @@ class VINLookupService {
      */
     static async getServiceCenterInfo(serviceCenterId) {
         try {
-            // ✅ TRIỂN KHAI THỰC TẾ - KHÔNG CÓ DỰ PHÒNG
-            // In production, this MUST lookup from actual ServiceCenter collection
-            // Hiện tại, validate định dạng serviceCenterId và trả về dữ liệu có cấu trúc
-
             if (!serviceCenterId || typeof serviceCenterId !== 'string') {
                 throw new Error('Service Center ID is required and must be a string');
             }
 
-            // TODO: Replace with actual ServiceCenter lookup when ServiceCenter model is implemented
-            // const ServiceCenter = require('../Model/ServiceCenter');
-            // const serviceCenter = await ServiceCenter.findById(serviceCenterId);
-            // if (!serviceCenter) { // Kiểm tra service center
-            //     throw new Error(`Service Center not found: ${serviceCenterId}`);
-            // }
-            // return serviceCenter;
-
-            // ✅ PHẢN HỒI CÓ CẤU TRÚC TẠM THỜI - KHÔNG CÓ DỰ PHÒNG NGẪU NHIÊN
+            // Hiện tại, validate định dạng serviceCenterId và trả về dữ liệu có cấu trúc
             return {
                 id: serviceCenterId,
                 name: `Service Center ${serviceCenterId.slice(-8)}`, // Sử dụng 8 ký tự cuối để dễ đọc

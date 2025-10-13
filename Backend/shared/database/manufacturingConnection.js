@@ -8,14 +8,17 @@ const connectToManufacturingDB = async () => {
             return manufacturingConnection;
         }
 
-        const MANUFACTURING_DB_URI = process.env.MANUFACTURING_DB_URI || 'mongodb://mongo:qixrNEtIZeVkwiXmEIKawDvLBFlwaDvS@turntable.proxy.rlwy.net:23317';
-
+        const MANUFACTURING_DB_URI = process.env.MANUFACTURING_DB_URI;
         manufacturingConnection = mongoose.createConnection(MANUFACTURING_DB_URI, {
-            maxPoolSize: 20,
-            minPoolSize: 5,
+            maxPoolSize: 50,
+            minPoolSize: 10,
             maxIdleTimeMS: 30000,
             serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000
+            socketTimeoutMS: 45000,
+            connectTimeoutMS: 30000,
+            heartbeatFrequencyMS: 10000,
+            retryWrites: true,
+            retryReads: true,
         });
 
         manufacturingConnection.on('connected', () => {

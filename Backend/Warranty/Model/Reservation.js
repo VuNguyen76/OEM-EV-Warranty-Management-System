@@ -44,30 +44,27 @@ reservationSchema.index({ expiresAt: 1, status: 1 });
 reservationSchema.index({ reservedBy: 1 });
 
 // Phương thức static
-reservationSchema.statics.createReservation = async function(partId, quantity, reservedBy, expirationMinutes = 30) {
+reservationSchema.statics.createReservation = async function (partId, quantity, reservedBy, expirationMinutes = 30) {
     const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
-    
+
     const reservation = new this({
         partId,
         quantity,
         reservedBy,
         expiresAt
     });
-    
+
     return await reservation.save();
 };
 
-reservationSchema.statics.releaseExpiredReservations = async function() {
+reservationSchema.statics.releaseExpiredReservations = async function () {
     const Part = require('./Part')();
-    
+
     const expiredReservations = await this.find({
         status: 'active',
         expiresAt: { $lt: new Date() }
     });
-    
-    let releasedCount = 0;
-    
-    for (const reservation of expiredReservations) {
+    const releasePromises = expiredReservations.map(async (reservation) => {
         try {
             // Trả stock về part
             const part = await Part.findById(reservation.partId);
@@ -75,49 +72,54 @@ reservationSchema.statics.releaseExpiredReservations = async function() {
                 part.reservedQuantity = Math.max(0, part.reservedQuantity - reservation.quantity);
                 await part.save();
             }
-            
+
             // Đánh dấu reservation đã hết hạn
             reservation.status = 'expired';
             await reservation.save();
-            
-            releasedCount++;
+
+            return true; // Success
         } catch (error) {
             console.error(`❌ Error releasing reservation ${reservation._id}:`, error);
+            return false; // Failed
         }
-    }
-    
+    });
+
+    // Execute all releases in parallel
+    const results = await Promise.all(releasePromises);
+    const releasedCount = results.filter(success => success).length;
+
     if (releasedCount > 0) {
-        console.log(`✅ Released ${releasedCount} expired stock reservations`);
+        console.log(`✅ Released ${releasedCount} expired stock reservations in parallel`);
     }
-    
+
     return releasedCount;
 };
 
-reservationSchema.statics.completeReservation = async function(reservationId) {
+reservationSchema.statics.completeReservation = async function (reservationId) {
     const reservation = await this.findById(reservationId);
     if (!reservation || reservation.status !== 'active') {
         throw new Error('Reservation không tồn tại hoặc đã được xử lý');
     }
-    
+
     reservation.status = 'completed';
     return await reservation.save();
 };
 
-reservationSchema.statics.cancelReservation = async function(reservationId) {
+reservationSchema.statics.cancelReservation = async function (reservationId) {
     const Part = require('./Part')();
-    
+
     const reservation = await this.findById(reservationId);
     if (!reservation || reservation.status !== 'active') {
         throw new Error('Reservation không tồn tại hoặc đã được xử lý');
     }
-    
+
     // Trả stock về part
     const part = await Part.findById(reservation.partId);
     if (part) {
         part.reservedQuantity = Math.max(0, part.reservedQuantity - reservation.quantity);
         await part.save();
     }
-    
+
     reservation.status = 'cancelled';
     return await reservation.save();
 };

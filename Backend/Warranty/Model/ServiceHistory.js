@@ -34,7 +34,7 @@ const serviceHistorySchema = new mongoose.Schema({
 
   // Thông tin thực hiện
   performedBy: {
-    type: String, // ✅ Email nhân viên thực hiện dịch vụ
+    type: String,
     required: true,
     trim: true
   },
@@ -388,7 +388,9 @@ serviceHistorySchema.statics.findByVehicle = function (vehicleId, options = {}) 
   }
 
   return this.find(query)
-    .populate(['performedBy', 'supervisedBy', 'partsUsed.partId'])
+    .populate('performedBy', 'username email')
+    .populate('supervisedBy', 'username email')
+    .populate('partsUsed.partId', 'partName partNumber')
     .sort({ serviceDate: -1 });
 };
 
@@ -402,7 +404,8 @@ serviceHistorySchema.statics.findByTechnician = function (technicianId, options 
   }
 
   return this.find(query)
-    .populate(['vehicleId', 'partsUsed.partId'])
+    .populate('vehicleId', 'vin modelName ownerName')
+    .populate('partsUsed.partId', 'partName partNumber')
     .sort({ serviceDate: -1 });
 };
 
@@ -413,7 +416,7 @@ serviceHistorySchema.statics.findUpcomingServices = function (days = 30) {
   return this.find({
     nextServiceDate: { $lte: futureDate },
     status: 'completed'
-  }).populate('vehicleId');
+  }).populate('vehicleId', 'vin modelName ownerName ownerPhone');
 };
 
 serviceHistorySchema.statics.getServiceStats = function (filters = {}) {

@@ -19,8 +19,7 @@ const getAllUsers = async (req, res) => {
                 count: cachedUsers.length
             }, "Lấy danh sách users thành công (cached)");
         }
-
-        const users = await User.find().select("-password");
+        const users = await User.find().select("-password").lean();
 
         // Cache trong 10 minutes
         await safeCacheOperation(
@@ -57,8 +56,7 @@ const getUserById = async (req, res) => {
         if (cachedUser) {
             return responseHelper.success(res, cachedUser, "Lấy thông tin user thành công (cached)");
         }
-
-        const user = await User.findById(id).select("-password");
+        const user = await User.findById(id).select("-password").lean();
         if (!user) {
             return responseHelper.error(res, "Không tìm thấy user", 404);
         }
@@ -172,10 +170,10 @@ const getAvailableTechnicians = async (req, res) => {
         if (serviceCenter) {
             filter["serviceCenter.id"] = serviceCenter;
         }
-
         const technicians = await User.find(filter)
             .select("-password -refreshToken")
-            .sort({ workload: 1, "performanceMetrics.qualityScore": -1 });
+            .sort({ workload: 1, "performanceMetrics.qualityScore": -1 })
+            .lean();
 
         // Cache trong 5 minutes
         await safeCacheOperation(

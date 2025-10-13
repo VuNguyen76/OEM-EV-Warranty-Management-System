@@ -22,7 +22,8 @@ const WMI_CODES = {
     'Nissan': 'JN1',
     'Mazda': 'JM1',
     'Test Motors': 'TMT',
-    'EV Motors': 'EVM'
+    'EV Motors': 'EVM',
+    'OEM Corp': 'XEM'
 };
 
 // Mã năm model (ISO 3779)

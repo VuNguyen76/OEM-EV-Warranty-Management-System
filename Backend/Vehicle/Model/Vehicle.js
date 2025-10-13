@@ -219,6 +219,16 @@ VehicleSchema.index({ modelCode: 1, year: 1 });
 VehicleSchema.index({ ownerPhone: 1 });
 VehicleSchema.index({ registrationDate: -1 });
 
+// ✅ PERFORMANCE FIX: Add missing critical indexes
+VehicleSchema.index({ status: 1 }); // For status filtering in getAllVehicles
+VehicleSchema.index({ serviceCenterId: 1 }); // For service center queries
+VehicleSchema.index({ serviceCenterCode: 1 }); // For service center code filtering
+
+// ✅ COMPOUND INDEXES for common query patterns
+VehicleSchema.index({ status: 1, serviceCenterCode: 1 }); // Common filter combination
+VehicleSchema.index({ status: 1, registrationDate: -1 }); // Status with sorting
+VehicleSchema.index({ serviceCenterId: 1, status: 1 }); // Service center with status
+
 VehicleSchema.virtual('fullOwnerInfo').get(function () {
     return `${this.ownerName} - ${this.ownerPhone}`;
 });

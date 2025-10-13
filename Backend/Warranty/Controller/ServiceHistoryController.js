@@ -35,6 +35,9 @@ async function initializeModels() {
  */
 const addServiceHistory = async (req, res) => {
     try {
+        // Khởi tạo models
+        await initializeModels();
+
         const {
             vin,
             serviceType,
@@ -43,6 +46,8 @@ const addServiceHistory = async (req, res) => {
             laborCost,
             partsCost,
             totalCost,
+            laborHours,
+            laborRate,
             serviceDate,
             nextServiceDate,
             mileage,
@@ -59,8 +64,6 @@ const addServiceHistory = async (req, res) => {
         if (!req.user.sub && !req.user.userId) {
             return responseHelper.error(res, "User ID không hợp lệ trong token", 401);
         }
-
-        // ✅ Kiểm tra xe có tồn tại trong Vehicle service
         try {
             await verifyVINInVehicleService(vin, req.headers.authorization);
         } catch (error) {
@@ -89,11 +92,11 @@ const addServiceHistory = async (req, res) => {
 
         // Tạo bản ghi lịch sử dịch vụ
         const serviceHistory = new ServiceHistory({
-            vin: normalizeVIN(vin), // ✅ Sử dụng VIN trực tiếp (không cần vehicleId)
+            vin: normalizeVIN(vin),
             serviceType,
             title: `${serviceType} - ${description.substring(0, 50)}`,
             description,
-            performedBy: req.user.email, // ✅ Sử dụng email thay vì ObjectId
+            performedBy: req.user.email,
             serviceCenter: {
                 name: serviceCenterInfo?.name || req.user.serviceCenterName || 'Default Service Center',
                 code: serviceCenterInfo?.code || req.user.serviceCenterCode || 'SC001',
@@ -101,6 +104,8 @@ const addServiceHistory = async (req, res) => {
                 contact: serviceCenterInfo?.contact
             },
             partsUsed: partsUsed || [],
+            laborHours: laborHours !== undefined ? laborHours : 1,
+            laborRate: laborRate !== undefined ? laborRate : (laborCost || 500000),
             laborCost: laborCost !== undefined ? laborCost : 0,
             partsCost: partsCost !== undefined ? partsCost : 0,
             totalCost: totalCost !== undefined ? totalCost : (laborCost || 0) + (partsCost || 0),
@@ -113,42 +118,17 @@ const addServiceHistory = async (req, res) => {
             createdBy: req.user.email
         });
 
-        // Sử dụng giao dịch to ensure data consistency
-        const mongoose = require('mongoose');
-        const session = await mongoose.startSession();
-        let savedServiceHistory = null;
+        // Lưu lịch sử dịch vụ (không dùng transaction vì standalone MongoDB)
+        const savedServiceHistory = await serviceHistory.save();
 
-        try {
-            await session.withTransaction(async () => {
-                // Lưu lịch sử dịch vụ
-                savedServiceHistory = await serviceHistory.save({ session });
+        // Clear cache
+        await clearCachePatterns(["service-history:*"]);
 
-                // ✅ Không cần cập nhật WarrantyVehicle - Vehicle service xử lý dữ liệu xe
-                // Lịch sử dịch vụ là theo dõi độc lập
-            });
-
-            // Giao dịch thành công - clear cache
-            await clearCachePatterns(["service-history:*"]);
-
-            return responseHelper.success(res, {
-                serviceHistory: savedServiceHistory,
-                message: `Ghi lịch sử ${serviceType} cho xe ${vin.toUpperCase()} thành công`,
-                attachmentsCount: attachments.length
-            }, "Lưu lịch sử dịch vụ thành công", 201);
-        } catch (transactionError) {
-            console.error('❌ Transaction failed in addServiceHistory:', {
-                error: transactionError.message,
-                stack: transactionError.stack,
-                user: req.user?.email,
-                vin: req.body?.vin,
-                serviceType: req.body?.serviceType,
-                timestamp: new Date().toISOString()
-            });
-
-            return responseHelper.error(res, "Lỗi khi lưu lịch sử bảo dưỡng - transaction rollback", 500);
-        } finally {
-            await session.endSession();
-        }
+        return responseHelper.success(res, {
+            serviceHistory: savedServiceHistory,
+            message: `Ghi lịch sử ${serviceType} cho xe ${vin.toUpperCase()} thành công`,
+            attachmentsCount: attachments.length
+        }, "Lưu lịch sử dịch vụ thành công", 201);
     } catch (error) {
         console.error('❌ Error in addServiceHistory:', {
             error: error.message,
@@ -165,6 +145,7 @@ const addServiceHistory = async (req, res) => {
 // Lấy Lịch sử Dịch vụ theo VIN
 const getServiceHistoryByVIN = async (req, res) => {
     try {
+        await initializeModels();
         const { vin } = req.params;
         const { page = 1, limit = 10, serviceType, startDate, endDate } = req.query;
         // Tạo cache key tốt hơn (tránh vấn đề JSON.stringify)
@@ -175,8 +156,6 @@ const getServiceHistoryByVIN = async (req, res) => {
         if (cachedData) {
             return responseHelper.success(res, cachedData, "Lấy lịch sử bảo dưỡng thành công (từ cache)");
         }
-
-        // ✅ Sử dụng VIN trực tiếp (không cần lookup vehicleId)
         const searchQuery = { vin: normalizeVIN(vin) };
 
         if (serviceType) {
@@ -221,6 +200,7 @@ const getServiceHistoryByVIN = async (req, res) => {
 // Lấy Tất cả Lịch sử Dịch vụ
 const getAllServiceHistories = async (req, res) => {
     try {
+        await initializeModels();
         const { page = 1, limit = 10, serviceType, startDate, endDate, search } = req.query;
         // Tạo cache key tốt hơn (tránh vấn đề JSON.stringify)
         const cacheKey = `service-history:all:page:${page}:limit:${limit}:type:${serviceType || 'all'}:search:${search || 'none'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;
@@ -259,7 +239,8 @@ const getAllServiceHistories = async (req, res) => {
             ServiceHistory.find(searchQuery)
                 .sort({ serviceDate: -1 })
                 .skip(skip)
-                .limit(limitNum),
+                .limit(limitNum)
+                .lean(),
             ServiceHistory.countDocuments(searchQuery)
         ]);
 
@@ -281,6 +262,7 @@ const getAllServiceHistories = async (req, res) => {
 // Lấy Lịch sử Dịch vụ theo ID
 const getServiceHistoryById = async (req, res) => {
     try {
+        await initializeModels();
         const { id } = req.params;
         const cacheKey = `service-history:${id}`;
 
@@ -308,6 +290,7 @@ const getServiceHistoryById = async (req, res) => {
 // Cập nhật Lịch sử Dịch vụ
 const updateServiceHistory = async (req, res) => {
     try {
+        await initializeModels();
         const { id } = req.params;
         const updateData = { ...req.body, updatedBy: req.user.email };
 
@@ -329,6 +312,7 @@ const updateServiceHistory = async (req, res) => {
 // Lấy Thống kê Dịch vụ
 const getServiceStatistics = async (req, res) => {
     try {
+        await initializeModels();
         const { startDate, endDate, serviceType } = req.query;
         // Tạo cache key tốt hơn (tránh vấn đề JSON.stringify)
         const cacheKey = `service-history:stats:type:${serviceType || 'all'}:start:${startDate || 'none'}:end:${endDate || 'none'}`;

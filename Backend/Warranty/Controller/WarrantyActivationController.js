@@ -1,5 +1,5 @@
 const responseHelper = require('../../shared/utils/responseHelper');
-const WarrantyActivation = require('../Model/WarrantyActivation')();
+const WarrantyActivationModel = require('../Model/WarrantyActivation');
 const { verifyVINInVehicleService, normalizeVIN } = require('../../shared/services/VehicleServiceHelper');
 
 /**
@@ -28,7 +28,8 @@ class WarrantyActivationController {
             const vinUpper = normalizeVIN(vin);
 
             // Bước 1: Kiểm tra bảo hành đã được kích hoạt cho VIN này chưa
-            const existingWarranty = await WarrantyActivation.findOne({ vin: vinUpper });
+            const WarrantyActivation = WarrantyActivationModel();
+            const existingWarranty = await WarrantyActivation.findOne({ vin: vinUpper }).lean();
             if (existingWarranty) {
                 return responseHelper.error(res, "VIN này đã được kích hoạt bảo hành", 400);
             }
@@ -50,16 +51,19 @@ class WarrantyActivationController {
             }
 
             const warrantyMonths = vehicleData.vehicleWarrantyMonths;
-            const warrantySource = `model:${vehicleData.modelCode}`;
+            const warrantySource = 'model'; // Enum value: model, default, custom
 
             // Bước 4: Tính toán ngày bảo hành
             const startDate = warrantyStartDate ? new Date(warrantyStartDate) : new Date();
             const endDate = new Date(startDate);
             endDate.setMonth(endDate.getMonth() + warrantyMonths);
 
-            // Bước 5: Lấy thông tin trung tâm dịch vụ nhất quán
-            const VINLookupService = require('../../Vehicle/services/VINLookupService');
-            const serviceCenterInfo = await VINLookupService.getServiceCenterInfo(req.user.serviceCenterId || req.user.sub);
+            // Bước 5: Lấy thông tin trung tâm dịch vụ từ user token
+            const serviceCenterInfo = {
+                id: req.user.serviceCenterId || req.user.sub,
+                name: req.user.serviceCenterName || 'Default Service Center',
+                code: req.user.serviceCenterCode || 'SC001'
+            };
 
             // Bước 6: Tạo warranty activation
             const warrantyActivation = new WarrantyActivation({
@@ -122,6 +126,7 @@ class WarrantyActivationController {
                 return responseHelper.error(res, "VIN là bắt buộc", 400);
             }
 
+            const WarrantyActivation = WarrantyActivationModel();
             const warranty = await WarrantyActivation.findOne({ vin: normalizeVIN(vin) });
 
             if (!warranty) {
@@ -165,6 +170,7 @@ class WarrantyActivationController {
 
             const skip = (page - 1) * limit;
 
+            const WarrantyActivation = WarrantyActivationModel();
             const warranties = await WarrantyActivation.find(query)
                 .sort({ activatedDate: -1 })
                 .skip(skip)
@@ -209,6 +215,7 @@ class WarrantyActivationController {
                 return responseHelper.error(res, "VIN là bắt buộc", 400);
             }
 
+            const WarrantyActivation = WarrantyActivationModel();
             const hasWarranty = await WarrantyActivation.hasWarranty(vin);
             const warranty = await WarrantyActivation.findActiveByVIN(vin);
 

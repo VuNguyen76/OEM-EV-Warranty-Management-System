@@ -37,8 +37,6 @@ const createVehicle = async (req, res) => {
         if (!model) {
             return responseHelper.error(res, "Không tìm thấy model xe", 404);
         }
-
-        // ✅ TẠO VIN SỬ DỤNG TIÊU CHUẨN ISO 3779
         console.log(`🔧 Starting VIN generation for model:`, {
             manufacturer: model.manufacturer,
             modelCode: model.modelCode,
@@ -205,7 +203,7 @@ const getVehicleByVIN = async (req, res) => {
         }
 
         const vehicle = await ProducedVehicle.findOne({ vin: vin.toUpperCase() })
-            .populate('modelId', 'modelName modelCode manufacturer batteryCapacity motorPower range');
+            .populate('modelId', 'modelName modelCode manufacturer batteryCapacity motorPower range year vehicleWarrantyMonths batteryWarrantyMonths');
 
         if (!vehicle) {
             return responseHelper.error(res, "Không tìm thấy xe với VIN này", 404);

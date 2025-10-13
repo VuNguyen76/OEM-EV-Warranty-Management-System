@@ -53,8 +53,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      USER_MONGODB_URI: ${USER_MONGODB_URI}
-      REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
+      USER_MONGODB_URI: mongodb://admin:warranty123@mongodb:27017/user_service?authSource=admin
+      REDIS_URL: redis://:warranty123@redis:6379
       JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3001:3001"
@@ -78,13 +78,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3003
-      MANUFACTURING_DB_URI: ${MANUFACTURING_DB_URI}
-      REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
+      MANUFACTURING_DB_URI: mongodb://admin:warranty123@mongodb:27017/manufacturing_service?authSource=admin
+      REDIS_URL: redis://:warranty123@redis:6379
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     ports:
       - "3003:3003"
     depends_on:
+      - mongodb
       - redis
     networks:
       - warranty_network
@@ -103,13 +104,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3002
-      WARRANTY_DB_URI: ${WARRANTY_DB_URI}
-      REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
+      WARRANTY_DB_URI: mongodb://admin:warranty123@mongodb:27017/warranty_service?authSource=admin
+      REDIS_URL: redis://:warranty123@redis:6379
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     ports:
       - "3002:3002"
     depends_on:
+      - mongodb
       - redis
     networks:
       - warranty_network
@@ -128,13 +130,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3004
-      VEHICLE_MONGODB_URI: ${VEHICLE_MONGODB_URI}
-      REDIS_URL: ${REDIS_URL:-redis://:warranty123@redis:6379}
+      VEHICLE_MONGODB_URI: mongodb://admin:warranty123@mongodb:27017/vehicle_service?authSource=admin
+      REDIS_URL: redis://:warranty123@redis:6379
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     ports:
       - "3004:3004"
     depends_on:
+      - mongodb
       - redis
     networks:
       - warranty_network

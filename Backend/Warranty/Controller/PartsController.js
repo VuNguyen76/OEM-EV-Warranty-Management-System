@@ -20,7 +20,7 @@ async function initializeModels() {
 // Create Part
 const createPart = async (req, res) => {
     try {
-        const { partName, partCode, partNumber, category, description, cost, supplier, warrantyPeriod } = req.body;
+        const { partName, partCode, partNumber, category, description, cost, supplier, warrantyPeriod, stockQuantity, reservedQuantity, minimumStock } = req.body;
 
         // Basic validation handled by ValidationMiddleware at route level
 
@@ -41,9 +41,12 @@ const createPart = async (req, res) => {
             partNumber,
             category,
             description,
-            cost: parseFloat(cost),
+            cost: cost && !isNaN(parseFloat(cost)) ? parseFloat(cost) : 0,
             supplier,
             warrantyPeriod,
+            stockQuantity: stockQuantity && !isNaN(parseInt(stockQuantity)) ? parseInt(stockQuantity) : 0,
+            reservedQuantity: reservedQuantity && !isNaN(parseInt(reservedQuantity)) ? parseInt(reservedQuantity) : 0,
+            minimumStock: minimumStock && !isNaN(parseInt(minimumStock)) ? parseInt(minimumStock) : 0,
             createdBy: req.user.email
         });
 
@@ -186,7 +189,10 @@ const deletePart = async (req, res) => {
 // Get Low Stock Parts
 const getLowStockParts = async (req, res) => {
     try {
-        const { threshold = 10 } = req.query;
+        let threshold = 10;
+        if (req.query.threshold && !isNaN(parseInt(req.query.threshold))) {
+            threshold = parseInt(req.query.threshold);
+        }
         const cacheKey = `parts:lowstock:${threshold}`;
 
         // Thử cache trước
@@ -194,10 +200,9 @@ const getLowStockParts = async (req, res) => {
         if (cachedData) {
             return responseHelper.success(res, cachedData, "Lấy danh sách phụ tùng sắp hết thành công (từ cache)");
         }
-
         const lowStockParts = await Part.find({
             stockQuantity: { $lte: parseInt(threshold) }
-        }).sort({ stockQuantity: 1 });
+        }).sort({ stockQuantity: 1 }).lean();
 
         // Cache trong 2 minutes
         await setCached(cacheKey, lowStockParts, 120);
@@ -230,8 +235,6 @@ const addPartToVehicle = async (req, res) => {
         if (!vin || !partId || !serialNumber || !position) {
             return responseHelper.error(res, "Thiếu thông tin bắt buộc: VIN, partId, serialNumber, position", 400);
         }
-
-        // ✅ Kiểm tra xe có tồn tại trong Vehicle service
         try {
             await verifyVINInVehicleService(vin, req.headers.authorization);
         } catch (error) {
@@ -258,59 +261,50 @@ const addPartToVehicle = async (req, res) => {
         const warrantyEndDate = new Date(installDate);
         warrantyEndDate.setMonth(warrantyEndDate.getMonth() + part.warrantyPeriod);
 
-        // Sử dụng atomic operation để cập nhật stock và tạo vehicle part
-        const mongoose = require('mongoose');
-        const session = await mongoose.startSession();
-
-        try {
-            await session.withTransaction(async () => {
-                // Atomic stock update with condition check
-                const updatedPart = await Part.findOneAndUpdate(
-                    {
-                        _id: partId,
-                        stockQuantity: { $gt: 0 }
-                    },
-                    {
-                        $inc: { stockQuantity: -1 }
-                    },
-                    {
-                        new: true,
-                        session
-                    }
-                );
-
-                if (!updatedPart) {
-                    throw new Error('Phụ tùng đã hết hàng hoặc không đủ số lượng');
-                }
-
-                // Create vehicle part record
-                const vehiclePart = new VehiclePart({
-                    vin: normalizeVIN(vin), // ✅ Sử dụng VIN làm tham chiếu chính (không cần vehicleId)
-                    partId,
-                    serialNumber,
-                    position: position || 'Unknown',
-                    installationDate: installDate,
-                    warrantyEndDate,
-                    installedBy: installedBy || req.user.email, // ✅ Sử dụng email thay vì ObjectId
-                    notes,
-                    createdBy: req.user.email
-                });
-
-                await vehiclePart.save({ session });
-
-                // Store for response (outside transaction)
-                req.vehiclePart = vehiclePart;
-            });
-        } finally {
-            await session.endSession();
+        // Check stock availability first
+        const currentPart = await Part.findById(partId);
+        if (!currentPart || currentPart.stockQuantity <= 0) {
+            return responseHelper.error(res, 'Phụ tùng đã hết hàng hoặc không đủ số lượng', 400);
         }
+
+        // Update stock (atomic operation)
+        const updatedPart = await Part.findOneAndUpdate(
+            {
+                _id: partId,
+                stockQuantity: { $gt: 0 }
+            },
+            {
+                $inc: { stockQuantity: -1 }
+            },
+            {
+                new: true
+            }
+        );
+
+        if (!updatedPart) {
+            return responseHelper.error(res, 'Phụ tùng đã hết hàng hoặc không đủ số lượng', 400);
+        }
+
+        // Create vehicle part record
+        const vehiclePart = new VehiclePart({
+            vin: normalizeVIN(vin),
+            partId,
+            serialNumber,
+            position: position && position.trim().length > 0 ? position.trim() : 'Unknown',
+            installationDate: installDate,
+            warrantyEndDate,
+            installedBy: installedBy && installedBy.trim().length > 0 ? installedBy.trim() : req.user.email,
+            notes,
+            createdBy: req.user.email
+        });
+
+        await vehiclePart.save();
 
         // Xóa cache
         await clearCachePatterns(["parts:*", "vehicle-parts:*"]);
 
         // Populate part info for response
-        const vehiclePart = req.vehiclePart;
-        await vehiclePart.populate('partId');
+        await vehiclePart.populate('partId', 'name partNumber category cost');
 
         return responseHelper.success(res, {
             vehiclePart,
@@ -334,8 +328,6 @@ const getVehicleParts = async (req, res) => {
         if (cachedData) {
             return responseHelper.success(res, cachedData, "Lấy danh sách phụ tùng xe thành công (từ cache)");
         }
-
-        // ✅ Sử dụng VIN trực tiếp (không cần lookup vehicleId)
         const searchQuery = { vin: normalizeVIN(vin) };
         if (status) {
             searchQuery.status = status;
@@ -345,7 +337,7 @@ const getVehicleParts = async (req, res) => {
         const { skip, limitNum } = queryHelper.parsePagination(page, limit);
         const [vehicleParts, total] = await Promise.all([
             VehiclePart.find(searchQuery)
-                .populate('partId')
+                .populate('partId', 'partName partNumber category price stockQuantity')
                 .sort({ installationDate: -1 })
                 .skip(skip)
                 .limit(limitNum),

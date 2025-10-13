@@ -11,7 +11,8 @@ const getWarrantyByVIN = async (req, res) => {
         const vinUpper = normalizeVIN(vin);
 
         const WarrantyActivation = WarrantyActivationModel();
-        const warranty = await WarrantyActivation.findOne({ vin: vinUpper });
+        // ✅ PERFORMANCE FIX: Add .lean() for read-only query
+        const warranty = await WarrantyActivation.findOne({ vin: vinUpper }).lean();
 
         if (!warranty) {
             return responseHelper.error(res, "Không tìm thấy bảo hành cho VIN này", 404);
@@ -35,7 +36,8 @@ const getWarrantiesByServiceCenter = async (req, res) => {
         const serviceCenterId = req.user.sub;
 
         const WarrantyActivation = WarrantyActivationModel();
-        const warranties = await WarrantyActivation.find({ serviceCenterId });
+        // ✅ PERFORMANCE FIX: Add .lean() for read-only query
+        const warranties = await WarrantyActivation.find({ serviceCenterId }).lean();
 
         return responseHelper.success(res, {
             warranties: warranties,
@@ -57,6 +59,7 @@ const checkWarrantyStatus = async (req, res) => {
         const vinUpper = normalizeVIN(vin);
 
         const WarrantyActivation = WarrantyActivationModel();
+        // ✅ PERFORMANCE FIX: Add .lean() for read-only query (if findActiveByVIN supports it)
         const warranty = await WarrantyActivation.findActiveByVIN(vinUpper);
 
         if (!warranty) {

@@ -10,20 +10,23 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const connectToUserDatabase = async () => {
     try {
-        const mongoUri = process.env.USER_MONGODB_URI || process.env.MONGODB_URI;
+        const mongoUri = process.env.USER_MONGODB_URI;
         console.log("🔗 Connecting to User Database...");
         console.log("URI:", mongoUri ? mongoUri.replace(/\/\/.*@/, '//***:***@') : 'undefined');
 
         if (!mongoUri) {
-            throw new Error("USER_MONGODB_URI or MONGODB_URI is not defined in environment variables");
+            throw new Error("USER_MONGODB_URI is not defined in environment variables");
         }
-
         await mongoose.connect(mongoUri, {
-            maxPoolSize: 20, // Tăng pool size để hiệu suất tốt hơn
-            minPoolSize: 5, // Số kết nối tối thiểu duy trì
-            maxIdleTimeMS: 30000, // Đóng kết nối sau 30 giây không hoạt động
+            maxPoolSize: 50,
+            minPoolSize: 10,
+            maxIdleTimeMS: 30000,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
+            connectTimeoutMS: 30000,
+            heartbeatFrequencyMS: 10000,
+            retryWrites: true,
+            retryReads: true,
         });
 
         console.log("✅ Connected to User MongoDB database");

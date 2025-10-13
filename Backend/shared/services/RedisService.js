@@ -232,14 +232,22 @@ class RedisService {
             return false;
         }
     }
-
     async get(key) {
         if (!this.isConnected) return null;
 
         try {
-            const data = await this.client.get(key);
+            // Add timeout to prevent hanging operations
+            const data = await Promise.race([
+                this.client.get(key),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Redis timeout')), 1000)
+                )
+            ]);
             return data ? JSON.parse(data) : null;
         } catch (error) {
+            if (error.message === 'Redis timeout') {
+                console.warn('⚠️ Redis GET operation timed out for key:', key);
+            }
             return null;
         }
     }
@@ -316,31 +324,15 @@ class RedisService {
             return false;
         }
     }
-
-    // Delete keys matching pattern (safe wildcard deletion)
     async deletePattern(pattern) {
         if (!this.isConnected) {
             return 0;
         }
 
         try {
-            const keys = await this.client.keys(pattern);
-            if (keys.length === 0) {
-                return 0;
-            }
-
-            // Delete keys in batches to avoid blocking Redis
-            const batchSize = 100;
-            let deletedCount = 0;
-
-            for (let i = 0; i < keys.length; i += batchSize) {
-                const batch = keys.slice(i, i + batchSize);
-                const result = await this.client.del(batch);
-                deletedCount += result;
-            }
-
-            return deletedCount;
+            return await this.deletePatternScan(pattern);
         } catch (error) {
+            console.error('❌ Error in deletePattern:', error);
             return 0;
         }
     }

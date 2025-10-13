@@ -1,6 +1,7 @@
 const RecallCampaignModel = require('../Model/RecallCampaign');
 const VehicleLookupService = require('../../shared/services/VehicleLookupService');
 const CampaignCodeGenerator = require('../../shared/services/CampaignCodeGenerator');
+const BulkOperationService = require('../../shared/services/BulkOperationService');
 const responseHelper = require('../../shared/utils/responseHelper');
 
 const vehicleLookupService = new VehicleLookupService();
@@ -70,7 +71,7 @@ const findCampaignById = async (campaignId) => {
 
         // Approach 6: Try to find by any field that might match
         try {
-            const allCampaigns = await RecallCampaign.find({}).limit(20);
+            const allCampaigns = await RecallCampaign.find({}).limit(20).lean();
 
             // Look for campaign with matching _id or campaignId
             for (const c of allCampaigns) {
@@ -474,10 +475,10 @@ const getCampaigns = async (req, res) => {
         // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const total = await RecallCampaign.countDocuments(filter);
-
         const campaigns = await RecallCampaign.find(filter)
             .select('campaignCode campaignName campaignType severity status statistics schedule createdAt')
             .sort({ createdAt: -1 })
+            .lean()
             .skip(skip)
             .limit(parseInt(limit));
 
@@ -587,7 +588,12 @@ const getAffectedVehiclesByServiceCenter = async (req, res) => {
         let affectedVehicles = campaign.affectedVehicles;
 
         if (req.user.role === 'service_staff') {
-            const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+            let userServiceCenterId = null;
+            if (req.user.serviceCenterId) {
+                userServiceCenterId = req.user.serviceCenterId;
+            } else if (req.user.sub) {
+                userServiceCenterId = req.user.sub;
+            }
             if (!userServiceCenterId) {
                 return responseHelper.error(res, "Không xác định được Service Center", 400);
             }
@@ -627,8 +633,8 @@ const getAffectedVehiclesByServiceCenter = async (req, res) => {
             campaignId: campaign._id,
             campaignCode: campaign.campaignCode,
             campaignName: campaign.campaignName,
-            serviceCenterId: affectedVehicles[0]?.serviceCenterId || null,
-            serviceCenterName: affectedVehicles[0]?.serviceCenterName || 'Unknown',
+            serviceCenterId: affectedVehicles.length > 0 && affectedVehicles[0].serviceCenterId ? affectedVehicles[0].serviceCenterId : null,
+            serviceCenterName: affectedVehicles.length > 0 && affectedVehicles[0].serviceCenterName ? affectedVehicles[0].serviceCenterName : 'Unknown',
             affectedVehicles: affectedVehicles.map(vehicle => ({
                 vin: vehicle.vin,
                 model: vehicle.model,
@@ -645,6 +651,74 @@ const getAffectedVehiclesByServiceCenter = async (req, res) => {
     } catch (error) {
         const { handleControllerError } = require('../../shared/utils/errorHelper');
         return handleControllerError(res, 'getAffectedVehiclesByServiceCenter', error, "Lỗi server khi lấy xe bị ảnh hưởng", 500, {
+            campaignId: req.params.campaignId
+        });
+    }
+};
+
+const bulkUpdateVehicleStatuses = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { vehicleUpdates } = req.body; // Array of {vin, status, scheduledDate, completedAt, notes}
+
+        if (!vehicleUpdates || !Array.isArray(vehicleUpdates) || vehicleUpdates.length === 0) {
+            return responseHelper.error(res, "Danh sách cập nhật xe là bắt buộc", 400);
+        }
+
+        const validStatuses = ['pending', 'notified', 'scheduled', 'in_progress', 'completed', 'declined'];
+
+        // Validate all updates
+        for (const update of vehicleUpdates) {
+            if (!update.vin || !update.status) {
+                return responseHelper.error(res, "VIN và trạng thái là bắt buộc cho mỗi xe", 400);
+            }
+            if (!validStatuses.includes(update.status)) {
+                return responseHelper.error(res, `Trạng thái không hợp lệ: ${update.status}`, 400);
+            }
+        }
+
+        const RecallCampaign = RecallCampaignModel();
+        const result = await BulkOperationService.updateRecallVehicleStatuses(
+            RecallCampaign,
+            campaignId,
+            vehicleUpdates.map(update => ({
+                vin: update.vin.toUpperCase(),
+                status: update.status,
+                scheduledDate: update.scheduledDate ? new Date(update.scheduledDate) : null,
+                completedAt: update.completedAt ? new Date(update.completedAt) :
+                    (update.status === 'completed' ? new Date() : null),
+                notes: update.notes && update.notes.trim().length > 0 ? update.notes.trim() : ''
+            }))
+        );
+
+        // Fetch updated campaign to recalculate statistics
+        const campaign = await findCampaignById(campaignId);
+        if (campaign) {
+            campaign.updateStatistics();
+            campaign.updatedBy = req.user.email;
+
+            // Update campaign status if all vehicles completed
+            if (campaign.statistics.totalCompleted === campaign.statistics.totalAffectedVehicles) {
+                campaign.status = 'completed';
+                campaign.schedule.actualEndDate = new Date();
+            } else if (campaign.statistics.totalInProgress > 0 && campaign.status === 'active') {
+                campaign.status = 'in_progress';
+            }
+
+            await campaign.save();
+        }
+
+        return responseHelper.success(res, {
+            campaignId,
+            updatedCount: result.modifiedCount,
+            totalRequested: vehicleUpdates.length,
+            campaignStatus: campaign?.status,
+            statistics: campaign?.statistics
+        }, `Cập nhật thành công ${result.modifiedCount}/${vehicleUpdates.length} xe`);
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'bulkUpdateVehicleStatuses', error, "Lỗi server khi cập nhật trạng thái xe hàng loạt", 500, {
             campaignId: req.params.campaignId
         });
     }
@@ -684,7 +758,9 @@ const updateVehicleStatus = async (req, res) => {
         // Update vehicle status
         const vehicle = campaign.affectedVehicles[vehicleIndex];
         vehicle.status = status;
-        vehicle.notes = notes || vehicle.notes;
+        if (notes && notes.trim().length > 0) {
+            vehicle.notes = notes.trim();
+        }
 
         // Set timestamps based on status
         if (status === 'notified' && !vehicle.notifiedAt) {
@@ -762,7 +838,14 @@ const getCampaignStatistics = async (req, res) => {
         const completedVehicles = campaign.affectedVehicles.filter(v => v.status === 'completed' && v.completedAt);
         if (completedVehicles.length > 0) {
             const totalTime = completedVehicles.reduce((sum, vehicle) => {
-                const startTime = vehicle.notifiedAt || campaign.publishedAt || campaign.createdAt;
+                let startTime = null;
+                if (vehicle.notifiedAt) {
+                    startTime = vehicle.notifiedAt;
+                } else if (campaign.publishedAt) {
+                    startTime = campaign.publishedAt;
+                } else {
+                    startTime = campaign.createdAt;
+                }
                 const endTime = vehicle.completedAt;
                 return sum + (new Date(endTime) - new Date(startTime));
             }, 0);
@@ -774,7 +857,7 @@ const getCampaignStatistics = async (req, res) => {
         // Statistics by service center
         const serviceCenterStats = {};
         campaign.affectedVehicles.forEach(vehicle => {
-            const centerName = vehicle.serviceCenterName || 'Unknown';
+            const centerName = vehicle.serviceCenterName && vehicle.serviceCenterName.trim().length > 0 ? vehicle.serviceCenterName : 'Unknown';
             if (!serviceCenterStats[centerName]) {
                 serviceCenterStats[centerName] = {
                     serviceCenterId: vehicle.serviceCenterId,
@@ -816,7 +899,11 @@ const getCampaignStatistics = async (req, res) => {
 
         completedVehicles.forEach(vehicle => {
             const date = new Date(vehicle.completedAt).toISOString().split('T')[0];
-            completionsByDate[date] = (completionsByDate[date] || 0) + 1;
+            if (completionsByDate[date]) {
+                completionsByDate[date] = completionsByDate[date] + 1;
+            } else {
+                completionsByDate[date] = 1;
+            }
         });
 
         Object.entries(completionsByDate).forEach(([date, completed]) => {
@@ -854,7 +941,12 @@ const getMyCampaigns = async (req, res) => {
         const RecallCampaign = RecallCampaignModel();
 
         // Get user's service center
-        const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+        let userServiceCenterId = null;
+        if (req.user.serviceCenterId) {
+            userServiceCenterId = req.user.serviceCenterId;
+        } else if (req.user.sub) {
+            userServiceCenterId = req.user.sub;
+        }
         if (!userServiceCenterId && req.user.role === 'service_staff') {
             return responseHelper.error(res, "Không xác định được Service Center", 400);
         }
@@ -876,10 +968,10 @@ const getMyCampaigns = async (req, res) => {
         // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const total = await RecallCampaign.countDocuments(filter);
-
         const campaigns = await RecallCampaign.find(filter)
             .select('campaignCode campaignName campaignType severity status statistics schedule notifications affectedVehicles publishedAt')
             .sort({ publishedAt: -1 })
+            .lean()
             .skip(skip)
             .limit(parseInt(limit));
 
@@ -920,7 +1012,7 @@ const getMyCampaigns = async (req, res) => {
                 publishedAt: campaign.publishedAt,
                 acknowledged: !!notification?.acknowledgedAt,
                 acknowledgedAt: notification?.acknowledgedAt,
-                notificationStatus: notification?.status || 'pending'
+                notificationStatus: notification && notification.status ? notification.status : 'pending'
             };
         });
 
@@ -964,7 +1056,12 @@ const acknowledgeCampaign = async (req, res) => {
         }
 
         // Get user's service center
-        const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+        let userServiceCenterId = null;
+        if (req.user.serviceCenterId) {
+            userServiceCenterId = req.user.serviceCenterId;
+        } else if (req.user.sub) {
+            userServiceCenterId = req.user.sub;
+        }
         if (!userServiceCenterId) {
             return responseHelper.error(res, "Không xác định được Service Center", 400);
         }
@@ -995,7 +1092,7 @@ const acknowledgeCampaign = async (req, res) => {
 
             notification = {
                 serviceCenterId: userServiceCenterId,
-                serviceCenterName: req.user.serviceCenterName || 'Unknown',
+                serviceCenterName: req.user.serviceCenterName && req.user.serviceCenterName.trim().length > 0 ? req.user.serviceCenterName : 'Unknown',
                 totalAffectedVehicles: myVehicles.length,
                 notifiedAt: new Date(),
                 status: 'acknowledged'
@@ -1007,7 +1104,11 @@ const acknowledgeCampaign = async (req, res) => {
         notification.acknowledgedAt = new Date();
         notification.acknowledgedBy = req.user.email;
         notification.status = 'acknowledged';
-        notification.notes = notes || '';
+        if (notes && notes.trim().length > 0) {
+            notification.notes = notes.trim();
+        } else {
+            notification.notes = '';
+        }
 
         campaign.updatedBy = req.user.email;
         await campaign.save();
@@ -1054,7 +1155,12 @@ const getVehicleDetail = async (req, res) => {
 
         // Check permission for service_staff
         if (req.user.role === 'service_staff') {
-            const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+            let userServiceCenterId = null;
+            if (req.user.serviceCenterId) {
+                userServiceCenterId = req.user.serviceCenterId;
+            } else if (req.user.sub) {
+                userServiceCenterId = req.user.sub;
+            }
             if (vehicle.serviceCenterId.toString() !== userServiceCenterId.toString()) {
                 return responseHelper.error(res, "Xe này không thuộc service center của bạn", 403);
             }
@@ -1119,6 +1225,64 @@ const getVehicleDetail = async (req, res) => {
     }
 };
 
+/**
+ * UC12.7: Get Active Campaigns
+ * Lấy danh sách chiến dịch recall đang hoạt động
+ * Role: service_staff, admin, oem_staff
+ */
+const getActiveCampaigns = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const skip = (page - 1) * limit;
+
+        const RecallCampaign = RecallCampaignModel();
+
+        // Tìm campaigns có status là 'active' hoặc 'published'
+        const query = {
+            status: { $in: ['active', 'published'] },
+            'schedule.startDate': { $lte: new Date() },
+            'schedule.endDate': { $gte: new Date() }
+        };
+
+        const [campaigns, total] = await Promise.all([
+            RecallCampaign.find(query)
+                .select('campaignCode campaignName campaignType severity status totalAffectedVehicles completionRate schedule.startDate schedule.endDate createdAt')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit)),
+            RecallCampaign.countDocuments(query)
+        ]);
+
+        const formattedCampaigns = campaigns.map(campaign => ({
+            campaignId: campaign._id,
+            campaignCode: campaign.campaignCode,
+            campaignName: campaign.campaignName,
+            campaignType: campaign.campaignType,
+            severity: campaign.severity,
+            status: campaign.status,
+            totalAffectedVehicles: campaign.totalAffectedVehicles || 0,
+            completionRate: campaign.completionRate || 0,
+            startDate: campaign.schedule?.startDate,
+            endDate: campaign.schedule?.endDate,
+            createdAt: campaign.createdAt
+        }));
+
+        return responseHelper.success(res, "Lấy danh sách chiến dịch hoạt động thành công", {
+            campaigns: formattedCampaigns,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error in getActiveCampaigns:', error);
+        return responseHelper.error(res, "Lỗi server khi lấy danh sách chiến dịch hoạt động", 500);
+    }
+};
+
 module.exports = {
     createCampaign,
     findAffectedVehicles,
@@ -1129,9 +1293,14 @@ module.exports = {
     getCampaignById,
     getAffectedVehiclesByServiceCenter,
     updateVehicleStatus,
+    bulkUpdateVehicleStatuses,
     getCampaignStatistics,
+
     // UC13: Service Center Recall Management
     getMyCampaigns,
     acknowledgeCampaign,
-    getVehicleDetail
+    getVehicleDetail,
+
+    // UC12.7: Get Active Campaigns
+    getActiveCampaigns
 };

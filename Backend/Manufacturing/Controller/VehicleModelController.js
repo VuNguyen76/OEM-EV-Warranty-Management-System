@@ -29,12 +29,13 @@ const createVehicleModel = async (req, res) => {
             year
         } = req.body;
 
-        const existingModel = await VehicleModel.findOne({ modelCode: modelCode.toUpperCase() });
-        if (existingModel) {
-            return responseHelper.error(res, "Mã model đã tồn tại", 400);
-        }
-
         // Kiểm tra các trường bắt buộc
+        if (!modelName) {
+            return responseHelper.error(res, "Model name là bắt buộc", 400);
+        }
+        if (!modelCode) {
+            return responseHelper.error(res, "Model code là bắt buộc", 400);
+        }
         if (!range) {
             return responseHelper.error(res, "Range là bắt buộc", 400);
         }
@@ -43,6 +44,11 @@ const createVehicleModel = async (req, res) => {
         }
         if (!batteryWarrantyMonths) {
             return responseHelper.error(res, "Battery warranty months là bắt buộc", 400);
+        }
+
+        const existingModel = await VehicleModel.findOne({ modelCode: modelCode.toUpperCase() });
+        if (existingModel) {
+            return responseHelper.error(res, "Mã model đã tồn tại", 400);
         }
 
         const newModel = new VehicleModel({
@@ -153,8 +159,7 @@ const getVehicleModelById = async (req, res) => {
         if (cachedData) {
             return responseHelper.success(res, cachedData, "Lấy thông tin model xe thành công (cached)");
         }
-
-        const model = await VehicleModel.findById(id);
+        const model = await VehicleModel.findById(id).lean();
         if (!model) {
             return responseHelper.error(res, "Không tìm thấy model xe", 404);
         }
