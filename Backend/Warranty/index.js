@@ -161,6 +161,15 @@ app.get('/claims/:claimId/results',
     WarrantyClaimController.getWarrantyResults
 );
 
+app.get("/claims/:claimId/results/document",
+  authenticateToken,
+  authorizeRole(["technician", "service_staff", "admin"]),
+  WarrantyClaimController.generateWarrantyDocument
+);
+
+
+
+
 // UC12: Quản lý Chiến dịch Recall
 app.post('/recalls/campaigns', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.createCampaign);
 app.post('/recalls/campaigns/:campaignId/find-affected-vehicles', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.findAffectedVehicles);

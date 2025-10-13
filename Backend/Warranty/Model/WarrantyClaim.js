@@ -480,112 +480,67 @@ const warrantyClaimSchema = new mongoose.Schema({
     warrantyResults: {
         // Ảnh kết quả
         resultPhotos: [{
-            url: {
-                type: String,
-                required: true
-            },
+            url: String,
             description: {
-                type: String,
-                required: true,
-                maxlength: 500
+            type: String,
+            maxlength: 500
             },
             uploadedAt: {
-                type: Date,
-                default: Date.now
-            },
-            uploadedBy: {
-                type: mongoose.Schema.Types.ObjectId,
-                required: true,
-                ref: 'User'
-            }
-        }],
-
-        // Thông tin hoàn thành
-        completionInfo: {
-            completedBy: {
-                type: mongoose.Schema.Types.ObjectId,
-                required: false,
-                ref: 'User'
-            },
-            completedAt: {
-                type: Date,
-                required: false
-            },
-            finalNotes: {
-                type: String,
-                required: false,
-                maxlength: 2000
-            },
-            workSummary: {
-                type: String,
-                required: false,
-                maxlength: 2000
-            },
-            testResults: {
-                type: String,
-                required: false,
-                maxlength: 2000
-            }
-        },
-
-        // Thông tin bàn giao xe
-        handoverInfo: {
-            handoverDate: {
-                type: Date,
-                required: false
-            },
-            handedOverBy: {
-                type: mongoose.Schema.Types.ObjectId,
-                required: false,
-                ref: 'User'
-            },
-            customerName: {
-                type: String,
-                required: false,
-                maxlength: 200
-            },
-            customerPhone: {
-                type: String,
-                required: false,
-                maxlength: 20
-            },
-            customerSignature: {
-                type: String,
-                required: false
-            },
-            vehicleCondition: {
-                type: String,
-                enum: ['excellent', 'good', 'fair'],
-                required: false
-            },
-            mileageAtHandover: {
-                type: Number,
-                required: false,
-                min: 0
-            },
-            notes: {
-                type: String,
-                required: false,
-                maxlength: 1000
-            }
-        },
-
-        // Trạng thái kết quả bảo hành
-        status: {
-            type: String,
-            enum: ['uploading_results', 'ready_for_handover', 'handed_over', 'closed'],
-            required: false
-        },
-        closedAt: {
             type: Date,
-            required: false
+            default: Date.now
         },
-        closedBy: {
+            uploadedBy: {
             type: mongoose.Schema.Types.ObjectId,
-            required: false,
             ref: 'User'
         }
+        }],
+
+    // Thông tin hoàn thành
+    completionInfo: {
+        completedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        completedAt: Date,
+        finalNotes: String, // Ghi chú cuối cùng
+        workSummary: String, // Tóm tắt công việc đã làm
+        testResults: String // Kết quả kiểm tra
+    },
+
+    // Thông tin bàn giao xe
+    handoverInfo: {
+        handoverDate: Date,
+        handedOverBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        customerName: String,
+        customerPhone: String,
+        customerSignature: String,
+        vehicleCondition: {
+            type: String,
+            enum: ['excellent', 'good'],
+            required: false
+        },
+        mileageAtHandover: {
+            type: Number,
+            min: 0
+        },
+        notes: String
+    },
+
+    // Trạng thái kết quả bảo hành
+    status: {
+        type: String,
+        enum: ['uploading_results', 'ready_for_handover', 'handed_over', 'closed'],
+        required: false
+    },
+    closedAt: Date,
+    closedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
+}
 }, {
     timestamps: true // Điều này sẽ tự động quản lý createdAt and updatedAt
 });

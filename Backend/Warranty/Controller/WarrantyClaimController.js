@@ -3,8 +3,11 @@ const WarrantyClaimModel = require('../Model/WarrantyClaim');
 const WarrantyActivationModel = require('../Model/WarrantyActivation');
 const { generateFileUrl } = require('../../shared/middleware/MulterMiddleware');
 const { verifyVINInVehicleService, normalizeVIN } = require('../../shared/services/VehicleServiceHelper');
-// Import warranty results services
+const { handleControllerError } = require('../../shared/utils/errorHelper');
 const WarrantyResultsStorageService = require('../../shared/services/WarrantyResultsStorageService');
+const pdfGenerationService = require('../../shared/services/PDFGenerationService');
+
+// Import warranty results services
 
 /**
  * Tạo Yêu Cầu Bảo Hành
@@ -2001,7 +2004,94 @@ const getWarrantyResults = async (req, res) => {
             claimId: req.params.claimId
         });
     }
-};
+}
+
+/**
+ * UC11-6: Tải Hồ Sơ Bảo Hành (PDF)
+ *  @route GET /api/claims/:claimId/results/document
+ * @access technician, service_staff, admin
+ */
+
+const generateWarrantyDocument = async (req, res) => {
+    try {
+        const { claimId } = req.params;
+
+        // 1. Validate claim exists and populate
+        const WarrantyClaim = WarrantyClaimModel();
+        const claim = await WarrantyClaim.findById(claimId)
+            .populate('serviceCenterId', 'name address phone email')
+            .populate('oemId', 'name')
+            .populate('vehicleModelId', 'modelName year')
+            .populate('warrantyResults.completionInfo.completedBy', 'name email')
+            .populate('warrantyResults.handoverInfo.handedOverBy', 'name email');
+
+        if (!claim) {
+            return responseHelper.error(res, 'Không tìm thấy yêu cầu bảo hành', 404);
+        }
+
+        // 2. Check permissions
+        const allowedRoles = ['technician', 'service_staff', 'admin'];
+        if (!allowedRoles.includes(req.user.role)) {
+            return responseHelper.error(res, 'Không có quyền tải hồ sơ bảo hành', 403);
+        }
+
+        // 3. Check claim ownership (except for admin)
+        if (req.user.role !== 'admin') {
+            if (claim.serviceCenterId._id.toString() !== req.user.sub) {
+                
+                return responseHelper.error(
+                    res,
+                    'Không có quyền tải hồ sơ claim này',
+                    403
+                );
+            }
+        }
+
+        // 4. Validate has warrantyResults
+        if (!claim.warrantyResults) {
+            return responseHelper.error(
+                res,
+                'Claim chưa có thông tin kết quả bảo hành',
+                404
+            );
+        }
+
+        // 5. Generate PDF
+        const pdfDir = path.join(__dirname, '../../temp/pdfs');
+        await fs.mkdir(pdfDir, { recursive: true });
+
+        const pdfFilename = `warranty-${claim.claimNumber}-${Date.now()}.pdf`;
+        const pdfPath = path.join(pdfDir, pdfFilename);
+
+        await pdfGenerationService.generateWarrantyDocument(claim, pdfPath);
+
+        // 6. Send PDF file
+        res.download(pdfPath, pdfFilename, async (err) => {
+            if (err) {
+                console.error('Error sending PDF:', err);
+                return responseHelper.error(res, 'Lỗi khi gửi file PDF', 500);
+            }
+
+            // 7. Delete temp file after sending
+            try {
+                await fs.unlink(pdfPath);
+            } catch (unlinkError) {
+                console.error('Error deleting temp PDF:', unlinkError);
+            }
+        });
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(
+            res,
+            'generateWarrantyDocument',
+            error,
+            'Lỗi khi tạo hồ sơ bảo hành PDF',
+            500,
+            { claimId: req.params.claimId }
+        );
+    }
+}
 
 module.exports = {
     createWarrantyClaim,
@@ -2033,5 +2123,6 @@ module.exports = {
     updateCompletionInfo,
     recordHandover,
     closeWarrantyCase,
-    getWarrantyResults
+    getWarrantyResults,
+    generateWarrantyDocument
 };
