@@ -218,6 +218,33 @@ const RecallCampaignSchema = new mongoose.Schema({
         completedAt: Date,
         notes: String
     }],
+    notifications: [{
+        serviceCenterId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'ServiceCenter',
+            required: true
+        },
+        serviceCenterName: {
+            type: String,
+            required: true
+        },
+        totalAffectedVehicles: {
+            type: Number,
+            default: 0
+        },
+        notifiedAt: {
+            type: Date,
+            default: Date.now
+        },
+        acknowledgedAt: Date,
+        acknowledgedBy: String, // email
+        status: {
+            type: String,
+            enum: ['pending', 'acknowledged', 'in_progress', 'completed'],
+            default: 'pending'
+        },
+        notes: String
+    }],
 
     // Audit trail
     createdBy: {
@@ -252,6 +279,9 @@ RecallCampaignSchema.index({ 'schedule.endDate': 1 });
 RecallCampaignSchema.index({ 'affectedVehicles.vin': 1 });
 RecallCampaignSchema.index({ 'affectedVehicles.serviceCenterId': 1 });
 RecallCampaignSchema.index({ 'affectedVehicles.status': 1 });
+// UC13: Indexes for notifications
+RecallCampaignSchema.index({ 'notifications.serviceCenterId': 1 });
+RecallCampaignSchema.index({ 'notifications.status': 1 });
 
 // Virtual fields
 RecallCampaignSchema.virtual('isActive').get(function () {

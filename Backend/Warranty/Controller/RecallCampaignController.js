@@ -584,13 +584,32 @@ const getAffectedVehiclesByServiceCenter = async (req, res) => {
         }
 
         // For service_staff, filter by their service center
-        // Note: In real system, we would get serviceCenterId from user profile
         let affectedVehicles = campaign.affectedVehicles;
 
         if (req.user.role === 'service_staff') {
-            // For demo, we'll show all vehicles. In real system:
-            // const userServiceCenterId = req.user.serviceCenterId;
-            // affectedVehicles = campaign.affectedVehicles.filter(v => v.serviceCenterId.toString() === userServiceCenterId);
+            const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+            if (!userServiceCenterId) {
+                return responseHelper.error(res, "Không xác định được Service Center", 400);
+            }
+
+            affectedVehicles = campaign.affectedVehicles.filter(v =>
+                v.serviceCenterId && v.serviceCenterId.toString() === userServiceCenterId.toString()
+            );
+
+            if (affectedVehicles.length === 0) {
+                return responseHelper.error(res, "Không có xe nào thuộc service center của bạn", 404);
+            }
+        }
+
+        // Enrich with owner info from Vehicle Service
+        const authToken = req.headers.authorization?.replace('Bearer ', '');
+        try {
+            const VehicleLookupService = require('../../shared/services/VehicleLookupService');
+            const vehicleLookupService = new VehicleLookupService();
+            affectedVehicles = await vehicleLookupService.enrichWithOwnerInfo(affectedVehicles, authToken);
+        } catch (error) {
+            console.warn('Failed to enrich with owner info:', error.message);
+            // Continue without owner info if enrichment fails
         }
 
         // Calculate statistics
@@ -823,6 +842,283 @@ const getCampaignStatistics = async (req, res) => {
     }
 };
 
+/**
+ * UC13: Lấy danh sách campaigns của service center
+ * GET /recalls/campaigns/my-center
+ * Role: service_staff, admin
+ */
+const getMyCampaigns = async (req, res) => {
+    try {
+        const { status, page = 1, limit = 10 } = req.query;
+
+        const RecallCampaign = RecallCampaignModel();
+
+        // Get user's service center
+        const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+        if (!userServiceCenterId && req.user.role === 'service_staff') {
+            return responseHelper.error(res, "Không xác định được Service Center", 400);
+        }
+
+        // Build filter
+        const filter = {
+            status: { $in: ['active', 'in_progress', 'completed'] }
+        };
+
+        if (status) {
+            filter.status = status;
+        }
+
+        // For service_staff, filter by service center
+        if (req.user.role === 'service_staff') {
+            filter['affectedVehicles.serviceCenterId'] = userServiceCenterId;
+        }
+
+        // Pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const total = await RecallCampaign.countDocuments(filter);
+
+        const campaigns = await RecallCampaign.find(filter)
+            .select('campaignCode campaignName campaignType severity status statistics schedule notifications affectedVehicles publishedAt')
+            .sort({ publishedAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        // Calculate statistics for each campaign
+        const campaignsWithStats = campaigns.map(campaign => {
+            let myVehicles = campaign.affectedVehicles;
+
+            if (req.user.role === 'service_staff') {
+                myVehicles = campaign.affectedVehicles.filter(v =>
+                    v.serviceCenterId && v.serviceCenterId.toString() === userServiceCenterId.toString()
+                );
+            }
+
+            const myVehiclesCount = myVehicles.length;
+            const completedCount = myVehicles.filter(v => v.status === 'completed').length;
+            const pendingCount = myVehicles.filter(v => v.status === 'pending').length;
+            const completionRate = myVehiclesCount > 0 ? Math.round((completedCount / myVehiclesCount) * 100) : 0;
+
+            // Find notification for this service center
+            const notification = campaign.notifications?.find(n =>
+                n.serviceCenterId && n.serviceCenterId.toString() === userServiceCenterId.toString()
+            );
+
+            return {
+                campaignId: campaign._id,
+                campaignCode: campaign.campaignCode,
+                campaignName: campaign.campaignName,
+                campaignType: campaign.campaignType,
+                severity: campaign.severity,
+                status: campaign.status,
+                totalAffectedVehicles: campaign.statistics.totalAffectedVehicles,
+                myVehiclesCount,
+                completedCount,
+                pendingCount,
+                completionRate,
+                startDate: campaign.schedule.startDate,
+                endDate: campaign.schedule.endDate,
+                publishedAt: campaign.publishedAt,
+                acknowledged: !!notification?.acknowledgedAt,
+                acknowledgedAt: notification?.acknowledgedAt,
+                notificationStatus: notification?.status || 'pending'
+            };
+        });
+
+        const pagination = {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            pages: Math.ceil(total / parseInt(limit))
+        };
+
+        return responseHelper.success(res, {
+            campaigns: campaignsWithStats,
+            pagination
+        }, "Lấy danh sách chiến dịch thành công");
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'getMyCampaigns', error, 'UC13: Lỗi server khi lấy danh sách chiến dịch', 500);
+    }
+};
+
+/**
+ * UC13: Xác nhận tiếp nhận campaign
+ * POST /recalls/campaigns/:campaignId/acknowledge
+ * Role: service_staff, admin
+ */
+const acknowledgeCampaign = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { notes } = req.body;
+
+        const campaign = await findCampaignById(campaignId);
+
+        if (!campaign) {
+            return responseHelper.error(res, "Không tìm thấy chiến dịch recall", 404);
+        }
+
+        // Campaign must be active or in_progress
+        if (!['active', 'in_progress'].includes(campaign.status)) {
+            return responseHelper.error(res, "Chỉ có thể xác nhận chiến dịch đang active hoặc in_progress", 400);
+        }
+
+        // Get user's service center
+        const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+        if (!userServiceCenterId) {
+            return responseHelper.error(res, "Không xác định được Service Center", 400);
+        }
+
+        // Check if service center has affected vehicles
+        const myVehicles = campaign.affectedVehicles.filter(v =>
+            v.serviceCenterId && v.serviceCenterId.toString() === userServiceCenterId.toString()
+        );
+
+        if (myVehicles.length === 0) {
+            return responseHelper.error(res, "Không có xe nào thuộc service center của bạn", 404);
+        }
+
+        // Find or create notification for this service center
+        let notification = campaign.notifications?.find(n =>
+            n.serviceCenterId && n.serviceCenterId.toString() === userServiceCenterId.toString()
+        );
+
+        if (notification && notification.acknowledgedAt) {
+            return responseHelper.error(res, "Đã xác nhận chiến dịch này rồi", 400);
+        }
+
+        if (!notification) {
+            // Create new notification
+            if (!campaign.notifications) {
+                campaign.notifications = [];
+            }
+
+            notification = {
+                serviceCenterId: userServiceCenterId,
+                serviceCenterName: req.user.serviceCenterName || 'Unknown',
+                totalAffectedVehicles: myVehicles.length,
+                notifiedAt: new Date(),
+                status: 'acknowledged'
+            };
+            campaign.notifications.push(notification);
+        }
+
+        // Update notification
+        notification.acknowledgedAt = new Date();
+        notification.acknowledgedBy = req.user.email;
+        notification.status = 'acknowledged';
+        notification.notes = notes || '';
+
+        campaign.updatedBy = req.user.email;
+        await campaign.save();
+
+        return responseHelper.success(res, {
+            campaignId: campaign._id,
+            campaignCode: campaign.campaignCode,
+            serviceCenterId: userServiceCenterId,
+            serviceCenterName: notification.serviceCenterName,
+            acknowledgedAt: notification.acknowledgedAt,
+            acknowledgedBy: notification.acknowledgedBy,
+            totalAffectedVehicles: myVehicles.length,
+            notes: notification.notes
+        }, "Xác nhận tiếp nhận chiến dịch thành công");
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'acknowledgeCampaign', error, 'UC13: Lỗi server khi xác nhận chiến dịch', 500, {
+            campaignId: req.params.campaignId
+        });
+    }
+};
+
+/**
+ * UC13: Lấy chi tiết xe trong campaign
+ * GET /recalls/campaigns/:campaignId/vehicles/:vin
+ * Role: service_staff, admin
+ */
+const getVehicleDetail = async (req, res) => {
+    try {
+        const { campaignId, vin } = req.params;
+
+        const campaign = await findCampaignById(campaignId);
+
+        if (!campaign) {
+            return responseHelper.error(res, "Không tìm thấy chiến dịch recall", 404);
+        }
+
+        // Find vehicle in campaign
+        const vehicle = campaign.affectedVehicles.find(v => v.vin === vin.toUpperCase());
+        if (!vehicle) {
+            return responseHelper.error(res, "Không tìm thấy xe trong chiến dịch", 404);
+        }
+
+        // Check permission for service_staff
+        if (req.user.role === 'service_staff') {
+            const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+            if (vehicle.serviceCenterId.toString() !== userServiceCenterId.toString()) {
+                return responseHelper.error(res, "Xe này không thuộc service center của bạn", 403);
+            }
+        }
+
+        // Get full vehicle info from Vehicle Service
+        const authToken = req.headers.authorization?.replace('Bearer ', '');
+        let vehicleInfo = {
+            vin: vehicle.vin,
+            model: vehicle.model,
+            productionDate: vehicle.productionDate
+        };
+
+        try {
+            const VehicleLookupService = require('../../shared/services/VehicleLookupService');
+            const vehicleLookupService = new VehicleLookupService();
+            const enriched = await vehicleLookupService.enrichWithOwnerInfo([vehicle], authToken);
+            if (enriched.length > 0) {
+                vehicleInfo = enriched[0];
+            }
+        } catch (error) {
+            console.warn('Failed to enrich vehicle info:', error.message);
+        }
+
+        return responseHelper.success(res, {
+            campaignInfo: {
+                campaignId: campaign._id,
+                campaignCode: campaign.campaignCode,
+                campaignName: campaign.campaignName,
+                campaignType: campaign.campaignType,
+                severity: campaign.severity,
+                issueDescription: campaign.issueDescription,
+                issueCategory: campaign.issueCategory,
+                potentialRisk: campaign.potentialRisk,
+                solution: campaign.solution,
+                notification: campaign.notification
+            },
+            vehicleInfo: {
+                vin: vehicleInfo.vin,
+                model: vehicleInfo.model,
+                productionDate: vehicleInfo.productionDate,
+                ownerName: vehicleInfo.ownerName,
+                ownerPhone: vehicleInfo.ownerPhone,
+                ownerEmail: vehicleInfo.ownerEmail,
+                ownerAddress: vehicleInfo.ownerAddress
+            },
+            recallStatus: {
+                status: vehicle.status,
+                notifiedAt: vehicle.notifiedAt,
+                scheduledDate: vehicle.scheduledDate,
+                completedAt: vehicle.completedAt,
+                notes: vehicle.notes
+            }
+        }, "Lấy thông tin xe thành công");
+
+    } catch (error) {
+        const { handleControllerError } = require('../../shared/utils/errorHelper');
+        return handleControllerError(res, 'getVehicleDetail', error, 'UC13: Lỗi server khi lấy thông tin xe', 500, {
+            campaignId: req.params.campaignId,
+            vin: req.params.vin
+        });
+    }
+};
+
 module.exports = {
     createCampaign,
     findAffectedVehicles,
@@ -833,5 +1129,9 @@ module.exports = {
     getCampaignById,
     getAffectedVehiclesByServiceCenter,
     updateVehicleStatus,
-    getCampaignStatistics
+    getCampaignStatistics,
+    // UC13: Service Center Recall Management
+    getMyCampaigns,
+    acknowledgeCampaign,
+    getVehicleDetail
 };
