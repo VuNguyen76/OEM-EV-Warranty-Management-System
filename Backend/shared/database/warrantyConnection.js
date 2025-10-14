@@ -21,19 +21,21 @@ const connectToWarrantyDB = async () => {
             retryReads: true,
         });
 
+        // FIXED: Proper event handling with cleanup and meaningful logs
         warrantyConnection.on('connected', () => {
-            // Connected
-            console.log('Đã kết nối đến DB')
+            console.log('✅ Warranty DB connected successfully');
         });
 
-        warrantyConnection.on('error', () => {
-            // Lỗi kết nối
-            console.log('Lỗi kết nối đến DB')
+        warrantyConnection.on('error', (err) => {
+            console.error('❌ Warranty DB connection error:', err.message);
         });
 
         warrantyConnection.on('disconnected', () => {
-            // Mất kết nối
-            console.log('Mất kết nối đến DB')
+            console.warn('⚠️ Warranty DB disconnected');
+        });
+
+        warrantyConnection.on('reconnected', () => {
+            console.log('🔄 Warranty DB reconnected');
         });
 
         // Chờ kết nối

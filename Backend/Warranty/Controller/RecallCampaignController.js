@@ -3,9 +3,21 @@ const VehicleLookupService = require('../../shared/services/VehicleLookupService
 const CampaignCodeGenerator = require('../../shared/services/CampaignCodeGenerator');
 const BulkOperationService = require('../../shared/services/BulkOperationService');
 const responseHelper = require('../../shared/utils/responseHelper');
+const EmailService = require('../../shared/services/EmailService');
 
 const vehicleLookupService = new VehicleLookupService();
 const campaignCodeGenerator = new CampaignCodeGenerator();
+
+// Helper function to get severity text in Vietnamese
+const getSeverityText = (severity) => {
+    const severityMap = {
+        'urgent': 'Khẩn cấp',
+        'high': 'Cao',
+        'medium': 'Trung bình',
+        'low': 'Thấp'
+    };
+    return severityMap[severity] || severity;
+};
 
 // Helper function to find campaign by ID (handles both ObjectId and String)
 const findCampaignById = async (campaignId) => {
@@ -311,6 +323,60 @@ const publishCampaign = async (req, res) => {
         // Count unique service centers
         const serviceCenters = new Set(campaign.affectedVehicles.map(v => v.serviceCenterId));
 
+        // Send email notifications to vehicle owners if requested
+        let emailsSent = 0;
+        if (notifyServiceCenters) {
+            try {
+                // Initialize email service
+                await EmailService.initialize();
+
+                // Import getVehicleOwnerInfo function
+                const { getVehicleOwnerInfo } = require('./WarrantyClaimController');
+
+                // Send email to each affected vehicle owner
+                for (const vehicle of campaign.affectedVehicles) {
+                    try {
+                        // Get vehicle owner information
+                        const ownerInfo = await getVehicleOwnerInfo(vehicle.vin);
+
+                        if (!ownerInfo.ownerEmail) {
+                            console.log(`⚠️ Không có email cho chủ xe VIN ${vehicle.vin}, bỏ qua gửi email`);
+                            continue;
+                        }
+
+                        const emailData = {
+                            ownerName: ownerInfo.ownerName,
+                            vehicleVin: vehicle.vin,
+                            vehicleModel: ownerInfo.modelName,
+                            campaignName: campaign.campaignName,
+                            campaignCode: campaign.campaignCode,
+                            campaignType: campaign.campaignType,
+                            severity: campaign.severity,
+                            severityText: getSeverityText(campaign.severity),
+                            startDate: campaign.schedule.startDate ? new Date(campaign.schedule.startDate).toLocaleDateString('vi-VN') : 'Chưa xác định',
+                            endDate: campaign.schedule.endDate ? new Date(campaign.schedule.endDate).toLocaleDateString('vi-VN') : 'Chưa xác định',
+                            issueDescription: campaign.issueDescription,
+                            potentialRisk: campaign.potentialRisk,
+                            solution: campaign.solution,
+                            systemUrl: process.env.SYSTEM_URL || 'http://localhost:3000',
+                            campaignId: campaign._id
+                        };
+
+                        const result = await EmailService.sendRecallNotification(ownerInfo.ownerEmail, emailData);
+                        if (result.success) {
+                            emailsSent++;
+                        }
+                    } catch (emailError) {
+                        console.error(`❌ Lỗi gửi email cho chủ xe VIN ${vehicle.vin}:`, emailError.message);
+                    }
+                }
+
+                console.log(`✅ Đã gửi ${emailsSent}/${campaign.affectedVehicles.length} email thông báo recall đến chủ xe`);
+            } catch (error) {
+                console.error('❌ Lỗi khởi tạo email service:', error.message);
+            }
+        }
+
         return responseHelper.success(res, {
             campaignId: campaign._id,
             campaignCode: campaign.campaignCode,
@@ -318,7 +384,8 @@ const publishCampaign = async (req, res) => {
             publishedAt: campaign.publishedAt,
             publishedBy: campaign.publishedBy,
             totalAffectedVehicles: campaign.statistics.totalAffectedVehicles,
-            serviceCentersNotified: serviceCenters.size
+            serviceCentersNotified: serviceCenters.size,
+            emailsSent: emailsSent
         }, "Phát hành chiến dịch recall thành công");
 
     } catch (error) {
@@ -1287,6 +1354,97 @@ const getActiveCampaigns = async (req, res) => {
     }
 };
 
+/**
+ * UC15: Tạo lịch hẹn từ campaign
+ * POST /recalls/campaigns/:campaignId/appointments
+ * Role: service_staff, admin
+ */
+const scheduleAppointment = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { vin, appointmentDate, timeSlot, customerNotes, assignedTechnician } = req.body;
+
+        // Validation
+        if (!vin) {
+            return responseHelper.error(res, "VIN là bắt buộc", 400);
+        }
+
+        if (!appointmentDate) {
+            return responseHelper.error(res, "Ngày hẹn là bắt buộc", 400);
+        }
+
+        if (!timeSlot || !timeSlot.startTime || !timeSlot.endTime) {
+            return responseHelper.error(res, "Khung giờ hẹn là bắt buộc", 400);
+        }
+
+        // Delegate to AppointmentController
+        const AppointmentController = require('./AppointmentController');
+
+        // Modify request body to include campaignId
+        req.body.campaignId = campaignId;
+
+        return await AppointmentController.createAppointment(req, res);
+
+    } catch (error) {
+        return handleControllerError(res, 'scheduleAppointment', error, "Lỗi server khi tạo lịch hẹn", 500, {
+            campaignId: req.params.campaignId,
+            vin: req.body.vin
+        });
+    }
+};
+
+/**
+ * UC15: Lấy danh sách lịch hẹn theo campaign
+ * GET /recalls/campaigns/:campaignId/appointments
+ * Role: service_staff, admin
+ */
+const getAppointmentsByCampaign = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { status, page = 1, limit = 10 } = req.query;
+
+        const AppointmentModel = require('../Model/Appointment');
+        const Appointment = AppointmentModel();
+
+        // Build query
+        const query = { campaignId };
+        if (status) {
+            query.status = status;
+        }
+
+        // Pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const [appointments, total] = await Promise.all([
+            Appointment.find(query)
+                .select('vin vehicleModel customerName customerPhone appointmentDate timeSlot status assignedTechnician createdAt')
+                .sort({ appointmentDate: 1, 'timeSlot.startTime': 1 })
+                .skip(skip)
+                .limit(parseInt(limit)),
+            Appointment.countDocuments(query)
+        ]);
+
+        const pagination = responseHelper.createPagination(page, limit, total);
+
+        return responseHelper.success(res, {
+            campaignId,
+            appointments,
+            pagination,
+            summary: {
+                total,
+                scheduled: await Appointment.countDocuments({ ...query, status: 'scheduled' }),
+                confirmed: await Appointment.countDocuments({ ...query, status: 'confirmed' }),
+                completed: await Appointment.countDocuments({ ...query, status: 'completed' }),
+                cancelled: await Appointment.countDocuments({ ...query, status: 'cancelled' })
+            }
+        }, "Lấy danh sách lịch hẹn theo campaign thành công");
+
+    } catch (error) {
+        return handleControllerError(res, 'getAppointmentsByCampaign', error, "Lỗi server khi lấy danh sách lịch hẹn", 500, {
+            campaignId: req.params.campaignId
+        });
+    }
+};
+
 module.exports = {
     createCampaign,
     findAffectedVehicles,
@@ -1306,5 +1464,9 @@ module.exports = {
     getVehicleDetail,
 
     // UC12.7: Get Active Campaigns
-    getActiveCampaigns
+    getActiveCampaigns,
+
+    // UC15: Appointment Management
+    scheduleAppointment,
+    getAppointmentsByCampaign
 };

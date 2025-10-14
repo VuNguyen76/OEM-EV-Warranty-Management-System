@@ -82,10 +82,12 @@ const getAllParts = async (req, res) => {
         }
 
         if (search) {
+            // Sanitize search input to prevent ReDoS attacks
+            const sanitizedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').substring(0, 100);
             searchQuery.$or = [
-                { partName: { $regex: search, $options: 'i' } },
-                { partCode: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } }
+                { partName: { $regex: sanitizedSearch, $options: 'i' } },
+                { partCode: { $regex: sanitizedSearch, $options: 'i' } },
+                { description: { $regex: sanitizedSearch, $options: 'i' } }
             ];
         }
 
@@ -189,9 +191,14 @@ const deletePart = async (req, res) => {
 // Get Low Stock Parts
 const getLowStockParts = async (req, res) => {
     try {
+        // FIXED: Validate threshold BEFORE using it
         let threshold = 10;
-        if (req.query.threshold && !isNaN(parseInt(req.query.threshold))) {
-            threshold = parseInt(req.query.threshold);
+        if (req.query.threshold) {
+            const parsedThreshold = parseInt(req.query.threshold, 10);
+            if (isNaN(parsedThreshold) || parsedThreshold <= 0 || parsedThreshold > 1000) {
+                return responseHelper.error(res, "Threshold phải là số nguyên dương từ 1-1000", 400);
+            }
+            threshold = parsedThreshold;
         }
         const cacheKey = `parts:lowstock:${threshold}`;
 

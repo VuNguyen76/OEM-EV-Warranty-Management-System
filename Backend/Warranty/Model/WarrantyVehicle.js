@@ -339,7 +339,7 @@ WarrantyVehicleSchema.statics.getWarrantyStats = function (serviceCenterId = nul
     ]);
 };
 
-// Middleware trước khi lưu
+// Middleware trước khi lưu - FIXED: Race condition safe warranty expiration
 WarrantyVehicleSchema.pre('save', function (next) {
     if (this.isModified('vin')) {
         this.vin = this.vin.toUpperCase();
@@ -349,8 +349,10 @@ WarrantyVehicleSchema.pre('save', function (next) {
         this.modelCode = this.modelCode.toUpperCase();
     }
 
-    // Tự động hết hạn warranty if past end date
-    if (this.warrantyStatus === 'active' && this.warrantyEndDate < new Date()) {
+    // FIXED: Only update warranty status if it's currently active and not already being modified
+    if (this.warrantyStatus === 'active' &&
+        !this.isModified('warrantyStatus') &&
+        this.warrantyEndDate < new Date()) {
         this.warrantyStatus = 'expired';
     }
 

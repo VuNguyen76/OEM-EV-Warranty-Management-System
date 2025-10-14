@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác Nhận Đăng Ký Xe</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #28a745;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #28a745;
+            margin: 0;
+            font-size: 24px;
+        }
+        .vehicle-info {
+            background-color: #f8fff8;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #555;
+        }
+        .info-value {
+            color: #333;
+        }
+        .warranty-info {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .warranty-info h3 {
+            color: #0c5460;
+            margin-top: 0;
+        }
+        .benefits {
+            background-color: #f1f3f4;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .benefits ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .benefits li {
+            margin: 5px 0;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .btn:hover {
+            background-color: #218838;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 14px;
+        }
+        .contact-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .success-icon {
+            text-align: center;
+            font-size: 48px;
+            color: #28a745;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 XÁC NHẬN ĐĂNG KÝ XE</h1>
+            <p>Hệ Thống Bảo Hành OEM EV</p>
+        </div>
+
+        <div class="success-icon">
+            ✅
+        </div>
+
+        <p>Kính gửi <strong>{{customerName}}</strong>,</p>
+        
+        <p>Chúc mừng! Xe của bạn đã được đăng ký thành công trong hệ thống bảo hành OEM EV. Dưới đây là thông tin chi tiết:</p>
+
+        <div class="vehicle-info">
+            <h2>Thông tin xe đã đăng ký</h2>
+            
+            <div class="info-row">
+                <span class="info-label">VIN:</span>
+                <span class="info-value"><strong>{{vin}}</strong></span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Model:</span>
+                <span class="info-value">{{modelName}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Mã model:</span>
+                <span class="info-value">{{modelCode}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Năm sản xuất:</span>
+                <span class="info-value">{{productionYear}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Ngày đăng ký:</span>
+                <span class="info-value">{{registrationDate}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Trạng thái:</span>
+                <span class="info-value" style="color: #28a745; font-weight: bold;">Đã kích hoạt bảo hành</span>
+            </div>
+        </div>
+
+        <div class="warranty-info">
+            <h3>🛡️ Thông tin bảo hành:</h3>
+            
+            <div class="info-row">
+                <span class="info-label">Ngày bắt đầu bảo hành:</span>
+                <span class="info-value">{{warrantyStartDate}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Ngày hết hạn bảo hành:</span>
+                <span class="info-value">{{warrantyEndDate}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Thời gian bảo hành:</span>
+                <span class="info-value">{{warrantyDuration}} tháng</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Số km bảo hành:</span>
+                <span class="info-value">{{warrantyMileage}} km</span>
+            </div>
+        </div>
+
+        <div class="benefits">
+            <h3>🎁 Quyền lợi bảo hành của bạn:</h3>
+            <ul>
+                <li>Bảo hành miễn phí các lỗi do nhà sản xuất</li>
+                <li>Thay thế phụ tùng chính hãng</li>
+                <li>Hỗ trợ kỹ thuật 24/7</li>
+                <li>Dịch vụ cứu hộ khẩn cấp</li>
+                <li>Bảo dưỡng định kỳ với giá ưu đãi</li>
+                <li>Cập nhật phần mềm miễn phí</li>
+                <li>Hỗ trợ recall campaigns</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="{{systemUrl}}/vehicles/{{vin}}" class="btn">
+                🔍 Xem Thông Tin Xe
+            </a>
+        </div>
+
+        <div class="warranty-info">
+            <h3>📋 Lưu ý quan trọng:</h3>
+            <ul>
+                <li>Vui lòng giữ email này làm bằng chứng đăng ký bảo hành</li>
+                <li>Thực hiện bảo dưỡng định kỳ theo lịch để duy trì bảo hành</li>
+                <li>Liên hệ ngay khi phát hiện bất kỳ vấn đề nào</li>
+                <li>Chỉ sử dụng phụ tùng chính hãng để đảm bảo bảo hành</li>
+            </ul>
+        </div>
+
+        {{#if serviceCenterInfo}}
+        <div class="contact-info">
+            <h3>🏢 Trung tâm dịch vụ được chỉ định:</h3>
+            <p><strong>Tên:</strong> {{serviceCenterInfo.name}}</p>
+            <p><strong>Địa chỉ:</strong> {{serviceCenterInfo.address}}</p>
+            <p><strong>Điện thoại:</strong> {{serviceCenterInfo.phone}}</p>
+            <p><strong>Email:</strong> {{serviceCenterInfo.email}}</p>
+            <p><strong>Giờ làm việc:</strong> {{serviceCenterInfo.workingHours}}</p>
+        </div>
+        {{/if}}
+
+        <div class="contact-info">
+            <h3>📞 Hỗ trợ khách hàng:</h3>
+            <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ:</p>
+            <p><strong>Hotline:</strong> 1900-xxxx</p>
+            <p><strong>Email:</strong> support@oem-ev.com</p>
+            <p><strong>Website:</strong> www.oem-ev.com</p>
+            <p><strong>Thời gian hỗ trợ:</strong> 24/7</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <p style="font-size: 18px; color: #28a745; font-weight: bold;">
+                Cảm ơn bạn đã tin tưởng sản phẩm OEM EV! 🚗⚡
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>Email này được gửi tự động từ Hệ Thống Bảo Hành OEM EV</p>
+            <p>Vui lòng không trả lời email này. Nếu cần hỗ trợ, vui lòng liên hệ qua thông tin trên.</p>
+            <p><small>© 2024 OEM EV Warranty Management System. All rights reserved.</small></p>
+        </div>
+    </div>
+</body>
+</html>

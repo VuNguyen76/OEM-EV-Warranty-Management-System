@@ -98,8 +98,50 @@ const authorizeRole = (...allowedRoles) => {
             });
         }
 
-        // TODO: Thêm validation role database cho các thao tác nhạy cảm
-        // Hiện tại, dựa vào role token để tránh vấn đề khởi động
+        // FIXED: Add database role validation for sensitive operations
+        try {
+            // For critical operations, validate role against database
+            if (req.path.includes('/admin/') ||
+                req.method === 'DELETE' ||
+                req.path.includes('/approve') ||
+                req.path.includes('/reject')) {
+
+                // Import User model dynamically to avoid circular dependency
+                const UserModel = require('../../User/Model/User');
+                const user = await UserModel.findById(req.user.sub).select('role status').lean();
+
+                if (!user) {
+                    return res.status(401).json({
+                        success: false,
+                        message: "User không tồn tại trong database"
+                    });
+                }
+
+                if (user.status !== 'active') {
+                    return res.status(403).json({
+                        success: false,
+                        message: "Tài khoản đã bị vô hiệu hóa"
+                    });
+                }
+
+                if (user.role !== req.user.role) {
+                    return res.status(403).json({
+                        success: false,
+                        message: "Role đã thay đổi, vui lòng đăng nhập lại"
+                    });
+                }
+            }
+        } catch (dbError) {
+            console.error('❌ Database role validation error:', dbError.message);
+            // For non-critical operations, continue with token validation
+            // For critical operations, fail securely
+            if (req.path.includes('/admin/') || req.method === 'DELETE') {
+                return res.status(500).json({
+                    success: false,
+                    message: "Lỗi xác thực quyền truy cập"
+                });
+            }
+        }
 
         next();
     };

@@ -108,6 +108,16 @@ services:
       REDIS_URL: redis://:warranty123@redis:6379
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      # Email Configuration
+      EMAIL_SERVICE: ${EMAIL_SERVICE}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      SYSTEM_URL: ${SYSTEM_URL}
     ports:
       - "3002:3002"
     depends_on:
@@ -118,6 +128,7 @@ services:
     volumes:
       - ./Warranty:/app/Warranty
       - ./shared:/app/shared
+      - ./shared/templates:/app/shared/templates
       - ./node_modules:/app/node_modules
 
   # 🚗 Vehicle Service (xe + VIN)

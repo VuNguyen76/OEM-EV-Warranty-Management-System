@@ -52,7 +52,8 @@ const connectToVehicleDatabase = async () => {
         return vehicleConnection;
 
     } catch (err) {
-        process.exit(1);
+        console.error("❌ Error connecting to Vehicle database:", err.message);
+        throw new Error(`Failed to connect to Vehicle database: ${err.message}`);
     }
 };
 

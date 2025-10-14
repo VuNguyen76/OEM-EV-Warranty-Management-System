@@ -191,13 +191,18 @@ class RedisService {
         }
     }
 
-    // Invalidate technicians cache
+    // Invalidate technicians cache - FIXED: Proper error handling and infinite loop protection
     async invalidateTechnicians() {
-        if (!this.isConnected) return false;
+        if (!this.isConnected) {
+            console.warn('⚠️ Redis not connected, skipping cache invalidation');
+            return false;
+        }
 
         try {
             let deletedCount = 0;
             let cursor = '0';
+            let iterations = 0;
+            const maxIterations = 1000; // Prevent infinite loops
 
             // Sử dụng SCAN thay vì KEYS để tránh block Redis
             do {
@@ -213,22 +218,35 @@ class RedisService {
                     await this.client.del(keys);
                     deletedCount += keys.length;
                 }
+
+                iterations++;
+                if (iterations >= maxIterations) {
+                    console.error('❌ Redis SCAN reached max iterations, possible infinite loop');
+                    break;
+                }
             } while (cursor !== '0');
 
+            console.log(`✅ Invalidated ${deletedCount} technician cache entries`);
             return true;
         } catch (error) {
+            console.error('❌ Redis invalidation error:', error.message);
             return false;
         }
     }
 
-    // Generic cache methods
+    // Generic cache methods - FIXED: Proper error handling
     async set(key, value, ttl = 3600) {
-        if (!this.isConnected) return false;
+        if (!this.isConnected) {
+            console.warn('⚠️ Redis not connected, skipping cache set');
+            return false;
+        }
 
         try {
             await this.client.setEx(key, ttl, JSON.stringify(value));
             return true;
         } catch (error) {
+            console.error('❌ Redis set error:', error.message);
+            // Don't throw to maintain service availability, but log properly
             return false;
         }
     }

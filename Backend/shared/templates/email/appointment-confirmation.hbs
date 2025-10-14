@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác Nhận Lịch Hẹn Recall</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2c5aa0;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2c5aa0;
+            margin: 0;
+            font-size: 24px;
+        }
+        .appointment-info {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .label {
+            font-weight: bold;
+            color: #495057;
+            min-width: 150px;
+        }
+        .value {
+            color: #212529;
+            flex: 1;
+            text-align: right;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+        .service-center {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .warning {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #dc3545;
+            margin: 20px 0;
+        }
+        @media (max-width: 600px) {
+            .info-row {
+                flex-direction: column;
+            }
+            .value {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Xác Nhận Lịch Hẹn Recall</h1>
+            <p>Hệ Thống Bảo Hành OEM EV</p>
+        </div>
+
+        <p>Kính chào <strong>{{customerName}}</strong>,</p>
+
+        <p>Chúng tôi xác nhận đã nhận được yêu cầu đặt lịch hẹn của bạn cho chiến dịch recall. Dưới đây là thông tin chi tiết:</p>
+
+        <div class="appointment-info">
+            <h3 style="margin-top: 0; color: #28a745;">📋 Thông Tin Lịch Hẹn</h3>
+            
+            <div class="info-row">
+                <span class="label">🆔 Mã lịch hẹn:</span>
+                <span class="value">{{appointmentId}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">🚗 Xe:</span>
+                <span class="value">{{vehicleModel}} - {{vehicleVin}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">📅 Ngày hẹn:</span>
+                <span class="value">{{appointmentDate}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">⏰ Giờ hẹn:</span>
+                <span class="value">{{appointmentTime}}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">🏢 Chiến dịch:</span>
+                <span class="value">{{campaignName}}</span>
+            </div>
+        </div>
+
+        <div class="service-center">
+            <h3 style="margin-top: 0; color: #2c5aa0;">🏪 Thông Tin Trung Tâm Dịch Vụ</h3>
+            <p><strong>{{serviceCenterName}}</strong></p>
+            <p>📞 Hotline: {{serviceCenterPhone}}</p>
+            <p>🕒 Giờ làm việc: Thứ 2 - Thứ 6: 8:00 - 17:00</p>
+        </div>
+
+        {{#if customerNotes}}
+        <div class="highlight">
+            <h4 style="margin-top: 0;">📝 Ghi Chú Của Bạn:</h4>
+            <p>{{customerNotes}}</p>
+        </div>
+        {{/if}}
+
+        <div class="warning">
+            <h4 style="margin-top: 0;">⚠️ Lưu Ý Quan Trọng:</h4>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Vui lòng đến đúng giờ hẹn để đảm bảo lịch trình</li>
+                <li>Mang theo giấy tờ xe và CMND/CCCD</li>
+                <li>Nếu cần thay đổi lịch hẹn, vui lòng liên hệ trước ít nhất 24 giờ</li>
+                <li>Thời gian thực hiện dự kiến: 1-2 giờ</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{systemUrl}}" class="button">🌐 Truy Cập Hệ Thống</a>
+        </div>
+
+        <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua:</p>
+        <ul>
+            <li>📞 Hotline: {{serviceCenterPhone}}</li>
+            <li>🌐 Website: {{systemUrl}}</li>
+        </ul>
+
+        <p>Cảm ơn bạn đã tin tưởng và sử dụng dịch vụ của chúng tôi!</p>
+
+        <div class="footer">
+            <p><strong>Hệ Thống Bảo Hành OEM EV</strong></p>
+            <p>Email này được gửi tự động, vui lòng không trả lời trực tiếp.</p>
+            <p>© 2025 OEM EV Warranty System. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

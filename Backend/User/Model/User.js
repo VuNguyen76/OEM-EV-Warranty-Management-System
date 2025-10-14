@@ -101,17 +101,37 @@ UserSchema.methods.isLocked = function () {
 };
 
 UserSchema.methods.incrementLoginAttempts = function () {
-    if (this.lockedUntil && this.lockedUntil < Date.now()) {
-        return this.updateOne({
-            $unset: { lockedUntil: 1, loginAttempts: 1 }
-        });
+    // FIXED: Use atomic operations to prevent race conditions
+    const now = Date.now();
+
+    // If currently locked but lock has expired, reset attempts atomically
+    if (this.lockedUntil && this.lockedUntil < now) {
+        return this.constructor.findOneAndUpdate(
+            { _id: this._id, lockedUntil: { $lt: now } },
+            { $unset: { lockedUntil: 1, loginAttempts: 1 } },
+            { new: true }
+        );
     }
 
-    const updates = { $inc: { loginAttempts: 1 } };
-    if (this.loginAttempts + 1 >= 5 && !this.isLocked()) {
-        updates.$set = { lockedUntil: Date.now() + 2 * 60 * 60 * 1000 }; // Khóa 2 giờ
-    }
-    return this.updateOne(updates);
+    // Increment attempts and potentially lock account atomically
+    return this.constructor.findOneAndUpdate(
+        { _id: this._id },
+        [
+            {
+                $set: {
+                    loginAttempts: { $add: [{ $ifNull: ['$loginAttempts', 0] }, 1] },
+                    lockedUntil: {
+                        $cond: {
+                            if: { $gte: [{ $add: [{ $ifNull: ['$loginAttempts', 0] }, 1] }, 5] },
+                            then: now + 2 * 60 * 60 * 1000, // Lock for 2 hours
+                            else: '$lockedUntil'
+                        }
+                    }
+                }
+            }
+        ],
+        { new: true }
+    );
 };
 
 // Mã hóa mật khẩu before saving

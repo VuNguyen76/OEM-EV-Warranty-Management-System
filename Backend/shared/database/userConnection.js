@@ -47,7 +47,7 @@ const connectToUserDatabase = async () => {
 
     } catch (err) {
         console.error("❌ Error connecting to User database:", err.message);
-        process.exit(1);
+        throw new Error(`Failed to connect to User database: ${err.message}`);
     }
 };
 

@@ -178,30 +178,42 @@ ProducedVehicleSchema.virtual('productionAge').get(function () {
     return Math.floor((Date.now() - this.productionDate) / (1000 * 60 * 60 * 24));
 });
 
-// Phương thức instance
-ProducedVehicleSchema.methods.passQualityCheck = function (checkType, checkedBy, notes) {
-    // Kiểm tra đã pass loại kiểm tra này chưa
-    const existingPassedCheck = this.qualityChecks.find(
-        check => check.checkType === checkType && check.status === 'pass'
+// Phương thức instance - FIXED: Race condition safe
+ProducedVehicleSchema.methods.passQualityCheck = async function (checkType, checkedBy, notes) {
+    // Use atomic findOneAndUpdate to prevent race conditions
+    const updateResult = await this.constructor.findOneAndUpdate(
+        {
+            _id: this._id,
+            'qualityChecks': {
+                $not: {
+                    $elemMatch: {
+                        checkType: checkType,
+                        status: 'pass'
+                    }
+                }
+            }
+        },
+        {
+            $pull: { qualityChecks: { checkType: checkType } },
+            $push: {
+                qualityChecks: {
+                    checkType,
+                    status: 'pass',
+                    checkedBy,
+                    checkedAt: new Date(),
+                    notes
+                }
+            }
+        },
+        { new: true }
     );
 
-    if (existingPassedCheck) {
-        throw new QualityCheckError(`Quality check '${checkType}' đã được pass rồi`, 'DUPLICATE_CHECK');
+    if (!updateResult) {
+        throw new QualityCheckError(`Quality check '${checkType}' đã được pass rồi hoặc vehicle không tồn tại`, 'DUPLICATE_CHECK');
     }
 
-    // Xóa các lần kiểm tra thất bại trước đó cùng loại
-    this.qualityChecks = this.qualityChecks.filter(
-        check => check.checkType !== checkType
-    );
-
-    // Thêm lần kiểm tra pass mới
-    this.qualityChecks.push({
-        checkType,
-        status: 'pass',
-        checkedBy,
-        checkedAt: new Date(),
-        notes
-    });
+    // Update current document
+    this.qualityChecks = updateResult.qualityChecks;
 
     // Kiểm tra tất cả kiểm tra chất lượng bắt buộc đã pass
     const requiredChecks = ['safety', 'performance', 'electrical', 'final'];

@@ -37,6 +37,12 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Set default charset to UTF-8
+app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    next();
+});
+
 // Phục vụ file tĩnh cho uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -94,6 +100,8 @@ app.get('/claims/for-approval', authenticateToken, authorizeRole('service_staff'
 
 // Tạo yêu cầu bảo hành
 app.post('/claims', authenticateToken, authorizeRole('service_staff', 'technician', 'admin'), WarrantyClaimController.createWarrantyClaim);
+
+
 
 // Đính kèm báo cáo kiểm tra (với file upload)
 app.post('/claims/:claimId/attachments',
@@ -180,6 +188,21 @@ app.put('/recalls/campaigns/:campaignId/vehicles/:vin/status', authenticateToken
 app.get('/recalls/campaigns/:campaignId/statistics', authenticateToken, authorizeRole('oem_staff', 'admin'), RecallCampaignController.getCampaignStatistics);
 app.post('/recalls/campaigns/:campaignId/acknowledge', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.acknowledgeCampaign);
 app.get('/recalls/campaigns/:campaignId/vehicles/:vin', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getVehicleDetail);
+
+// UC15: Appointment Management
+const AppointmentController = require('./Controller/AppointmentController');
+
+app.post('/appointments', authenticateToken, authorizeRole('service_staff', 'admin'), AppointmentController.createAppointment);
+app.get('/appointments', authenticateToken, authorizeRole('service_staff', 'admin'), AppointmentController.getAppointmentsByServiceCenter);
+app.get('/appointments/calendar/:date', authenticateToken, authorizeRole('service_staff', 'admin'), AppointmentController.getAppointmentsByDate);
+app.put('/appointments/:appointmentId/status', authenticateToken, authorizeRole('service_staff', 'admin'), AppointmentController.updateAppointmentStatus);
+app.delete('/appointments/:appointmentId', authenticateToken, authorizeRole('service_staff', 'admin'), AppointmentController.cancelAppointment);
+
+// UC15: Campaign-Appointment Integration
+app.post('/recalls/campaigns/:campaignId/appointments', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.scheduleAppointment);
+app.get('/recalls/campaigns/:campaignId/appointments', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getAppointmentsByCampaign);
+
+
 
 // UC8: Cost Management
 app.get('/costs/statistics', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), CostController.getCostStatistics);
@@ -278,6 +301,19 @@ const initializeServices = async () => {
         process.warrantyExpirationJob = warrantyJob;
         process.reservationReleaseJob = reservationJob;
         process.stderr.write('✅ Jobs initialized\n');
+
+        // Khởi tạo Email Service
+        process.stderr.write('Initializing Email Service...\n');
+        try {
+            const EmailService = require('../shared/services/EmailService');
+            await EmailService.initialize();
+            process.stderr.write('✅ Email Service initialized\n');
+            console.log('✅ Email Service initialized');
+        } catch (emailError) {
+            process.stderr.write(`⚠️ Email Service initialization failed: ${emailError.message}\n`);
+            console.warn('⚠️ Email Service initialization failed:', emailError.message);
+            // Continue without email service - it's not critical for core functionality
+        }
 
         process.stderr.write('✅ Warranty service initialized successfully\n');
         console.log('✅ Warranty service initialized successfully');
