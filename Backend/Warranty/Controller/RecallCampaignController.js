@@ -223,7 +223,7 @@ const createCampaign = async (req, res) => {
 const findAffectedVehicles = async (req, res) => {
     try {
         const { campaignId } = req.params;
-        const { dryRun = false } = req.body;
+        const dryRun = req.body && req.body.dryRun ? req.body.dryRun : false;
 
         const campaign = await findCampaignById(campaignId);
 
@@ -637,8 +637,12 @@ const getAffectedVehiclesByServiceCenter = async (req, res) => {
             serviceCenterName: affectedVehicles.length > 0 && affectedVehicles[0].serviceCenterName ? affectedVehicles[0].serviceCenterName : 'Unknown',
             affectedVehicles: affectedVehicles.map(vehicle => ({
                 vin: vehicle.vin,
-                model: vehicle.model,
+                model: vehicle.modelName || vehicle.modelCode || vehicle.model,
                 productionDate: vehicle.productionDate,
+                ownerName: vehicle.ownerName,
+                ownerPhone: vehicle.ownerPhone,
+                ownerEmail: vehicle.ownerEmail,
+                ownerAddress: vehicle.ownerAddress,
                 status: vehicle.status,
                 notifiedAt: vehicle.notifiedAt,
                 scheduledDate: vehicle.scheduledDate,
@@ -1170,7 +1174,7 @@ const getVehicleDetail = async (req, res) => {
         const authToken = req.headers.authorization?.replace('Bearer ', '');
         let vehicleInfo = {
             vin: vehicle.vin,
-            model: vehicle.model,
+            model: vehicle.modelName || vehicle.modelCode || vehicle.model,
             productionDate: vehicle.productionDate
         };
 

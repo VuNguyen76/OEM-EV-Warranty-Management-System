@@ -35,7 +35,8 @@ class VehicleLookupService {
                 // Filter by models
                 if (hasModels) {
                     affectedVehicles = affectedVehicles.filter(vehicle =>
-                        criteria.models.includes(vehicle.model)
+                        criteria.models.includes(vehicle.modelName) ||
+                        criteria.models.includes(vehicle.modelCode)
                     );
                 }
 
@@ -162,7 +163,7 @@ class VehicleLookupService {
         // In a real system, this would query a service center database
         return vehicles.map(vehicle => ({
             vin: vehicle.vin,
-            model: vehicle.model,
+            model: vehicle.modelName || vehicle.modelCode || vehicle.model,
             productionDate: vehicle.productionDate,
             serviceCenterId: this.getDefaultServiceCenterId(vehicle),
             serviceCenterName: this.getDefaultServiceCenterName(vehicle),
@@ -222,7 +223,7 @@ class VehicleLookupService {
     getStatisticsByModel(vehicles) {
         const stats = {};
         vehicles.forEach(vehicle => {
-            const model = vehicle.model || 'Unknown';
+            const model = vehicle.modelName || vehicle.modelCode || vehicle.model || 'Unknown';
             stats[model] = (stats[model] || 0) + 1;
         });
         return stats;
