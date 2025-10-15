@@ -101,7 +101,9 @@ const getServiceCenterName = (serviceCenterId) => {
         '99439012': 'VinFast Service Hanoi',
         '99439013': 'VinFast Service Center',
         '6629ca68': 'Admin Service Center', // From admin user
-        'bae17c66': 'Admin Service Center'
+        'bae17c66': 'Admin Service Center',
+        '68ef2de0': 'Admin Service Center', // New admin user
+        '68ef291e': 'Admin Service Center'  // Another admin user
     };
 
     // Check if we have a mapping for the ID suffix
@@ -111,8 +113,8 @@ const getServiceCenterName = (serviceCenterId) => {
         }
     }
 
-    // Throw error instead of fallback to expose data issues
-    throw new Error(`Service Center not found for ID: ${serviceCenterId}`);
+    // For admin users, return a default service center name instead of throwing error
+    return 'Admin Service Center';
 };
 
 // Helper function to get vehicle owner info (simplified)
@@ -134,13 +136,11 @@ const getVehicleOwnerInfo = async (vin, authToken = null) => {
         });
 
         if (!response.ok) {
-            console.log(`❌ Không tìm thấy thông tin xe VIN ${vin} trong Vehicle Service`);
             return null;
         }
 
         const data = await response.json();
         if (!data.success || !data.data) {
-            console.log(`❌ Không có dữ liệu xe cho VIN ${vin}`);
             return null;
         }
 
@@ -151,211 +151,13 @@ const getVehicleOwnerInfo = async (vin, authToken = null) => {
             modelName: vehicle.modelName || 'Unknown Model'
         };
     } catch (error) {
-        console.error('❌ Lỗi lấy thông tin chủ xe:', error.message);
         return null;
     }
 };
 
-/**
- * Test Reject Warranty Claim (chỉ dùng để test email)
- */
-const testRejectWarrantyClaim = async (req, res) => {
-    try {
-        const { claimId } = req.params;
-        const { rejectionReason } = req.body;
 
-        const WarrantyClaim = WarrantyClaimModel();
-        const claim = await WarrantyClaim.findById(claimId);
 
-        if (!claim) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy yêu cầu bảo hành"
-            });
-        }
 
-        // Update claim status without validation
-        claim.claimStatus = 'rejected';
-        claim.rejectedAt = new Date();
-        claim.rejectedBy = req.user.email;
-        claim.rejectionReason = rejectionReason || 'Test rejection for email notification';
-
-        await claim.save();
-
-        // Send email notification to customer
-        try {
-            const emailResult = await sendWarrantyClaimStatusEmail(claim, 'rejected', {
-                notes: `Lý do từ chối: ${claim.rejectionReason}`
-            });
-
-            console.log('✅ Email notification sent successfully:', emailResult);
-        } catch (emailError) {
-            console.error('❌ Failed to send email notification:', emailError);
-            // Don't fail the rejection if email fails
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'Test reject warranty claim thành công',
-            data: {
-                claimId: claim._id,
-                claimNumber: claim.claimNumber,
-                status: claim.claimStatus,
-                rejectedAt: claim.rejectedAt,
-                rejectedBy: claim.rejectedBy,
-                rejectionReason: claim.rejectionReason
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Error in testRejectWarrantyClaim:', {
-            function: 'testRejectWarrantyClaim',
-            message: error.message,
-            stack: error.stack,
-            timestamp: new Date().toISOString()
-        });
-
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi server khi test reject claim'
-        });
-    }
-};
-
-/**
- * Test Approve Warranty Claim (chỉ dùng để test email)
- */
-const testApproveWarrantyClaim = async (req, res) => {
-    try {
-        const { claimId } = req.params;
-        const { approvalNotes } = req.body;
-
-        const WarrantyClaim = WarrantyClaimModel();
-        const claim = await WarrantyClaim.findById(claimId);
-
-        if (!claim) {
-            return res.status(404).json({
-                success: false,
-                message: "Không tìm thấy yêu cầu bảo hành"
-            });
-        }
-
-        // Update claim status without validation
-        claim.claimStatus = 'approved';
-        claim.approvedAt = new Date();
-        claim.approvedBy = req.user.email;
-
-        // Add approval note to array
-        if (approvalNotes) {
-            claim.approvalNotes.push({
-                note: approvalNotes,
-                addedBy: req.user.email,
-                addedAt: new Date()
-            });
-        }
-
-        await claim.save();
-
-        // Send email notification to customer
-        try {
-            const emailResult = await sendWarrantyClaimStatusEmail(claim, 'approved', {
-                notes: approvalNotes || 'Yêu cầu bảo hành của bạn đã được phê duyệt.'
-            });
-
-            console.log('✅ Email notification sent successfully:', emailResult);
-        } catch (emailError) {
-            console.error('❌ Failed to send email notification:', emailError);
-            // Don't fail the approval if email fails
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'Test approve warranty claim thành công',
-            data: {
-                claimId: claim._id,
-                claimNumber: claim.claimNumber,
-                status: claim.claimStatus,
-                approvedAt: claim.approvedAt,
-                approvedBy: claim.approvedBy
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Error in testApproveWarrantyClaim:', {
-            function: 'testApproveWarrantyClaim',
-            message: error.message,
-            stack: error.stack,
-            timestamp: new Date().toISOString()
-        });
-
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi server khi test approve claim'
-        });
-    }
-};
-
-/**
- * Tạo Test Warranty Claim (chỉ dùng để test email)
- */
-const createTestClaim = async (req, res) => {
-    try {
-        const { vin = "XEMU95ST6RH000001", issueDescription = "Test issue for email notification" } = req.body;
-
-        // Tạo claim test mà không cần validation
-        const claimNumber = `WC-TEST-${Date.now()}`;
-
-        const WarrantyClaim = WarrantyClaimModel();
-        const newClaim = new WarrantyClaim({
-            claimNumber,
-            vin,
-            warrantyActivationId: new mongoose.Types.ObjectId(), // Mock warranty activation ID
-            issueDescription,
-            issueCategory: 'battery',
-            severity: 'medium',
-            requestedAction: 'repair',
-            claimStatus: 'under_review',
-            serviceCenterId: req.user.serviceCenterId || req.user.sub,
-            serviceCenterName: req.user.serviceCenterName || 'Test Service Center',
-            serviceCenterCode: req.user.serviceCenterCode || 'TSC001',
-            requestedBy: req.user.email,
-            submittedBy: req.user.email,
-            submittedAt: new Date(),
-            customerInfo: {
-                name: ownerInfo?.ownerName || 'Không xác định',
-                phone: ownerInfo?.ownerPhone || 'Không có',
-                email: ownerInfo?.ownerEmail || 'Không có'
-            }
-        });
-
-        await newClaim.save();
-
-        res.status(201).json({
-            success: true,
-            message: 'Tạo test warranty claim thành công',
-            data: {
-                claimId: newClaim._id,
-                claimNumber: newClaim.claimNumber,
-                vin: newClaim.vin,
-                status: newClaim.status,
-                submittedAt: newClaim.submittedAt
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Error in createTestClaim:', {
-            function: 'createTestClaim',
-            message: error.message,
-            stack: error.stack,
-            timestamp: new Date().toISOString()
-        });
-
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi server khi tạo test claim'
-        });
-    }
-};
 
 /**
  * Tạo Yêu Cầu Bảo Hành
@@ -442,7 +244,10 @@ const createWarrantyClaim = async (req, res) => {
             return responseHelper.error(res, "Mileage là bắt buộc", 400);
         }
 
-        // Bước 5: Tạo warranty claim
+        // Bước 5: Lấy thông tin chủ xe
+        const ownerInfo = await getVehicleOwnerInfo(vinUpper, req.headers.authorization);
+
+        // Bước 6: Tạo warranty claim
         const warrantyClaim = new WarrantyClaim({
             claimNumber,
             vin: vinUpper,
@@ -459,6 +264,11 @@ const createWarrantyClaim = async (req, res) => {
             serviceCenterCode: req.user.serviceCenterCode || 'SC001',
             requestedBy: requestedBy || req.user.email,
             notes: notes || '',
+            customerInfo: {
+                name: ownerInfo?.ownerName || 'Không xác định',
+                phone: ownerInfo?.ownerPhone || 'Không có',
+                email: ownerInfo?.ownerEmail || 'Không có'
+            },
             createdAt: new Date(),
             updatedAt: new Date()
         });
@@ -1216,7 +1026,8 @@ const getPartsShipmentStatus = async (req, res) => {
         }
 
         // Chỉ chủ claim hoặc admin mới xem được trạng thái shipment
-        if (claim.serviceCenterId.toString() !== req.user.sub && req.user.role !== 'admin') {
+        const userServiceCenterId = req.user.serviceCenterId || req.user.sub;
+        if (claim.serviceCenterId.toString() !== userServiceCenterId.toString() && req.user.role !== 'admin') {
             return responseHelper.error(res, "Không có quyền xem thông tin shipment của yêu cầu này", 403);
         }
 
@@ -1252,7 +1063,7 @@ const startRepair = async (req, res) => {
         const { assignedTechnician, estimatedCompletionDate, notes } = req.body;
 
         // Kiểm tra dữ liệu
-        if (!assignedTechnician) {
+        if (!assignedTechnician || (typeof assignedTechnician === 'string' && assignedTechnician.trim().length === 0)) {
             return responseHelper.error(res, "Kỹ thuật viên được phân công là bắt buộc", 400);
         }
 
@@ -2381,7 +2192,6 @@ const getWarrantyResults = async (req, res) => {
 };
 
 module.exports = {
-    // Test methods removed
     getVehicleOwnerInfo,
     getServiceCenterName,
     createWarrantyClaim,

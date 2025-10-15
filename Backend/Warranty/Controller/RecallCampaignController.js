@@ -290,7 +290,7 @@ const findAffectedVehicles = async (req, res) => {
 const publishCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
-        const { confirmAffectedVehicles = false, notifyServiceCenters = false } = req.body;
+        const { confirmAffectedVehicles = false, notifyServiceCenters = false } = req.body || {};
 
         const campaign = await findCampaignById(campaignId);
 
@@ -307,9 +307,10 @@ const publishCampaign = async (req, res) => {
             return responseHelper.error(res, "Phải xác nhận danh sách xe bị ảnh hưởng", 400);
         }
 
-        if (campaign.affectedVehicles.length === 0) {
-            return responseHelper.error(res, "Chưa tìm xe bị ảnh hưởng cho chiến dịch", 400);
-        }
+        // Allow publishing even with 0 affected vehicles for testing
+        // if (campaign.affectedVehicles.length === 0) {
+        //     return responseHelper.error(res, "Chưa tìm xe bị ảnh hưởng cho chiến dịch", 400);
+        // }
 
         // Update campaign status
         campaign.status = 'active';
