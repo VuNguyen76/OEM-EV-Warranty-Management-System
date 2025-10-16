@@ -202,8 +202,6 @@ app.delete('/appointments/:appointmentId', authenticateToken, authorizeRole('ser
 app.post('/recalls/campaigns/:campaignId/appointments', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.scheduleAppointment);
 app.get('/recalls/campaigns/:campaignId/appointments', authenticateToken, authorizeRole('service_staff', 'admin'), RecallCampaignController.getAppointmentsByCampaign);
 
-
-
 // UC8: Cost Management
 app.get('/costs/statistics', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), CostController.getCostStatistics);
 app.get('/costs/by-category', authenticateToken, authorizeRole('oem_staff', 'admin', 'service_staff'), CostController.getCostsByCategory);

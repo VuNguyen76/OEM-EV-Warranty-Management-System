@@ -104,6 +104,19 @@ app.post('/production/:vin/quality-fail', authenticateToken, authorizeRole('admi
 app.get('/statistics/production', authenticateToken, ProductionController.getProductionStatistics);
 app.get('/statistics/models', authenticateToken, VehicleModelController.getModelStatistics);
 
+// Service Center Management (Quản lý trung tâm bảo hành của nhà máy)
+const ServiceCenterController = require('../shared/Controller/ServiceCenterController');
+
+app.get('/service-centers/active/list', authenticateToken, ServiceCenterController.getActiveServiceCenters);
+app.get('/service-centers/statistics/overview', authenticateToken, authorizeRole('admin', 'oem_staff'), ServiceCenterController.getServiceCenterStatistics);
+app.post('/service-centers', authenticateToken, authorizeRole('admin', 'oem_staff'), ServiceCenterController.createServiceCenter);
+app.get('/service-centers', authenticateToken, authorizeRole('admin', 'oem_staff', 'service_staff'), ServiceCenterController.getAllServiceCenters);
+app.get('/service-centers/code/:code', authenticateToken, authorizeRole('admin', 'oem_staff', 'service_staff'), ServiceCenterController.getServiceCenterByCode);
+app.get('/service-centers/:id', authenticateToken, authorizeRole('admin', 'oem_staff', 'service_staff'), ServiceCenterController.getServiceCenterById);
+app.put('/service-centers/:id', authenticateToken, authorizeRole('admin', 'oem_staff'), ServiceCenterController.updateServiceCenter);
+app.put('/service-centers/:id/status', authenticateToken, authorizeRole('admin', 'oem_staff'), ServiceCenterController.updateServiceCenterStatus);
+app.delete('/service-centers/:id', authenticateToken, authorizeRole('admin', 'oem_staff'), ServiceCenterController.deleteServiceCenter);
+
 // Xử lý lỗi middleware
 app.use((err, req, res, next) => {
     // Kiểm tra response đã được gửi chưa

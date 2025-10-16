@@ -9,6 +9,7 @@ class GatewayService {
             manufacturing: process.env.MANUFACTURING_SERVICE_URL,
             warranty: process.env.WARRANTY_SERVICE_URL,
             vehicle: process.env.VEHICLE_SERVICE_URL,
+            serviceCenter: process.env.SERVICE_CENTER_SERVICE_URL,
         };
         this.validateServiceUrls();
     }
@@ -18,7 +19,7 @@ class GatewayService {
      * @private
      */
     validateServiceUrls() {
-        const requiredServices = ['user', 'manufacturing', 'warranty', 'vehicle'];
+        const requiredServices = ['user', 'manufacturing', 'warranty', 'vehicle', 'serviceCenter'];
         const missingServices = requiredServices.filter(service => !this.serviceUrls[service]);
 
         if (missingServices.length > 0) {
@@ -77,6 +78,7 @@ class GatewayService {
         this.registerManufacturingRoutes();
         this.registerWarrantyRoutes();
         this.registerVehicleRoutes();
+        this.registerServiceCenterRoutes();
         this.register404Handler();
     }
 
@@ -168,6 +170,21 @@ class GatewayService {
             createProxyMiddleware(this.createProxyConfiguration(
                 this.serviceUrls.vehicle,
                 { '^/api/vehicle': '' },
+                true
+            ))
+        );
+    }
+
+    /**
+     * Register service center routes
+     * @private
+     */
+    registerServiceCenterRoutes() {
+        this.app.use(
+            '/api/service-centers',
+            createProxyMiddleware(this.createProxyConfiguration(
+                this.serviceUrls.serviceCenter,
+                { '^/api/service-centers': '/service-centers' },
                 true
             ))
         );
