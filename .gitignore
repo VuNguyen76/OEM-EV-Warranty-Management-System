@@ -1,2 +1,23 @@
-.node_modules
+# Node dependencies
+node_modules/
+
+# Environment files
 .env
+
+# Logs
+logs
+*.log
+
+# Cache
+.cache/
+dist/
+build/
+tmp/
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# System files
+.DS_Store
+Thumbs.db
