@@ -1,0 +1,178 @@
+version: "3.9"
+
+services:
+  # API GATEWAY
+
+  api-gateway:
+    build: ./Backend/api-gateway
+    container_name: warranty_api_gateway
+    ports:
+      - "${PORT_GATEWAY}:3000"
+    environment:
+      - USER_SERVICE_URL=http://user-service:${PORT_USER}
+      - VEHICLE_SERVICE_URL=http://vehicle-service:${PORT_VEHICLE}
+      - WARRANTY_SERVICE_URL=http://warranty-service:${PORT_WARRANTY}
+      - PART_SERVICE_URL=http://part-service:${PORT_PART}
+      - CAMPAIGN_SERVICE_URL=http://campaign-service:${PORT_CAMPAIGN}
+      - ANALYTICS_SERVICE_URL=http://analytics-service:${PORT_ANALYTICS}
+    depends_on:
+      - user-service
+      - vehicle-service
+      - warranty-service
+      - part-service
+      - campaign-service
+      - analytics-service
+    networks:
+      - warranty_network
+
+  # USER SERVICE
+
+  user-service:
+    build: ./Backend/user-service
+    container_name: user_service
+    ports:
+      - "${PORT_USER}:${PORT_USER}"
+    environment:
+      - PORT=${PORT_USER}
+      - MONGO_URI=${USER_DB}
+    depends_on:
+      - mongo-user
+    networks:
+      - warranty_network
+
+  mongo-user:
+    image: mongo:7.0
+    container_name: mongo_user
+    volumes:
+      - mongo_user_data:/data/db
+    networks:
+      - warranty_network
+
+  # VEHICLE SERVICE
+
+  vehicle-service:
+    build: ./Backend/vehicle-service
+    container_name: vehicle_service
+    ports:
+      - "${PORT_VEHICLE}:${PORT_VEHICLE}"
+    environment:
+      - PORT=${PORT_VEHICLE}
+      - MONGO_URI=${VEHICLE_DB}
+    depends_on:
+      - mongo-vehicle
+    networks:
+      - warranty_network
+
+  mongo-vehicle:
+    image: mongo:7.0
+    container_name: mongo_vehicle
+    volumes:
+      - mongo_vehicle_data:/data/db
+    networks:
+      - warranty_network
+
+  # WARRANTY SERVICE
+
+  warranty-service:
+    build: ./Backend/warranty-service
+    container_name: warranty_service
+    ports:
+      - "${PORT_WARRANTY}:${PORT_WARRANTY}"
+    environment:
+      - PORT=${PORT_WARRANTY}
+      - MONGO_URI=${WARRANTY_DB}
+    depends_on:
+      - mongo-warranty
+    networks:
+      - warranty_network
+
+  mongo-warranty:
+    image: mongo:7.0
+    container_name: mongo_warranty
+    volumes:
+      - mongo_warranty_data:/data/db
+    networks:
+      - warranty_network
+
+  # PART SERVICE
+
+  part-service:
+    build: ./Backend/part-service
+    container_name: part_service
+    ports:
+      - "${PORT_PART}:${PORT_PART}"
+    environment:
+      - PORT=${PORT_PART}
+      - MONGO_URI=${PART_DB}
+    depends_on:
+      - mongo-part
+    networks:
+      - warranty_network
+
+  mongo-part:
+    image: mongo:7.0
+    container_name: mongo_part
+    volumes:
+      - mongo_part_data:/data/db
+    networks:
+      - warranty_network
+
+  # CAMPAIGN SERVICE
+
+  campaign-service:
+    build: ./Backend/campaign-service
+    container_name: campaign_service
+    ports:
+      - "${PORT_CAMPAIGN}:${PORT_CAMPAIGN}"
+    environment:
+      - PORT=${PORT_CAMPAIGN}
+      - MONGO_URI=${CAMPAIGN_DB}
+    depends_on:
+      - mongo-campaign
+    networks:
+      - warranty_network
+
+  mongo-campaign:
+    image: mongo:7.0
+    container_name: mongo_campaign
+    volumes:
+      - mongo_campaign_data:/data/db
+    networks:
+      - warranty_network
+
+  # ANALYTICS SERVICE
+
+  analytics-service:
+    build: ./Backend/analytics-service
+    container_name: analytics_service
+    ports:
+      - "${PORT_ANALYTICS}:${PORT_ANALYTICS}"
+    environment:
+      - PORT=${PORT_ANALYTICS}
+      - MONGO_URI=${ANALYTICS_DB}
+    depends_on:
+      - mongo-analytics
+    networks:
+      - warranty_network
+
+  mongo-analytics:
+    image: mongo:7.0
+    container_name: mongo_analytics
+    volumes:
+      - mongo_analytics_data:/data/db
+    networks:
+      - warranty_network
+
+# NETWORK + VOLUME
+
+networks:
+  warranty_network:
+    driver: bridge
+
+volumes:
+  mongo_user_data:
+  mongo_vehicle_data:
+  mongo_warranty_data:
+  mongo_part_data:
+  mongo_campaign_data:
+  mongo_analytics_data:
