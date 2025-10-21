@@ -10,6 +10,7 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await logout().unwrap();
+      await persistor.purge();
       toast.success("Đăng xuat thanh cong");
       navigate("/");
     } catch (err) {

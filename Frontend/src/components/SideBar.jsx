@@ -7,20 +7,16 @@ const sideBarSC = [
     path: "/sc",
   },
   {
-    label: "Đăng ký VIN",
+    label: "Đăng ký xe",
     icon: "fa-solid fa-pen-to-square",
     path: "/sc/register-vin",
   },
   {
-    label: "Tra cứu VIN",
+    label: "Tạo Claim",
     icon: "fa-solid fa-magnifying-glass",
     path: "/sc/search-vin",
   },
-  {
-    label: "Tạo Claim",
-    icon: "fa-regular fa-file-lines",
-    path: "/sc/create-claim",
-  },
+  
   {
     label: "Quản lý Claim",
     icon: "fa-regular fa-clipboard",

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Title from "../../../components/Title";
 import Loading from "../../../components/Loading";
+import { Link, useNavigate } from "react-router-dom";
 
 const vehicles = [
   {
@@ -24,6 +25,7 @@ const SearchVIN = () => {
   const [vin, setVin] = useState("5YJ3E1EA4KF123456");
   const [result, setResult] = useState(null);
   const [status, setStatus] = useState("idle");
+  const navigate = useNavigate();
 
   const handleSearch = () => {
     if (!vin.trim()) return;
@@ -41,6 +43,10 @@ const SearchVIN = () => {
       }
     }, 500);
   };
+
+  function handleConfirm() {
+    navigate("/sc/create-claim", { state: { vin: vin } });
+  }
 
   return (
     <div className="h-full w-full space-y-3 p-4">
@@ -80,9 +86,21 @@ const SearchVIN = () => {
       {status === "loading" && <Loading />}
 
       {status === "not_found" && (
-        <p className="text-center text-red-500 font-semibold">
-          Không tìm thấy kết quả phù hợp.
-        </p>
+        <div>
+          <p className="text-center text-red-500 font-semibold">
+            <span>Không tìm thấy kết quả phù hợp.</span>
+          </p>
+          <p className="text-center text-gray-500">
+            Vui lòng Kiểm tra lại VIN hoặc
+            <Link
+              to={"/sc/register-vin"}
+              className="text-green-500 font-semibold"
+            >
+              {" "}
+              Đăng ký xe mới
+            </Link>
+          </p>
+        </div>
       )}
 
       {status === "success" && result && (
@@ -159,7 +177,10 @@ const SearchVIN = () => {
           </div>
 
           <div className="flex justify-center">
-            <button className="w-[200px] font-semibold bg-green-500 text-white px-4 py-2 space-x-2 rounded-lg hover:bg-green-600 cursor-pointer">
+            <button
+              onClick={handleConfirm}
+              className="w-[200px] font-semibold bg-green-500 text-white px-4 py-2 space-x-2 rounded-lg hover:bg-green-600 cursor-pointer"
+            >
               Xác nhận
             </button>
           </div>
