@@ -8,7 +8,7 @@ import vehicleRoutes from './routes/vehicleRoutes.js';
 import customerRoutes from './routes/customerRoutes.js';
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT;
 
 // Connect to database
 connectDB();
