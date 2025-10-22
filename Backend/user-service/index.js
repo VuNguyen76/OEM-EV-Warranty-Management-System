@@ -1,5 +1,6 @@
-const express = require("express");
-const dotenv = require("dotenv");
+import express from "express";
+import dotenv from "dotenv";
+import connectDB from "./shared/configs/DBConfig/connectDB";
 
 dotenv.config();
 
@@ -7,6 +8,10 @@ const app = express();
 
 // Middleware cơ bản
 app.use(express.json());
+
+//Kết nối DB
+connectDB();
+console.log(123);
 
 // Route test
 app.get("/", (req, res) => {
