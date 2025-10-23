@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { mongoConnections } from "./mongoConnections";
+import { mongoConnections } from "./mongoConnectionsz.js";
 const connectDB = async () => {
   const serviceName = process.env.SERVICE_NAME;
   const mongo_url = mongoConnections[serviceName];

@@ -1,8 +1,6 @@
-<<<<<<< HEAD
 import express from "express";
 import dotenv from "dotenv"; 
 dotenv.config();
-=======
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -11,7 +9,6 @@ import 'dotenv/config';
 import connectDB from './config/database.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
 import customerRoutes from './routes/customerRoutes.js';
->>>>>>> 2321b922b893136efeec04a760f52b5443b3ff28
 
 const app = express();
 const PORT = process.env.PORT;
