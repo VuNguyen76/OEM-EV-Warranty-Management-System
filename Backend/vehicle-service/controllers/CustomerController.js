@@ -1,17 +1,28 @@
 import Customer from '../models/Customer.js';
+import CreateCustomerDto from '../models/dto/request/CreateCustomer.js';
+import CustomerResponseDto from '../models/dto/response/CustomerResponse.js';
+import SearchDto from '../models/dto/request/SearchDto.js';
 
 class CustomerController {
-    // Lấy tất cả khách hàng
     static async getAllCustomers(req, res) {
         try {
+            const searchDto = new SearchDto(req.query);
+            const pagination = searchDto.getPagination();
+
             const customers = await Customer.find()
                 .populate('registered_vehicles', 'vin brand model')
-                .sort({ createdAt: -1 });
+                .sort(pagination.sort)
+                .skip(pagination.skip)
+                .limit(pagination.limit);
+
+            const responseData = customers.map(customer => new CustomerResponseDto(customer));
 
             res.json({
                 success: true,
-                data: customers,
-                count: customers.length
+                data: responseData,
+                count: responseData.length,
+                page: searchDto.page,
+                limit: searchDto.limit
             });
         } catch (error) {
             res.status(500).json({
@@ -22,16 +33,27 @@ class CustomerController {
         }
     }
 
-    // Tạo khách hàng mới
     static async createCustomer(req, res) {
         try {
-            const customer = new Customer(req.body);
+            const createDto = new CreateCustomerDto(req.body);
+            const validation = createDto.validate();
+
+            if (!validation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Dữ liệu không hợp lệ',
+                    errors: validation.newErrors
+                });
+            }
+
+            const customer = new Customer(createDto.toModel());
             await customer.save();
 
+            const responseDto = new CustomerResponseDto(customer);
             res.status(201).json({
                 success: true,
                 message: 'Tạo khách hàng thành công',
-                data: customer
+                data: responseDto
             });
         } catch (error) {
             res.status(400).json({
@@ -42,12 +64,11 @@ class CustomerController {
         }
     }
 
-    // Lấy khách hàng theo ID
     static async getCustomerById(req, res) {
         try {
             const { id } = req.params;
             const customer = await Customer.findById(id)
-                .populate('registered_vehicles');
+                .populate('registered_vehicles', 'vin brand model warranty_status');
 
             if (!customer) {
                 return res.status(404).json({
@@ -56,9 +77,10 @@ class CustomerController {
                 });
             }
 
+            const responseDto = new CustomerResponseDto(customer);
             res.json({
                 success: true,
-                data: customer
+                data: responseDto
             });
         } catch (error) {
             res.status(500).json({
@@ -69,13 +91,23 @@ class CustomerController {
         }
     }
 
-    // Cập nhật khách hàng
     static async updateCustomer(req, res) {
         try {
             const { id } = req.params;
+            const updateDto = new CreateCustomerDto(req.body); // Dùng chung DTO
+            const validation = updateDto.validate();
+
+            if (!validation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Dữ liệu không hợp lệ',
+                    errors: validation.newErrors
+                });
+            }
+
             const customer = await Customer.findByIdAndUpdate(
                 id,
-                req.body,
+                updateDto.toModel(),
                 { new: true, runValidators: true }
             );
 
@@ -86,10 +118,11 @@ class CustomerController {
                 });
             }
 
+            const responseDto = new CustomerResponseDto(customer);
             res.json({
                 success: true,
                 message: 'Cập nhật khách hàng thành công',
-                data: customer
+                data: responseDto
             });
         } catch (error) {
             res.status(400).json({
@@ -100,7 +133,6 @@ class CustomerController {
         }
     }
 
-    // Xóa khách hàng
     static async deleteCustomer(req, res) {
         try {
             const { id } = req.params;
@@ -126,11 +158,11 @@ class CustomerController {
         }
     }
 
-    // Tìm kiếm khách hàng
     static async searchCustomers(req, res) {
         try {
-            const { q } = req.query;
-            if (!q) {
+            const searchDto = new SearchDto(req.query);
+
+            if (!searchDto.q) {
                 return res.status(400).json({
                     success: false,
                     message: 'Thiếu từ khóa tìm kiếm'
@@ -139,17 +171,19 @@ class CustomerController {
 
             const customers = await Customer.find({
                 $or: [
-                    { full_name: { $regex: q, $options: 'i' } },
-                    { phone: { $regex: q, $options: 'i' } },
-                    { email: { $regex: q, $options: 'i' } },
-                    { person_id: { $regex: q, $options: 'i' } }
+                    { full_name: { $regex: searchDto.q, $options: 'i' } },
+                    { phone: { $regex: searchDto.q, $options: 'i' } },
+                    { email: { $regex: searchDto.q, $options: 'i' } },
+                    { person_id: { $regex: searchDto.q, $options: 'i' } }
                 ]
             }).populate('registered_vehicles', 'vin brand model');
 
+            const responseData = customers.map(customer => new CustomerResponseDto(customer));
+
             res.json({
                 success: true,
-                data: customers,
-                count: customers.length
+                data: responseData,
+                count: responseData.length
             });
         } catch (error) {
             res.status(500).json({

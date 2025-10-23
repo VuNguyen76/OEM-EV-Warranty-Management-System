@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-
 const { Schema, model } = mongoose;
 
 const vehicleSchema = new Schema({
@@ -60,7 +59,9 @@ const vehicleSchema = new Schema({
 }, {
     timestamps: true
 });
-
+// Index để tìm kiếm nhanh 
+vehicleSchema.index({ vin: 1 });
+vehicleSchema.index({ customer_id: 1 });
 const Vehicle = model('Vehicle', vehicleSchema);
 
 export default Vehicle;
