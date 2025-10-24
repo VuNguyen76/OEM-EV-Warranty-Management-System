@@ -9,6 +9,7 @@ import connectDB from './config/database.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
 import customerRoutes from './routes/customerRoutes.js';
 import partsAttachedRoutes from './routes/partsAttachedRoutes.js';
+import serviceRecordRoutes from './routes/serviceRecordRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT;
@@ -31,6 +32,7 @@ app.get('/', (req, res) => {
             vehicles: '/api/vehicles',
             customers: '/api/customers',
             parts: '/api/vehicles/:vin/parts, /api/parts/:serial_number',
+            serviceRecords: '/api/vehicles/:vin/service-records, /api/service-records/:id',
             health: '/health'
         }
     });
@@ -54,6 +56,7 @@ app.get('/health', async (req, res) => {
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api', partsAttachedRoutes);
+app.use('/api', serviceRecordRoutes);
 
 app.listen(PORT, () => {
     console.log(`Vehicle Service running on port ${PORT}`);
