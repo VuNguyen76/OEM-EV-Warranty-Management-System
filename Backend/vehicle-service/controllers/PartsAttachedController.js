@@ -41,7 +41,9 @@ class PartsAttachedController {
     static async getVehicleParts(req, res) {
         try {
             const { vin } = req.params;
-            const parts = await PartsAttached.find({ vin }).sort({ install_date: -1 });
+            const parts = await PartsAttached.find({ vin })
+                .populate('part_id', 'part_name category manufacturer model_number')
+                .sort({ install_date: -1 });
 
             const responseData = parts.map(part => new PartsAttachedResponseDto(part));
 
@@ -106,7 +108,8 @@ class PartsAttachedController {
     static async getPartBySerial(req, res) {
         try {
             const { serial_number } = req.params;
-            const partsAttached = await PartsAttached.findOne({ serial_number });
+            const partsAttached = await PartsAttached.findOne({ serial_number })
+                .populate('part_id', 'part_name category manufacturer model_number specifications');
 
             if (!partsAttached) {
                 return res.status(404).json({

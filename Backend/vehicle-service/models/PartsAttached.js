@@ -10,22 +10,13 @@ const partsAttachedSchema = new Schema({
     },
     part_id: {
         type: String,
-        required: true
+        required: true,
+        ref: 'Parts'
     },
     serial_number: {
         type: String,
         required: true,
         unique: true,
-        trim: true
-    },
-    part_name: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    category: {
-        type: String,
-        enum: ['battery', 'motor', 'bms', 'charger', 'inverter'],
         trim: true
     },
     install_date: {
@@ -42,8 +33,8 @@ const partsAttachedSchema = new Schema({
         required: true
     },
     warranty_policy_id: {
-        type: String,
-        trim: true
+        type: Schema.Types.ObjectId,
+        ref: 'WarrantyPolicy'
     },
     failure_reason: {
         type: String,
