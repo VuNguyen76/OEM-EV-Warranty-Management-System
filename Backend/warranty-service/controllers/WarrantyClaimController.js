@@ -49,11 +49,12 @@ class WarrantyClaimController {
     // GET /api/claims - Danh sách claim
     static async getAllClaims(req, res) {
         try {
-            const { status, service_center_id } = req.query;
+            const { status, service_center_id, vin } = req.query;
             const query = {};
 
             if (status) query.status = status;
             if (service_center_id) query.service_center_id = service_center_id;
+            if (vin) query.vin = vin;
 
             const claims = await WarrantyClaim.find(query).sort({ submitted_at: -1 });
             const responseData = claims.map(claim => ({

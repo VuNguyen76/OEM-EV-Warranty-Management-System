@@ -6,6 +6,9 @@ import 'dotenv/config';
 import connectDB from './config/database.js';
 import warrantyPolicyRoutes from './routes/warrantyPolicyRoutes.js';
 import warrantyClaimRoutes from './routes/warrantyClaimRoutes.js';
+import repairOrderRoutes from './routes/repairOrderRoutes.js';
+import warrantyCostsRoutes from './routes/warrantyCostsRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -26,7 +29,10 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       policies: '/api/policies',
-      claims: '/api/claims'
+      claims: '/api/claims',
+      repairOrders: '/api/repair-orders',
+      warrantyCosts: '/api/warranty-costs',
+      analytics: '/api/analytics'
     }
   });
 });
@@ -48,6 +54,9 @@ app.get('/health', async (req, res) => {
 
 app.use('/api/policies', warrantyPolicyRoutes);
 app.use('/api/claims', warrantyClaimRoutes);
+app.use('/api/repair-orders', repairOrderRoutes);
+app.use('/api/warranty-costs', warrantyCostsRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.listen(PORT, () => {
   console.log(`🛡️  Warranty Service running on port ${PORT}`);
