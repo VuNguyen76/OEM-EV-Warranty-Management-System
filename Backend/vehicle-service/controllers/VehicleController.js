@@ -1,8 +1,10 @@
 import Vehicle from '../models/Vehicle.js';
+import PartsAttached from '../models/PartsAttached.js';
 import CreateVehicleDto from '../models/dto/request/CreateVehicleDto.js';
 import UpdateVehicleDto from '../models/dto/request/UpdateVehicleDto.js';
 import VehicleResponseDto from '../models/dto/response/VehicleResponse.js';
 import SearchDto from '../models/dto/request/SearchDto.js';
+import WarrantyServiceClient from '../utils/WarrantyServiceClient.js';
 
 class VehicleController {
     static async getAllVehicles(req, res) {
@@ -187,6 +189,95 @@ class VehicleController {
             res.status(500).json({
                 success: false,
                 message: 'Lỗi tìm kiếm xe',
+                error: error.message
+            });
+        }
+    }
+
+    // GET /api/vehicles/:vin/warranty-status - Kiểm tra tình trạng bảo hành
+    static async getWarrantyStatus(req, res) {
+        try {
+            const { vin } = req.params;
+
+            // Lấy thông tin xe
+            const vehicle = await Vehicle.findOne({ vin })
+                .populate('customer_id', 'full_name phone email');
+
+            if (!vehicle) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy xe'
+                });
+            }
+
+            // Tính toán warranty status
+            const now = new Date();
+            const warrantyEnd = new Date(vehicle.warranty_end);
+            const daysRemaining = Math.ceil((warrantyEnd - now) / (1000 * 60 * 60 * 24));
+
+            const vehicleWarranty = {
+                status: vehicle.warranty_status,
+                start_date: vehicle.warranty_start,
+                end_date: vehicle.warranty_end,
+                days_remaining: daysRemaining > 0 ? daysRemaining : 0,
+                is_valid: vehicle.warranty_status === 'valid' && daysRemaining > 0
+            };
+
+            // Lấy danh sách parts đã gắn
+            const parts = await PartsAttached.find({ vin, status: 'active' })
+                .populate('part_id', 'part_name category warranty_duration_months')
+                .sort({ install_date: -1 });
+
+            const partsWarranty = parts.map(part => {
+                const installDate = new Date(part.install_date);
+                const warrantyMonths = part.part_id?.warranty_duration_months || 12;
+                const partWarrantyEnd = new Date(installDate);
+                partWarrantyEnd.setMonth(partWarrantyEnd.getMonth() + warrantyMonths);
+
+                const partDaysRemaining = Math.ceil((partWarrantyEnd - now) / (1000 * 60 * 60 * 24));
+
+                return {
+                    serial_number: part.serial_number,
+                    part_name: part.part_id?.part_name || 'Unknown',
+                    category: part.part_id?.category || 'other',
+                    install_date: part.install_date,
+                    warranty_end: partWarrantyEnd,
+                    days_remaining: partDaysRemaining > 0 ? partDaysRemaining : 0,
+                    is_valid: partDaysRemaining > 0
+                };
+            });
+
+            // Lấy thông tin claims từ Warranty Service
+            const claimsStats = await WarrantyServiceClient.getClaimsStats(vin);
+
+            res.json({
+                success: true,
+                data: {
+                    vehicle: {
+                        vin: vehicle.vin,
+                        brand: vehicle.brand,
+                        model: vehicle.model,
+                        manufacture_year: vehicle.manufacture_year,
+                        customer: vehicle.customer_id ? {
+                            name: vehicle.customer_id.full_name,
+                            phone: vehicle.customer_id.phone,
+                            email: vehicle.customer_id.email
+                        } : null
+                    },
+                    vehicle_warranty: vehicleWarranty,
+                    parts_warranty: {
+                        total_parts: partsWarranty.length,
+                        valid_parts: partsWarranty.filter(p => p.is_valid).length,
+                        expired_parts: partsWarranty.filter(p => !p.is_valid).length,
+                        parts: partsWarranty
+                    },
+                    claims_summary: claimsStats
+                }
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi lấy thông tin bảo hành',
                 error: error.message
             });
         }
