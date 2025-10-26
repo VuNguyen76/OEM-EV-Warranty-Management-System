@@ -5,8 +5,8 @@ dotenv.config();
 
 import connectDB from './config/database.js';
 import partRoutes from './routes/partRoutes.js';
-// import inventoryRoutes from './routes/inventoryRoutes.js';
-// import shipmentRoutes from './routes/shipmentRoutes.js';
+import inventoryRoutes from './routes/inventoryRoutes.js';
+import shipmentRoutes from './routes/shipmentRoutes.js';
 
 
 const app = express();
@@ -23,12 +23,13 @@ app.get("/", (req, res) => {
 });
 
 // Middleware
-app.use(express.json());
+app.use(express.json()); // parse application/json
+app.use(express.urlencoded({ extended: true })); 
 
 
 app.use('/api/parts', partRoutes);
-// app.use('/api/inventory', inventoryRoutes);
-// app.use('/api/shipments', shipmentRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/shipments', shipmentRoutes);
 
 
 app.listen(PORT, () => {

@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 
-
 const partSchema = new mongoose.Schema({
   part_id: {
     type: String,
@@ -25,8 +24,7 @@ const partSchema = new mongoose.Schema({
     type: [String], 
     required: true,
     default: [] 
-  }
-  ,
+  },
   warranty_policy_code: {
     type: String,
     default: null
@@ -60,6 +58,6 @@ const partSchema = new mongoose.Schema({
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
-const Parrt = mongoose.model('Part', partSchema);
+const Part = mongoose.model('Part', partSchema);
 
-export default Parrt;
+export default Part;
