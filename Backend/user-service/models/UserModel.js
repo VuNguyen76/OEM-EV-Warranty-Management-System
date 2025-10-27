@@ -17,17 +17,10 @@ const userSchema = new Schema(
     role: {
       type: String,
       required: true,
-
       default: "sc_staff",
-    },
-    center_id: {
-      type: Schema.Types.ObjectId,
-      ref: "ServiceCenter",
-      required: true,
     },
     status: {
       type: String,
-
       default: "active",
     },
   },

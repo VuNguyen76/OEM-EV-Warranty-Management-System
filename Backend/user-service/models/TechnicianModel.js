@@ -16,9 +16,10 @@ const technicianSchema = new mongoose.Schema(
     status: {
       type: String,
       required: true,
-      enum: ["active", "inactive"],
+      default: "active",
     },
     workload: Number,
+    skills: [String],
   },
   { timestamps: true }
 );

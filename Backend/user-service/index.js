@@ -1,13 +1,16 @@
 import express from "express";
 import dotenv from "dotenv";
+dotenv.config("../../.env");
 
 import connectDB from "./configs/database.js";
 import cors from "cors";
 
-import userRouter from "./routes/userRoute.js" 
+import userRouter from "./routes/userRoute.js";
+import authUser from "./routes/authRoute.js";
+import centerRouter from "./routes/centerRoute.js";
+import technicianRouter from "./routes/technicianRoute.js";
 
 const app = express();
-dotenv.config();
 
 // Middleware cơ bản
 app.use(express.json());
@@ -20,10 +23,10 @@ connectDB();
 app.get("/", (req, res) => {
   res.json({ message: "Service is running!" });
 });
-app.use("/api/user", userRouter);
-app.use("/api/centers", userRouter);
-
-
+app.use("/api/auth", authUser);
+app.use("/api/users", userRouter);
+app.use("/api/centers", centerRouter);
+app.use("/api/technicians", technicianRouter);
 
 // Chạy server
 
