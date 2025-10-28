@@ -1,15 +1,19 @@
 import mongoose from 'mongoose';
 
-const partSchema = new mongoose.Schema({
+const { Schema, model } = mongoose;
+
+const partSchema = new Schema({
   part_id: {
     type: String,
     required: true,
     unique: true,
-    index: true
+    trim: true
   },
   name: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 200
   },
   category: {
     type: String,
@@ -18,24 +22,23 @@ const partSchema = new mongoose.Schema({
   },
   manufacturer: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 100
   },
   model_compatible: {
-    type: [String], 
-    required: true,
-    default: [] 
-  },
-  warranty_policy_code: {
-    type: String,
-    default: null
+    type: [String],
+    default: []
   },
   cost_price: {
     type: Number,
-    default: 0
+    default: 0,
+    min: 0
   },
   weight_kg: {
     type: Number,
-    default: 0
+    default: 0,
+    min: 0
   },
   dimensions: {
     length: Number,
@@ -44,11 +47,11 @@ const partSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    default: ''
+    trim: true
   },
   image_url: {
     type: String,
-    default: ''
+    trim: true
   },
   status: {
     type: String,
@@ -56,8 +59,15 @@ const partSchema = new mongoose.Schema({
     default: 'active'
   }
 }, {
-  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
+  timestamps: true
 });
-const Part = mongoose.model('Part', partSchema);
+
+// Index để tìm kiếm nhanh
+partSchema.index({ part_id: 1 }, { unique: true });
+partSchema.index({ category: 1 });
+partSchema.index({ manufacturer: 1 });
+partSchema.index({ status: 1 });
+
+const Part = model('Part', partSchema);
 
 export default Part;

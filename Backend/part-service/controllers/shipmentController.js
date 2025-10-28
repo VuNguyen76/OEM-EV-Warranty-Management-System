@@ -1,56 +1,44 @@
 import Shipment from '../models/Shipment.js';
+import CreateShipmentDto from '../models/dto/request/CreateShipmentDto.js';
+import UpdateShipmentDto from '../models/dto/request/UpdateShipmentDto.js';
+import ShipmentResponseDto from '../models/dto/response/ShipmentResponse.js';
 import inventoryService from '../services/inventoryService.js';
 
 class ShipmentController {
-  // Tạo lệnh giao phụ tùng
-  // [POST] /api/shipments
-  async createShipment(req, res) {
+  // POST /api/shipments - Tạo lệnh giao phụ tùng
+  static async createShipment(req, res) {
     try {
-      const { claim_id, to_service_center_id, parts_list, from_location_id = 'EVM_HCM' } = req.body;
+      const createDto = new CreateShipmentDto(req.body);
+      const validation = createDto.validate();
 
-      if (!claim_id) {
-        res.status(400).json({
+      if (!validation.isValid) {
+        return res.status(400).json({
           success: false,
-          message: 'Mã bảo hành không hợp lệ'
+          message: 'Dữ liệu không hợp lệ',
+          errors: validation.newErrors
         });
       }
-      if (!parts_list) {
-        res.status(400).json({
-          success: false,
-          message: 'Vui lòng nhập phụ tùng '
-        });
-      }
-      // Tạo mã shipment tự động
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const shipment_code = `SHIP${timestamp}${random}`;
 
-      const shipment = new Shipment({
-        shipment_code,
-        claim_id,
-        from_location_id,
-        to_location_id: to_service_center_id,
-        parts_list,
-        status: 'pending'
-      });
-
+      const shipment = new Shipment(createDto.toModel());
       await shipment.save();
 
+      const responseDto = new ShipmentResponseDto(shipment);
       res.status(201).json({
         success: true,
-        message: 'Tạo đơn hàng thành công',
-        shipment_code: shipment_code
+        message: 'Tạo đơn giao hàng thành công',
+        data: responseDto
       });
     } catch (error) {
       res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Lỗi tạo đơn giao hàng',
+        error: error.message
       });
     }
   }
 
-  // Danh sách tất cả shipment
-  async getShipments(req, res) {
+  // GET /api/shipments - Danh sách tất cả shipment
+  static async getShipments(req, res) {
     try {
       const { status, service_center_id } = req.query;
 
@@ -58,94 +46,99 @@ class ShipmentController {
       if (status) filter.status = status;
       if (service_center_id) filter.to_location_id = service_center_id;
 
-      const shipments = await Shipment.find(filter)
-        .sort({ created_at: -1 });
+      const shipments = await Shipment.find(filter).sort({ created_at: -1 });
+      const responseData = shipments.map(shipment => new ShipmentResponseDto(shipment));
 
       res.json({
-        data: shipments
+        success: true,
+        data: responseData,
+        count: responseData.length
       });
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: error.message
+        message: 'Lỗi lấy danh sách đơn giao hàng',
+        error: error.message
       });
     }
   }
 
-  // Lấy chi tiết shipment
-  async getShipmentByCode(req, res) {
+  // GET /api/shipments/:code - Lấy chi tiết shipment
+  static async getShipmentByCode(req, res) {
     try {
-      const shipment = await Shipment.findOne({ shipment_code: req.params.code });
+      const { code } = req.params;
+      const shipment = await Shipment.findOne({ shipment_code: code });
 
       if (!shipment) {
         return res.status(404).json({
           success: false,
-          message: 'Không tìm thấy đơn hàng'
+          message: 'Không tìm thấy đơn giao hàng'
         });
       }
 
+      const responseDto = new ShipmentResponseDto(shipment);
       res.json({
-        shipment: shipment
+        success: true,
+        data: responseDto
       });
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: error.message
+        message: 'Lỗi lấy thông tin đơn giao hàng',
+        error: error.message
       });
     }
   }
 
-
-
-  // Cập nhật trạng thái vận chuyển
-  async updateShipmentStatus(req, res) {
+  // PATCH /api/shipments/:code - Cập nhật trạng thái vận chuyển
+  static async updateShipmentStatus(req, res) {
     try {
+      const { code } = req.params;
+      const updateDto = new UpdateShipmentDto(req.body);
+      const validation = updateDto.validate();
 
-      const status = req.body.status;
-      const delivery_date = req.body.delivery_date;
-
-      if (!status) {
-        return res.status(404).json({
+      if (!validation.isValid) {
+        return res.status(400).json({
           success: false,
-          message: 'Vui lòng cập nhật trạng thái'
+          message: 'Dữ liệu không hợp lệ',
+          errors: validation.newErrors
         });
       }
 
-      const ship = await Shipment.findOne({ shipment_code: req.params.code });
+      const shipment = await Shipment.findOne({ shipment_code: code });
 
-      if (!ship) {
+      if (!shipment) {
         return res.status(404).json({
           success: false,
-          message: 'Không tìm thấy đơn hàng'
+          message: 'Không tìm thấy đơn giao hàng'
         });
       }
 
-      if (status == 'delivered') {
-        await inventoryService.updateInventoryOnDelivery(ship);
+      // Update inventory when delivered
+      if (updateDto.status === 'delivered') {
+        await inventoryService.updateInventoryOnDelivery(shipment);
       }
 
-      await Shipment.updateOne(
-        { shipment_code: req.params.code },
-        {
-          status: status,
-          updated_at: delivery_date
-        }
+      const updatedShipment = await Shipment.findOneAndUpdate(
+        { shipment_code: code },
+        updateDto.toModel(),
+        { new: true, runValidators: true }
       );
 
+      const responseDto = new ShipmentResponseDto(updatedShipment);
       res.json({
         success: true,
-        message: " Cập nhật trạng thái thành công"
+        message: 'Cập nhật trạng thái thành công',
+        data: responseDto
       });
-
     } catch (error) {
       res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Lỗi cập nhật trạng thái',
+        error: error.message
       });
     }
   }
-
-
 }
 
-export default new ShipmentController(); 
+export default ShipmentController; 

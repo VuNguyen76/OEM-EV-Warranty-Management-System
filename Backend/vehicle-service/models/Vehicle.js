@@ -48,7 +48,8 @@ const vehicleSchema = new Schema({
     },
     current_mileage: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0
     },
     status: {
         type: String,
@@ -59,9 +60,18 @@ const vehicleSchema = new Schema({
 }, {
     timestamps: true
 });
+// Custom validator cho date range
+vehicleSchema.pre('validate', function (next) {
+    if (this.warranty_end && this.warranty_start && this.warranty_end <= this.warranty_start) {
+        next(new Error('warranty_end phải sau warranty_start'));
+    }
+    next();
+});
+
 // Index để tìm kiếm nhanh 
 vehicleSchema.index({ vin: 1 });
 vehicleSchema.index({ customer_id: 1 });
+
 const Vehicle = model('Vehicle', vehicleSchema);
 
 export default Vehicle;
