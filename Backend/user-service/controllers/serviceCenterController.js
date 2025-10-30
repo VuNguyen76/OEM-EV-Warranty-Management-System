@@ -9,24 +9,48 @@ class serviceCenterController {
       const limit = parseInt(req.query.limit) || 10;
       const skip = (page - 1) * limit;
 
-      const total = await serviceCenterModel.countDocuments();
-      const totalPages = Math.ceil(total / limit);
-
-      const centers = await serviceCenterModel
+      const activeCenters = await serviceCenterModel
         .find()
-        .populate("user_id", "name email password")
+        .populate("user_id", "email status")
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 });
+
+      const inactiveCenters = await UserModel.find({
+        role: "sc_staff",
+        status: "inactive",
+      }).select("Trạng thái xác thực email");
+
+      const allCenters = [
+        ...activeCenters.map((c) => ({
+          _id: c._id,
+          user_id: c.user_id._id,
+          name: c.name,
+          phone: c.phone,
+          address: c.address,
+          email: c.user_id.email,
+          status: "active",
+          createdAt: c.createdAt,
+        })),
+        ...inactiveCenters.map((u) => ({
+          _id: u._id,
+          user_id: u._id,
+          name: null,
+          phone: null,
+          address: null,
+          email: u.email,
+          status: "inactive",
+          createdAt: u.createdAt,
+        })),
+      ];
+
+      allCenters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
       res.status(200).json({
         success: true,
-        data: centers,
+        data: allCenters,
         message: "Lấy danh sách trung tâm thành công",
-        pagination: {
-          total,
-          totalPages: totalPages,
-          currentPage: page,
-        },
+        total: allCenters.length,
       });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
@@ -50,7 +74,7 @@ class serviceCenterController {
 
       const center = await serviceCenterModel
         .findById(id)
-        .populate("user_id", "name email password");
+        .populate("user_id", "email");
 
       if (!center) {
         return res
@@ -68,22 +92,25 @@ class serviceCenterController {
 
   static async create(req, res) {
     try {
-      const { name, email, password } = req.body;
-      const exists = await UserModel.findOne({ email });
-      if (exists) {
+      const { name, phone, address } = req.body;
+      const user = await UserModel.findById(req.user.id);
+
+      if (user.center_id) {
         return res
-          .status(409)
+          .status(400)
           .json({ success: false, message: "Trung tâm đã tồn tại!" });
       }
-      const hashed = await bcrypt.hash(password, 10);
-
-      const center = await UserModel.create({
+      const center = await serviceCenterModel.create({
+        user_id: user._id,
         name,
-        email,
-        password: hashed,
-        role: "sc_staff",
+        phone,
+        address,
       });
-      await serviceCenterModel.create({ user_id: center._id });
+      await UserModel.findByIdAndUpdate(user._id, {
+        center_id: center.user._id,
+        status: "active",
+      });
+
       res.status(201).json({
         success: true,
         data: center,
@@ -95,6 +122,8 @@ class serviceCenterController {
   }
 
   static async update(req, res) {
+    console.log(req.body);
+
     try {
       const updated = await serviceCenterModel.findByIdAndUpdate(
         req.params.id,
@@ -117,19 +146,36 @@ class serviceCenterController {
     }
   }
 
-  static async delete(req, res) {    
+  static async delete(req, res) {
     try {
-      const deleted = await serviceCenterModel.findByIdAndDelete(req.params.id);
-      await UserModel.findByIdAndDelete(deleted.user_id);
-      
-      if (!deleted) {
+      const id = req.params.id;
+      console.log(id);
+
+      const center = await serviceCenterModel.findById(id);
+
+      if (!center) {
         return res
           .status(404)
           .json({ success: false, message: "Không tìm thấy trung tâm" });
       }
-      res.status(200).json({ success: true, message: "Xóa thành công" });
+
+      if (center.user_id) {
+        await UserModel.findByIdAndDelete(center.user_id);
+      }
+
+      await serviceCenterModel.findByIdAndDelete(id);
+
+      res.status(200).json({
+        success: true,
+        message: "Xóa trung tâm và tài khoản liên kết thành công",
+        data: { deletedCenterId: id, deletedUserId: center.user_id },
+      });
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+      console.error("Lỗi khi xóa trung tâm:", error.message);
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
     }
   }
 }

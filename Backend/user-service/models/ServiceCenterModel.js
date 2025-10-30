@@ -2,16 +2,19 @@ import { mongoose } from "mongoose";
 
 const serviceCenterSchema = new mongoose.Schema(
   {
-    user_id: {
+    user_id : {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true,
     },
-    center_id: {
+    center_code: {
       type: String,
       required: true,
       unique: true,
+    },
+    name: {
+      type: String,
+      required: true,
     },
     phone: {
       type: String,
@@ -28,14 +31,14 @@ const serviceCenterSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Mục tiêu: Tự động sinh center_id: SC0, SC1, SC2,...
+// Mục tiêu: Tự động sinh center_code: SC0, SC1, SC2,...
 // Hàm pre sẽ chạy trước khi model được lưu vào db
 serviceCenterSchema.pre("validate", async function (next) {
-  if (this.center_id) return next(); // nếu đã có sẵn thì bỏ qua
+  if (this.center_code) return next(); // nếu đã có sẵn thì bỏ qua
 
   try {
     const count = await mongoose.model("ServiceCenter").countDocuments();
-    this.center_id = `SC${count}`;
+    this.center_code = `SC${count}`;
     next();
   } catch (err) {
     next(err);

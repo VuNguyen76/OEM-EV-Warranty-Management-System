@@ -12,6 +12,7 @@ import ManageCustomer from "../page/Home/SC/ManageCustomer";
 import ManageCampaign from "../page/Home/SC/ManageCampaign";
 import ProtectRoute from "../components/ProtectRoute";
 import Unauthorized from "../components/Unauthorized";
+import CenterManagement from "../page/Home/EVM/CenterManagement";
 
 const router = createBrowserRouter([
   {
@@ -23,10 +24,10 @@ const router = createBrowserRouter([
     element: <Unauthorized />,
   },
   {
-    element: <ProtectRoute allowedRoles={["service_staff","admin"]} />,
+    element: <ProtectRoute allowedRoles={["sc_staff","admin"]} />,
     children: [
       {
-        path: "/sc",
+        path: "/sc_staff",
         element: <DefaultLayout />,
         children: [
           {
@@ -62,10 +63,10 @@ const router = createBrowserRouter([
     ],
   },
   {
-    element: <ProtectRoute allowedRoles={["admin"]} />,
+    element: <ProtectRoute allowedRoles={["admin","evm_staff"]} />,
     children: [
       {
-        path: "/admin",
+        path: "/evm",
         element: <DefaultLayout />,
         children: [
           {
@@ -73,8 +74,8 @@ const router = createBrowserRouter([
             element: <Dashboard />,
           },
           {
-            path: "register-vin",
-            element: <RegisterVIN />,
+            path: "manage-center",
+            element: <CenterManagement />,
           },
           {
             path: "search-vin",

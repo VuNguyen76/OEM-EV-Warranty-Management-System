@@ -68,7 +68,6 @@ const shipmentSchema = new mongoose.Schema({
 });
 
 // Indexes for better query performance
-shipmentSchema.index({ shipment_code: 1 });
 shipmentSchema.index({ status: 1 });
 shipmentSchema.index({ to_location_id: 1, status: 1 });
 shipmentSchema.index({ claim_id: 1 });

@@ -12,6 +12,7 @@ const createToken = (user) => {
 class AuthController {
   static async login(req, res) {
     const { email, password } = req.body;
+console.log(email,password);
 
     const user = await UserModel.findOne({ email });
     if (!user) {
@@ -29,8 +30,38 @@ class AuthController {
     const token = createToken(user);
     res.status(200).json({ success: true, data: { token } });
   }
+  static async register(req, res) {
+    try {
+      const { email, password, role } = req.body;
 
- 
+      if (!email || !password || !role)
+        return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
+
+      const exists = await UserModel.findOne({ email });
+      if (exists)
+        return res.status(409).json({ message: "Người dùng đã tồn tại" });
+
+      const hashed = await bcrypt.hash(password, 10);
+
+      const user = await UserModel.create({
+        email,
+        password: hashed,
+        role,
+        center_id: null,
+        status: "inactive",
+      });
+
+      const token = createToken(user);
+
+      return res.status(201).json({
+        success: true,
+        message: "Tạo tài khoản thành công!",
+        data: { token },
+      });
+    } catch (error) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
 }
 
 export default AuthController;

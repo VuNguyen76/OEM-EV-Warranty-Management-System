@@ -7,16 +7,17 @@ const router = express.Router();
 
 //Route kiểm tra toàn bộ route đã đăng nhập
 router.use(auth);
+router.use(authorize(["admin", "evm_staff"]));
 
 router
   .route("/")
-  .get(authorize(["admin"]), ServiceCenterController.getAll)
-  .post(authorize(["admin", "evm-staff"]), ServiceCenterController.create);
+  .get(ServiceCenterController.getAll)
+  .post(ServiceCenterController.create);
 
 router
   .route("/:id")
   .get(ServiceCenterController.getById)
-  .put(authorize(["admin", "sc-staff"]), ServiceCenterController.update)
-  .delete(authorize(["admin"]), ServiceCenterController.delete);
+  .put(ServiceCenterController.update)
+  .delete(ServiceCenterController.delete);
 
 export default router;

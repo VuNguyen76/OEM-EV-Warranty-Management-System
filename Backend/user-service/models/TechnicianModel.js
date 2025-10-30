@@ -20,6 +20,8 @@ const technicianSchema = new mongoose.Schema(
     },
     workload: Number,
     skills: [String],
+    name: String,
+    phone: String,
   },
   { timestamps: true }
 );

@@ -8,12 +8,12 @@ const router = express.Router();
 //Route kiểm tra toàn bộ route đã đăng nhập
 router.use(auth);
 
-router.route("/").get(authorize(["admin", "sc-staff"]), UserController.getAll);
+router.route("/").get(UserController.getAll);
 
 router
   .route("/:id")
   .get(UserController.getById)
-  .put(authorize(["admin", "sc-staff"]), UserController.update)
-  .delete(authorize(["admin", "sc-staff"]), UserController.delete);
+  .put(authorize(["admin", "evm_staff"]), UserController.update)
+  .delete(authorize(["admin", "evm_staff"]), UserController.delete);
 
 export default router;

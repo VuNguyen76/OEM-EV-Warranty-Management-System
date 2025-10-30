@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import technicianModel from "../models/TechnicianModel.js";
 import UserModel from "../models/UserModel.js";
 import bcrypt from "bcryptjs";
+import serviceCenterModel from "../models/ServiceCenterModel.js";
 
 class technicianController {
   static async getAll(req, res) {
@@ -73,25 +74,25 @@ class technicianController {
 
   static async create(req, res) {
     try {
-      const {name, email, password } = req.body;
-      const center_id = req.user.id; // Lấy center_id từ user đã đăng nhập      
-      const exists = await UserModel.findOne({ email });
-      if (exists) {
-        return res
-          .status(409)
-          .json({ success: false, message: "Nhân viên đã tồn tại!" });
-      }
-      const hashed = await bcrypt.hash(password, 10);
+      const { name, phone } = req.body;
+      const user = await UserModel.findById(req.user.id);
 
-      const technician = await UserModel.create({
+      if (user.status === "active") {
+        return res.status(403).json({
+          success: false,
+          message: "Nhân viên đã tồn tại!",
+        });
+      }
+
+      const technician = await technicianModel.create({
         name,
-        email,
-        password: hashed,
-        role: "sc_technician",
+        phone,
+        center_id: user.center_id,
+        user_id: user._id,
       });
-      await technicianModel.create({
-        user_id: technician._id,
-        center_id: center_id,
+      await UserModel.findByIdAndUpdate(user.id, {
+        center_id: user.center_id,
+        status: "active",
       });
       res.status(201).json({
         success: true,
@@ -125,7 +126,6 @@ class technicianController {
       res.status(500).json({ success: false, message: error.message });
     }
   }
-
 
   static async delete(req, res) {
     try {

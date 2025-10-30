@@ -25,8 +25,6 @@ const inventorySchema = new mongoose.Schema({
   timestamps: true
 });
 
-inventorySchema.index({ part_id: 1 });
-
 const Inventory = mongoose.model('Inventory', inventorySchema);
 
 export default Inventory;

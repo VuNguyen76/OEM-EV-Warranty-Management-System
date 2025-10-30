@@ -2,10 +2,6 @@ import mongoose, { Schema } from "mongoose";
 
 const userSchema = new Schema(
   {
-    name: {
-      type: String,
-      required: true,
-    },
     email: {
       type: String,
       required: true,
@@ -14,6 +10,11 @@ const userSchema = new Schema(
       type: String,
       required: true,
     },
+    center_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ServiceCenter",
+      default: null,
+    },
     role: {
       type: String,
       required: true,
@@ -21,7 +22,7 @@ const userSchema = new Schema(
     },
     status: {
       type: String,
-      default: "active",
+      default: "inactive",
     },
   },
   { timestamps: true }

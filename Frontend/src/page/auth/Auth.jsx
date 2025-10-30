@@ -2,12 +2,12 @@ import { useState } from "react";
 import { assets } from "../../assets";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useLoginMutation } from "../../features/auth/auth.api";
-import { useDispatch, useSelector } from "react-redux";
-import { setCredentials } from "../../features/userSlice/userSlice.slice";
+import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
-
+import navigateByRole from "../../utils/navigateByRole";
+import { jwtDecode } from "jwt-decode";
 const Auth = () => {
-  const [email, setEmail] = useState("tinh123@gmail.com");
+  const [email, setEmail] = useState("tinh@gmail.com");
   const [password, setPassword] = useState("Tinh123@");
   const navigate = useNavigate();
 
@@ -17,34 +17,14 @@ const Auth = () => {
   const handleLogin = async () => {
     const res = await login({ email, password }).unwrap();
     if (res.success) {
+      const userDecode = jwtDecode(res.data.token);
       toast.success("Đăng nhập thành công!");
-      switch (res.user.role) {
-        case "service_staff":
-          navigate("/sc");
-          break;
-        case "admin":
-          navigate("/admin");
-          break;
-        case "manufacturer_staff":
-          navigate("/evm");
-          break;
-        default:
-          break;
-      }
+      navigate(navigateByRole(userDecode.role));
     }
   };
 
   if (user && token) {
-    switch (user.role) {
-      case "service_staff":
-        return <Navigate to="/sc" replace />;
-      case "admin":
-        return <Navigate to="/admin" replace />;
-      case "manufacturer_staff":
-        return <Navigate to="/evm" replace />;
-      default:
-        return <Navigate to="/" replace />;
-    }
+    return <Navigate to={navigateByRole(user.role)} replace />;
   }
 
   return (

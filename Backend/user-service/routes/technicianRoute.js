@@ -7,16 +7,17 @@ const router = express.Router();
 
 //Route kiểm tra toàn bộ route đã đăng nhập
 router.use(auth);
+router.use(authorize(["admin", "sc_staff"]));
 
 router
   .route("/")
-  .get(authorize(["admin","sc-staff"]), TechnicianController.getAll)
-  .post(authorize(["admin","sc-staff"]), TechnicianController.create);
+  .get(TechnicianController.getAll)
+  .post(TechnicianController.create);
 
 router
   .route("/:id")
   .get(TechnicianController.getById)
-  .put(authorize(["admin", "sc-staff"]), TechnicianController.update)
-  .delete(authorize(["admin", "sc-staff"]), TechnicianController.delete);
+  .put(TechnicianController.update)
+  .delete(TechnicianController.delete);
 
 export default router;
