@@ -1,14 +1,18 @@
-import express from "express";
-import shipmentController from "../controllers/shipmentController.js";
+import express from 'express';
+import ShipmentController from '../controllers/shipmentController.js';
 
 const router = express.Router();
 
-router.post("/", shipmentController.createShipment);
+// POST / - Tạo đơn giao hàng
+router.post('/', ShipmentController.createShipment);
 
-router.get("/", shipmentController.getShipments);
+// GET / - Lấy danh sách đơn giao hàng
+router.get('/', ShipmentController.getShipments);
 
-router.get("/:code", shipmentController.getShipmentByCode);
+// GET /:code - Lấy chi tiết đơn giao hàng
+router.get('/:code', ShipmentController.getShipmentByCode);
 
-router.patch("/:code/status", shipmentController.updateShipmentStatus);
+// PATCH /:code - Cập nhật trạng thái đơn giao hàng
+router.patch('/:code', ShipmentController.updateShipmentStatus);
 
 export default router;

@@ -1,18 +1,15 @@
-import express from "express";
-import inventoryController from "../controllers/inventoryController.js";
-
-import inventoryValidates from "../validates/inventoryValidate.js";
+import express from 'express';
+import InventoryController from '../controllers/inventoryController.js';
 
 const router = express.Router();
 
-router.get("/", inventoryController.getInventory);
+// GET /low-stock - Lấy danh sách tồn kho thấp (phải đặt trước /:part_id)
+router.get('/low-stock', InventoryController.getLowStock);
 
-router.patch(
-  "/update",
-  inventoryValidates.inventoryChange,
-  inventoryController.updateInventory
-);
+// GET / - Lấy danh sách tồn kho
+router.get('/', InventoryController.getInventory);
 
-router.get("/low-stock", inventoryController.getLowStock);
+// PATCH /:part_id - Cập nhật tồn kho
+router.patch('/:part_id', InventoryController.updateInventory);
 
 export default router;

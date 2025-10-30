@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
-const shipmentSchema = new mongoose.Schema({
+const { Schema, model } = mongoose;
+
+const shipmentSchema = new Schema({
   shipment_code: {
     type: String,
     required: true,
@@ -8,7 +10,7 @@ const shipmentSchema = new mongoose.Schema({
     trim: true
   },
   claim_id: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'WarrantyClaim'
   },
   from_location_id: {
@@ -57,21 +59,23 @@ const shipmentSchema = new mongoose.Schema({
   },
   cost: {
     type: Number,
-    min: 0
+    min: 0,
+    default: 0
   },
   notes: {
     type: String,
     trim: true
   }
 }, {
-  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
+  timestamps: true
 });
 
-// Indexes for better query performance
+// Index cho tìm kiếm nhanh
+shipmentSchema.index({ shipment_code: 1 }, { unique: true });
 shipmentSchema.index({ status: 1 });
 shipmentSchema.index({ to_location_id: 1, status: 1 });
 shipmentSchema.index({ claim_id: 1 });
 
-const Shipment = mongoose.model('Shipment', shipmentSchema);
+const Shipment = model('Shipment', shipmentSchema);
 
 export default Shipment;

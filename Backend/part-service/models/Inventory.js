@@ -1,11 +1,13 @@
 import mongoose from 'mongoose';
 
-const inventorySchema = new mongoose.Schema({
+const { Schema, model } = mongoose;
+
+const inventorySchema = new Schema({
   part_id: {
     type: String,
     required: true,
     ref: 'Part',
-    index: true
+    trim: true
   },
   quantity: {
     type: Number,
@@ -15,16 +17,20 @@ const inventorySchema = new mongoose.Schema({
   },
   threshold: {
     type: Number,
-    default: 3
+    default: 3,
+    min: 0
   },
   last_restocked_at: {
-    type: Date,
-    default: null
+    type: Date
   }
 }, {
   timestamps: true
 });
 
-const Inventory = mongoose.model('Inventory', inventorySchema);
+// Index cho tìm kiếm nhanh
+inventorySchema.index({ part_id: 1 }, { unique: true });
+inventorySchema.index({ quantity: 1 });
+
+const Inventory = model('Inventory', inventorySchema);
 
 export default Inventory;

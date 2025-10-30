@@ -19,14 +19,16 @@ const warrantyPolicySchema = new Schema({
     part_category: {
         type: String,
         required: true,
-        enum: ['battery', 'motor', 'bms', 'charger', 'inverter']
+        enum: ['battery', 'motor', 'bms', 'charger', 'inverter', 'sensor']
     },
     duration_months: {
         type: Number,
-        required: true
+        required: true,
+        min: 1
     },
     max_mileage: {
-        type: Number
+        type: Number,
+        min: 0
     },
     conditions: [{
         type: String,

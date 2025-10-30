@@ -10,8 +10,6 @@ import vehicleRoutes from './routes/vehicleRoutes.js';
 import customerRoutes from './routes/customerRoutes.js';
 import partsAttachedRoutes from './routes/partsAttachedRoutes.js';
 import serviceRecordRoutes from './routes/serviceRecordRoutes.js';
-// Import models to register schemas
-import './models/Parts.js';
 
 const app = express();
 const PORT = process.env.PORT;

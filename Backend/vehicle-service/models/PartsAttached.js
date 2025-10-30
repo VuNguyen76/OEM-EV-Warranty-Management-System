@@ -10,8 +10,8 @@ const partsAttachedSchema = new Schema({
     },
     part_id: {
         type: String,
-        required: true,
-        ref: 'Parts'
+        required: true
+        // Reference to Part Service (cross-service, no populate)
     },
     serial_number: {
         type: String,
@@ -42,6 +42,14 @@ const partsAttachedSchema = new Schema({
     }
 }, {
     timestamps: true
+});
+
+// Custom validator cho date range
+partsAttachedSchema.pre('validate', function (next) {
+    if (this.remove_date && this.install_date && this.remove_date <= this.install_date) {
+        next(new Error('remove_date phải sau install_date'));
+    }
+    next();
 });
 
 // Index cho tìm kiếm nhanh (serial_number đã có unique index)

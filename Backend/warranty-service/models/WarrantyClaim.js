@@ -11,7 +11,9 @@ const warrantyClaimSchema = new Schema({
     vin: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
+        minlength: 17,
+        maxlength: 17
     },
     part_serial: {
         type: String,
@@ -65,11 +67,13 @@ const warrantyClaimSchema = new Schema({
     },
     estimated_cost: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0
     },
     actual_cost: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0
     },
     repair_order_id: {
         type: Schema.Types.ObjectId

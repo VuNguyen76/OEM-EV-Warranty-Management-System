@@ -2,6 +2,7 @@ import PartsAttached from '../models/PartsAttached.js';
 import CreatePartsAttachedDto from '../models/dto/request/CreatePartsAttachedDto.js';
 import UpdatePartsAttachedDto from '../models/dto/request/UpdatePartsAttachedDto.js';
 import PartsAttachedResponseDto from '../models/dto/response/PartsAttachedResponse.js';
+import PartServiceClient from '../utils/PartServiceClient.js';
 
 class PartsAttachedController {
     // POST /api/vehicles/:vin/parts - Gắn phụ tùng vào xe
@@ -16,6 +17,16 @@ class PartsAttachedController {
                     success: false,
                     message: 'Dữ liệu không hợp lệ',
                     errors: validation.newErrors
+                });
+            }
+
+            // Validate part_id với Part Service
+            const partValidation = await PartServiceClient.validatePartId(createDto.part_id);
+            if (!partValidation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mã phụ tùng không tồn tại trong hệ thống',
+                    errors: 'part_id không hợp lệ'
                 });
             }
 
@@ -41,11 +52,28 @@ class PartsAttachedController {
     static async getVehicleParts(req, res) {
         try {
             const { vin } = req.params;
-            const parts = await PartsAttached.find({ vin })
-                .populate('part_id', 'part_name category manufacturer model_number')
-                .sort({ install_date: -1 });
+            const partsAttached = await PartsAttached.find({ vin }).sort({ install_date: -1 });
 
-            const responseData = parts.map(part => new PartsAttachedResponseDto(part));
+            // Lấy thông tin chi tiết từ Part Service
+            const responseData = await Promise.all(
+                partsAttached.map(async (attached) => {
+                    const partInfo = await PartServiceClient.getPartById(attached.part_id);
+                    const dto = new PartsAttachedResponseDto(attached);
+
+                    // Enrich với thông tin từ Part Service
+                    if (partInfo) {
+                        dto.part = {
+                            part_id: partInfo.part_id,
+                            part_name: partInfo.name,
+                            category: partInfo.category,
+                            manufacturer: partInfo.manufacturer,
+                            cost_price: partInfo.cost_price
+                        };
+                    }
+
+                    return dto;
+                })
+            );
 
             res.json({
                 success: true,
@@ -108,8 +136,7 @@ class PartsAttachedController {
     static async getPartBySerial(req, res) {
         try {
             const { serial_number } = req.params;
-            const partsAttached = await PartsAttached.findOne({ serial_number })
-                .populate('part_id', 'part_name category manufacturer model_number specifications');
+            const partsAttached = await PartsAttached.findOne({ serial_number });
 
             if (!partsAttached) {
                 return res.status(404).json({
@@ -118,7 +145,24 @@ class PartsAttachedController {
                 });
             }
 
+            // Lấy thông tin chi tiết từ Part Service
+            const partInfo = await PartServiceClient.getPartById(partsAttached.part_id);
+
             const responseDto = new PartsAttachedResponseDto(partsAttached);
+
+            // Enrich với thông tin từ Part Service
+            if (partInfo) {
+                responseDto.part = {
+                    part_id: partInfo.part_id,
+                    part_name: partInfo.name,
+                    category: partInfo.category,
+                    manufacturer: partInfo.manufacturer,
+                    model_number: partInfo.model_number,
+                    specifications: partInfo.specifications,
+                    cost_price: partInfo.cost_price
+                };
+            }
+
             res.json({
                 success: true,
                 data: responseDto

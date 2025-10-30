@@ -38,7 +38,8 @@ const serviceRecordSchema = new Schema({
     },
     cost: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0
     },
     status: {
         type: String,
@@ -51,6 +52,14 @@ const serviceRecordSchema = new Schema({
     }]
 }, {
     timestamps: true
+});
+
+// Custom validator cho date range
+serviceRecordSchema.pre('validate', function (next) {
+    if (this.date_out && this.date_in && this.date_out <= this.date_in) {
+        next(new Error('date_out phải sau date_in'));
+    }
+    next();
 });
 
 // Index cho tìm kiếm nhanh
