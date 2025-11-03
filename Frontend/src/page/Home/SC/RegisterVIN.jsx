@@ -2,41 +2,47 @@ import React, { useState } from "react";
 import Title from "../../../components/Title";
 import Backdrop from "../../../components/Backdrop";
 import Modal from "../../../components/Modal";
+import Loading from "../../../components/Loading";
 import { useDispatch, useSelector } from "react-redux";
 import { closeModal, openModal } from "../../../features/ui/uiSlice";
+import { useGetAllVehiclesQuery } from "../../../features/vehicle/vehicle.api";
 
-const vehicles = [
-  {
-    vin: "5YJ3E1EA4KF123456",
-    car: "VinFast VF8 2023 • Pearl White",
-    customer: "Nguyễn Văn An",
-    km: "15.000 km",
-    warranty: "Còn hiệu lực",
-    parts: 2,
-  },
-  {
-    vin: "5YJ3E1EA4KF654321",
-    car: "VinFast VF9 2023 • Metallic Blue",
-    customer: "Trần Thị Bình",
-    km: "8.500 km",
-    warranty: "Còn hiệu lực",
-    parts: 2,
-  },
-  {
-    vin: "1G1YZ2269G5123789",
-    car: "BYD Atto 3 2023 • Surf Blue",
-    customer: "Lê Minh Cường",
-    km: "22.000 km",
-    warranty: "Còn hiệu lực",
-    parts: 1,
-  },
-];
+// const vehicles = [
+//   {
+//     vin: "5YJ3E1EA4KF123456",
+//     car: "VinFast VF8 2023 • Pearl White",
+//     customer: "Nguyễn Văn An",
+//     km: "15.000 km",
+//     warranty: "Còn hiệu lực",
+//     parts: 2,
+//   },
+//   {
+//     vin: "5YJ3E1EA4KF654321",
+//     car: "VinFast VF9 2023 • Metallic Blue",
+//     customer: "Trần Thị Bình",
+//     km: "8.500 km",
+//     warranty: "Còn hiệu lực",
+//     parts: 2,
+//   },
+//   {
+//     vin: "1G1YZ2269G5123789",
+//     car: "BYD Atto 3 2023 • Surf Blue",
+//     customer: "Lê Minh Cường",
+//     km: "22.000 km",
+//     warranty: "Còn hiệu lực",
+//     parts: 1,
+//   },
+// ];
 
 const RegisterVIN = () => {
   const dispatch = useDispatch();
   const { isOpen, modalType, modalData } = useSelector(
     (state) => state.ui.modal
   );
+
+  const { data: vehicles = [], isLoading } = useGetAllVehiclesQuery();
+
+  console.log(vehicles);
 
   function handleClose() {
     setIsOpen({ register: false, manageParts: false });
@@ -78,53 +84,57 @@ const RegisterVIN = () => {
 
         {/* Dữ liệu bảng */}
         <div className="divide-y divide-gray-200">
-          {vehicles.map((item, idx) => (
-            <div
-              key={idx}
-              className="grid grid-cols-7 gap-4 py-3 items-center text-sm text-gray-700 hover:bg-gray-50"
-            >
-              {/* VIN */}
-              <div className="font-mono text-xs text-gray-500 truncate">
-                {item.vin}
-              </div>
-
-              {/* Xe */}
-              <div className="font-medium">{item.car}</div>
-
-              {/* Khách hàng */}
-              <div>{item.customer}</div>
-
-              {/* Số km */}
-              <div>{item.km}</div>
-
-              {/* Bảo hành */}
-              <div>
-                <span className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-full text-nowrap">
-                  {item.warranty}
-                </span>
-              </div>
-
-              {/* Phụ tùng */}
-              <div>
-                <span className="px-3 py-1 text-xs font-medium bg-gray-100 rounded-full border border-gray-300">
-                  {item.parts} phụ tùng
-                </span>
-              </div>
-
-              {/* Thao tác */}
+          {isLoading ? (
+            <Loading />
+          ) : (
+            vehicles.map((item, idx) => (
               <div
-                className="flex items-center gap-2 text-green-700 font-medium cursor-pointer hover:text-green-600"
-                onClick={() =>
-                  dispatch(
-                    openModal({ modalType: "manageParts", modalData: item })
-                  )
-                }
+                key={idx}
+                className="grid grid-cols-7 gap-4 py-3 items-center text-sm text-gray-700 hover:bg-gray-50"
               >
-                <i className="fa-solid fa-gear"></i>
-                <span>Quản lý phụ tùng</span>
+                {/* VIN */}
+                <div className="font-mono text-xs text-gray-500 truncate">
+                  {item.vin}
+                </div>
+
+                {/* Xe */}
+                <div className="font-medium">{item.model}</div>
+
+                {/* Khách hàng */}
+                <div>{item.customer_name}</div>
+
+                {/* Số km */}
+                <div>{item.km}</div>
+
+                {/* Bảo hành */}
+                <div>
+                  <span className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-full text-nowrap">
+                    {item.warranty}
+                  </span>
+                </div>
+
+                {/* Phụ tùng */}
+                <div>
+                  <span className="px-3 py-1 text-xs font-medium bg-gray-100 rounded-full border border-gray-300">
+                    {item.parts} phụ tùng
+                  </span>
+                </div>
+
+                {/* Thao tác */}
+                <div
+                  className="flex items-center gap-2 text-green-700 font-medium cursor-pointer hover:text-green-600"
+                  onClick={() =>
+                    dispatch(
+                      openModal({ modalType: "manageParts", modalData: item })
+                    )
+                  }
+                >
+                  <i className="fa-solid fa-gear"></i>
+                  <span>Quản lý phụ tùng</span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
         <Backdrop
           isOpen={

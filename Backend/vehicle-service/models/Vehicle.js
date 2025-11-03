@@ -1,77 +1,80 @@
-import mongoose from 'mongoose';
-const { Schema, model } = mongoose;
+// Vehicle.js
+import mongoose from "mongoose";
+import "../../user-service/models/UserModel.js";
+import "../../user-service/models/ServiceCenterModel.js";
+import "../../user-service/models/TechnicianModel.js";
+import "../models/Vin.js";
+const VehicleSchema = new mongoose.Schema(
+  {
+    vin_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vin",
+      required: true,
+      unique: true,
+    },
+    // Liên kết đến bảng Vin — mỗi xe ứng với một VIN duy nhất
 
-const vehicleSchema = new Schema({
-    vin: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true,
-        minlength: 17,
-        maxlength: 17
-    },
-    brand: {
-        type: String,
-        required: true,
-        maxlength: 100
-    },
-    model: {
-        type: String,
-        required: true,
-        maxlength: 100
-    },
-    manufacture_year: {
-        type: Number,
-        required: true
-    },
-    color: String,
-    battery_capacity: Number,
-    registration_number: String,
     customer_id: {
-        type: Schema.Types.ObjectId,
-        ref: 'Customer',
-        required: true
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      required: true,
     },
-    purchase_date: Date,
-    warranty_start: {
-        type: Date,
-        required: true
+    // Khách hàng sở hữu xe này (có thể null nếu chưa đăng ký)
+
+    center_id: {
+      type: String,
+      default: null,
     },
-    warranty_end: {
-        type: Date,
-        required: true
+    // Trung tâm bảo hành quản lý xe (gán khi xe được đăng ký)
+
+    registration_number: {
+      type: String,
+      trim: true,
     },
-    warranty_status: {
-        type: String,
-        enum: ['valid', 'expired', 'void'],
-        default: 'valid'
+    // Biển số xe (có thể cập nhật sau khi khách hàng đăng ký xe)
+
+    brand: { type: String },
+    model: { type: String },
+    color: { type: String },
+    manufacture_year: { type: Number },
+
+    warranty_start: { type: Date },
+    warranty_end: { type: Date },
+    // Khoảng thời gian bảo hành
+
+    current_mileage: { type: Number, default: 0 },
+    // Số km đã đi (cập nhật trong các lần bảo hành)
+
+    kilometer: { type: Number, default: 0 },
+    // Số km hiện tại (cập nhật khi khách hàng báo cáo)
+    // service_history: [
+    //   {
+    //     service_date: Date,
+    //     description: String,
+    //     technician_id: {
+    //       type: mongoose.Schema.Types.ObjectId,
+    //       ref: "Technician",
+    //     },
+    //     parts_used: [String],
+    //     cost: Number,
+    //   },
+    // ],
+    // Lịch sử bảo hành / sửa chữa (nếu có)
+    parts: {
+      type: [String],
+      default: [],
     },
-    current_mileage: {
-        type: Number,
-        default: 0,
-        min: 0
-    },
+
     status: {
-        type: String,
-        enum: ['active', 'sold', 'inactive', 'recalled'],
-        default: 'active'
+      type: String,
+      enum: ["active", "inactive", "warranty_expired"],
+      default: "active",
     },
-    notes: String
-}, {
-    timestamps: true
-});
-// Custom validator cho date range
-vehicleSchema.pre('validate', function (next) {
-    if (this.warranty_end && this.warranty_start && this.warranty_end <= this.warranty_start) {
-        next(new Error('warranty_end phải sau warranty_start'));
-    }
-    next();
-});
+  },
+  { timestamps: true }
+);
 
-// Index để tìm kiếm nhanh 
-vehicleSchema.index({ vin: 1 });
-vehicleSchema.index({ customer_id: 1 });
+const VehicleModel =
+  mongoose.models.Vehicle || mongoose.model("Vehicle", VehicleSchema);
 
-const Vehicle = model('Vehicle', vehicleSchema);
-
-export default Vehicle;
+export default VehicleModel;

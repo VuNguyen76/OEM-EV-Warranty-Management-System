@@ -1,5 +1,5 @@
-import { api } from "../../service/api";
-const centerApi = api.injectEndpoints({
+import { userApi } from "../../service/userApi";
+const centerApi = userApi.injectEndpoints({
   endpoints: (builder) => ({
     getAllCenters: builder.query({
       query: () => ({

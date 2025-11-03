@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 
 const createToken = (user) => {
   return jwt.sign(
-    { id: user._id, role: user.role, email: user.email },
+    { id: user._id, role: user.role, email: user.email, centerId: user.center_id },
     process.env.JWT_SECRET
   );
 };
@@ -12,7 +12,6 @@ const createToken = (user) => {
 class AuthController {
   static async login(req, res) {
     const { email, password } = req.body;
-console.log(email,password);
 
     const user = await UserModel.findOne({ email });
     if (!user) {

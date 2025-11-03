@@ -3,7 +3,7 @@ import { setCredentials, logout } from "../features/user/user.slice";
 
 // Define a service using a base URL and expected endpoints
 const baseQuery = fetchBaseQuery({
-  baseUrl: import.meta.env.VITE_API_BACKEND,
+  baseUrl: import.meta.env.VITE_USER_API,
   credentials: "include",
   prepareHeaders: (headers, { getState }) => {
     const token = getState().user.token;
@@ -14,9 +14,9 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
-export const api = createApi({
-  reducerPath: "api",
+export const userApi = createApi({
+  reducerPath: "userApi",
   baseQuery: baseQuery,
-  tagTypes: ["Auth, User, Center, Technician"],
+  tagTypes: ["Auth", "User", "Center", "Technician"],
   endpoints: (builder) => ({}),
 });

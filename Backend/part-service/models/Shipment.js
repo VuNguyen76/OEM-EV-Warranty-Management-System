@@ -6,7 +6,6 @@ const shipmentSchema = new Schema({
   shipment_code: {
     type: String,
     required: true,
-    unique: true,
     trim: true
   },
   claim_id: {

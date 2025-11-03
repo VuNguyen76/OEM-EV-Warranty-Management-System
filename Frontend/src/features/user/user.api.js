@@ -1,6 +1,6 @@
-import { api } from "../../service/api";
+import { userApi } from "../../service/userApi";
 
-const userApi = api.injectEndpoints({
+const extendedUserApi = userApi.injectEndpoints({
   endpoints: (builder) => ({
     getAllUsers: builder.query({
       query: () => ({
@@ -53,4 +53,4 @@ export const {
   useUpdateUserMutation,
   useDeleteUserMutation,
   useRegisterUserMutation,
-} = userApi;
+} = extendedUserApi;

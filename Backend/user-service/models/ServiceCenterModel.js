@@ -2,7 +2,7 @@ import { mongoose } from "mongoose";
 
 const serviceCenterSchema = new mongoose.Schema(
   {
-    user_id : {
+    user_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -21,6 +21,14 @@ const serviceCenterSchema = new mongoose.Schema(
     },
     address: {
       type: String,
+    },
+    claims: {
+      type: Number,
+      default: 0,
+    },
+    staffs: {
+      type: Number,
+      default: 0,
     },
     status: {
       type: String,

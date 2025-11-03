@@ -11,7 +11,7 @@ class serviceCenterController {
 
       const activeCenters = await serviceCenterModel
         .find()
-        .populate("user_id", "email status")
+        .populate("user_id", "email")
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 });
@@ -19,7 +19,7 @@ class serviceCenterController {
       const inactiveCenters = await UserModel.find({
         role: "sc_staff",
         status: "inactive",
-      }).select("Trạng thái xác thực email");
+      }).select("email status createdAt");
 
       const allCenters = [
         ...activeCenters.map((c) => ({
@@ -29,6 +29,8 @@ class serviceCenterController {
           phone: c.phone,
           address: c.address,
           email: c.user_id.email,
+          claims: c.claims,
+          staffs: c.staffs,
           status: "active",
           createdAt: c.createdAt,
         })),
@@ -39,6 +41,8 @@ class serviceCenterController {
           phone: null,
           address: null,
           email: u.email,
+          claims: null,
+          staffs: null,
           status: "inactive",
           createdAt: u.createdAt,
         })),
@@ -64,7 +68,9 @@ class serviceCenterController {
       const userRequest = req.user;
       if (
         userRequest.role !== "admin" &&
-        userRequest.center_id.toString() !== id.toString()
+        userRequest.role !== "evm_staff" &&
+        (!userRequest.center_id ||
+          userRequest.center_id.toString() !== id.toString())
       ) {
         return res.status(403).json({
           success: false,
@@ -94,6 +100,11 @@ class serviceCenterController {
     try {
       const { name, phone, address } = req.body;
       const user = await UserModel.findById(req.user.id);
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Trung tâm chưa được khởi tạo!" });
+      }
 
       if (user.center_id) {
         return res
@@ -107,7 +118,7 @@ class serviceCenterController {
         address,
       });
       await UserModel.findByIdAndUpdate(user._id, {
-        center_id: center.user._id,
+        center_id: center._id,
         status: "active",
       });
 
@@ -122,8 +133,6 @@ class serviceCenterController {
   }
 
   static async update(req, res) {
-    console.log(req.body);
-
     try {
       const updated = await serviceCenterModel.findByIdAndUpdate(
         req.params.id,
@@ -149,7 +158,6 @@ class serviceCenterController {
   static async delete(req, res) {
     try {
       const id = req.params.id;
-      console.log(id);
 
       const center = await serviceCenterModel.findById(id);
 

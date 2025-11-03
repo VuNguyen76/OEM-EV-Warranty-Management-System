@@ -5,19 +5,29 @@ import auth from "../../shared/middlewares/auth.js";
 
 const router = express.Router();
 
-//Route kiểm tra toàn bộ route đã đăng nhập
 router.use(auth);
-router.use(authorize(["admin", "evm_staff"]));
 
-router
-  .route("/")
-  .get(ServiceCenterController.getAll)
-  .post(ServiceCenterController.create);
+router.get(
+  "/",
+  authorize(["admin", "evm_staff"]),
+  ServiceCenterController.getAll
+);
+router.get(
+  "/:id",
+  authorize(["admin", "evm_staff", "sc_staff"]),
+  ServiceCenterController.getById
+);
+router.delete(
+  "/:id",
+  authorize(["admin", "evm_staff"]),
+  ServiceCenterController.delete
+);
 
-router
-  .route("/:id")
-  .get(ServiceCenterController.getById)
-  .put(ServiceCenterController.update)
-  .delete(ServiceCenterController.delete);
+router.post("/", authorize(["sc_staff"]), ServiceCenterController.create);
+router.put(
+  "/:id",
+  authorize(["sc_staff", "admin", "evm_staff"]),
+  ServiceCenterController.update
+);
 
 export default router;

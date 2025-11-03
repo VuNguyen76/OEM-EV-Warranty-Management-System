@@ -1,12 +1,15 @@
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { persistor } from "../app/store";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../features/user/user.slice";
+import { useGetCenterByIdQuery } from "../features/center/center.api";
 
 const Navbar = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  const { user } = useSelector((state) => state.user);
   const handleLogout = async () => {
     try {
       dispatch(logout());
@@ -26,8 +29,7 @@ const Navbar = () => {
         </Link>
         <div className="flex gap-4 items-center">
           <p className="text-gray-500">
-            Xin chào{" "}
-            <span className="font-bold text-black">Nguyễn Quốc Tính</span>
+            Xin chào, <span className="font-bold text-black">{user.email}</span>
           </p>
           <button
             onClick={handleLogout}

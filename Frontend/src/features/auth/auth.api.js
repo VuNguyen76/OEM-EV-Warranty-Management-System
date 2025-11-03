@@ -1,7 +1,7 @@
-import { api } from "../../service/api";
+import { userApi } from "../../service/userApi";
 import { setCredentials } from "../user/user.slice";
 import { jwtDecode } from "jwt-decode";
-const authApi = api.injectEndpoints({
+const authApi = userApi.injectEndpoints({
   endpoints: (builder) => ({
     login: builder.mutation({
       query: (data) => ({
@@ -15,6 +15,7 @@ const authApi = api.injectEndpoints({
           const { data: res } = await queryFulfilled;
           const token = res.data.token;
           const user = jwtDecode(token);
+
           dispatch(setCredentials({ user, token }));
         } catch (error) {
           console.log(error);

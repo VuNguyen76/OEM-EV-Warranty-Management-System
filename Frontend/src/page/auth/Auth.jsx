@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import navigateByRole from "../../utils/navigateByRole";
 import { jwtDecode } from "jwt-decode";
 const Auth = () => {
-  const [email, setEmail] = useState("tinh@gmail.com");
+  const [email, setEmail] = useState("sc@gmail.com");
   const [password, setPassword] = useState("Tinh123@");
   const navigate = useNavigate();
 

@@ -1,43 +1,26 @@
-class VehicleResponseDto {
-    constructor(data) {
-        this.id = data._id;
-        this.vin = data.vin;
-        this.brand = data.brand;
-        this.model = data.model;
-        this.manufacture_year = data.manufacture_year;
-        this.color = data.color;
-        this.battery_capacity = data.battery_capacity;
-        this.registration_number = data.registration_number;
-        this.warranty_start = data.warranty_start;
-        this.warranty_end = data.warranty_end;
-        this.warranty_status = data.warranty_status;
-        this.current_mileage = data.current_mileage;
-        this.status = data.status;
-        this.notes = data.notes;
-        this.created_at = data.createdAt;
-        this.updated_at = data.updatedAt;
-    }
+export default class VehicleResponseDto {
+  constructor(vehicle) {
+    this.id = vehicle._id;
 
-    toJSON() {
-        return {
-            id: this.id,
-            vin: this.vin,
-            brand: this.brand,
-            model: this.model,
-            manufacture_year: this.manufacture_year,
-            color: this.color,
-            battery_capacity: this.battery_capacity,
-            registration_number: this.registration_number,
-            warranty_start: this.warranty_start,
-            warranty_end: this.warranty_end,
-            warranty_status: this.warranty_status,
-            current_mileage: this.current_mileage,
-            status: this.status,
-            notes: this.notes,
-            created_at: this.created_at,
-            updated_at: this.updated_at
-        };
-    }
+    // VIN info (đã populate)
+    this.vin = vehicle.vin_id?.vin || null;
+    this.manufacturer = vehicle.vin_id?.manufacturer || null;
+    this.modelYear = vehicle.vin_id?.modelYear || null;
+
+    // Customer info (đã populate)
+    this.customer_name = vehicle.customer_id?.full_name || null;
+    this.customer_phone = vehicle.customer_id?.phone || null;
+    this.customer_email = vehicle.customer_id?.email || null;
+
+    // Các trường khác
+    this.center_id = vehicle.center_id;
+    this.registration_number = vehicle.registration_number;
+    this.brand = vehicle.brand;
+    this.model = vehicle.model;
+    this.color = vehicle.color;
+    this.manufacture_year = vehicle.manufacture_year;
+    this.warranty_start = vehicle.warranty_start;
+    this.warranty_end = vehicle.warranty_end;
+    this.status = vehicle.status;
+  }
 }
-
-export default VehicleResponseDto;

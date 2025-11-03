@@ -4,7 +4,7 @@
  */
 class PartServiceClient {
     constructor() {
-        this.baseURL = process.env.PART_SERVICE_URL || 'http://localhost:3001';
+        this.baseURL = process.env.PART_SERVICE_URL || 'http://localhost:3004';
     }
 
     /**

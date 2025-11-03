@@ -62,7 +62,6 @@ export default function ServiceCenterManagement() {
       [name]: value,
     }));
   }
-  console.log(editData);
 
   async function handleEditCenter() {
     try {
@@ -71,6 +70,7 @@ export default function ServiceCenterManagement() {
         id: editData.user_id,
         data: {
           email: editData.email,
+          status: editData.status,
         },
       }).unwrap();
 
@@ -137,6 +137,8 @@ export default function ServiceCenterManagement() {
           (c?.address?.toLowerCase() || "").includes(searchTerm.toLowerCase())
         );
       });
+      console.log(result);
+      
 
       setFiltered(result);
     }
@@ -214,7 +216,7 @@ export default function ServiceCenterManagement() {
                   </span>
                 </td>
                 <td className="py-2 px-4 text-center">{c.claims}</td>
-                <td className="py-2 px-4 text-center">{c.technicians}</td>
+                <td className="py-2 px-4 text-center">{c.staffs}</td>
                 <td className="py-2 px-4 text-center">
                   <div className="flex justify-center gap-3 cursor-pointer">
                     <button
@@ -222,7 +224,7 @@ export default function ServiceCenterManagement() {
                         setEditData(c);
                         setIsEditOpen(true);
                       }}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600 hover:underline text-sm cursor-pointer"
                     >
                       <i className="fa-regular fa-pen-to-square mr-1"></i>
                     </button>
@@ -284,7 +286,7 @@ export default function ServiceCenterManagement() {
               </div>
               <button
                 onClick={handleAddCenter}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md text-sm mt-2"
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md text-sm mt-2 cursor-pointer"
               >
                 Thêm Trung tâm
               </button>
@@ -360,25 +362,12 @@ export default function ServiceCenterManagement() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm mb-1 text-gray-700">
-                  Trạng thái
-                </label>
-                <select
-                  name="status" // thêm dòng này
-                  value={editData.status}
-                  onChange={handleChangeEditData}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                >
-                  <option value="active">Hoạt động</option>
-                  <option value="inactive">Không hoạt động</option>
-                </select>
-              </div>
+              
             </div>
 
             <button
               onClick={handleEditCenter}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md text-sm"
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md text-sm cursor-pointer"
             >
               Cập nhật
             </button>
