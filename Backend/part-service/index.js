@@ -5,7 +5,7 @@ import connectDB from "./config/database.js";
 import partRoutes from "./routes/partRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
 import shipmentRoutes from "./routes/shipmentRoutes.js";
-
+import partCatalogRoutes from "./routes/partCatalogRoute.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -53,6 +53,7 @@ app.get("/health", async (req, res) => {
 });
 
 app.use("/api/parts", partRoutes);
+app.use("/api/part-catalog", partCatalogRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/shipments", shipmentRoutes);
 

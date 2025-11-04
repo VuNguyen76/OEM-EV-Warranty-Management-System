@@ -13,7 +13,7 @@ class CustomerResponseDto {
     }
     toJSON() {
         return {
-            id: this.id,
+            _id: this.id,
             full_name: this.full_name,
             phone: this.phone,
             email: this.email,

@@ -3,10 +3,11 @@ class WarrantyClaimResponseDto {
         this.id = data._id;
         this.claim_code = data.claim_code;
         this.vin = data.vin;
-        this.part_serial = data.part_serial;
+        this.vehicle = data.vehicle;
+        this.parts = data.parts || [];
         this.policy_id = data.policy_id;
         this.issue_description = data.issue_description;
-        this.diagnostic_report_url = data.diagnostic_report_url;
+        this.images = data.images || [];
         this.service_center_id = data.service_center_id;
         this.technician_id = data.technician_id;
         this.submitted_by = data.submitted_by;
@@ -18,7 +19,6 @@ class WarrantyClaimResponseDto {
         this.estimated_cost = data.estimated_cost;
         this.actual_cost = data.actual_cost;
         this.repair_order_id = data.repair_order_id;
-        this.attachments = data.attachments;
         this.created_at = data.createdAt;
         this.updated_at = data.updatedAt;
     }
@@ -28,10 +28,16 @@ class WarrantyClaimResponseDto {
             id: this.id,
             claim_code: this.claim_code,
             vin: this.vin,
-            part_serial: this.part_serial,
+            vehicle: this.vehicle,
+            parts: this.parts,
             policy_id: this.policy_id,
             issue_description: this.issue_description,
-            diagnostic_report_url: this.diagnostic_report_url,
+            images: this.images.map(img => ({
+                filename: img.filename,
+                path: img.path,
+                url: `/uploads/images/${img.filename}`,
+                uploaded_at: img.uploaded_at
+            })),
             service_center_id: this.service_center_id,
             technician_id: this.technician_id,
             submitted_by: this.submitted_by,
@@ -43,7 +49,6 @@ class WarrantyClaimResponseDto {
             estimated_cost: this.estimated_cost,
             actual_cost: this.actual_cost,
             repair_order_id: this.repair_order_id,
-            attachments: this.attachments,
             created_at: this.created_at,
             updated_at: this.updated_at
         };

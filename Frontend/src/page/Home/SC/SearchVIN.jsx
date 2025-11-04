@@ -2,50 +2,42 @@ import React, { useState } from "react";
 import Title from "../../../components/Title";
 import Loading from "../../../components/Loading";
 import { Link, useNavigate } from "react-router-dom";
-
-const vehicles = [
-  {
-    vin: "5YJ3E1EA4KF123456",
-    brand: "VinFast",
-    model: "VF8",
-    year: 2023,
-    color: "Pearl White",
-    kilometers: 15000,
-    warrantyStatus: "Còn hiệu lực",
-    warrantyExpiry: "2026-03-15",
-    customer: {
-      name: "Nguyễn Văn An",
-      phone: "0987654321",
-      email: "nguyenvanan@email.com",
-    },
-  },
-];
+import { useGetAllVehiclesQuery } from "../../../features/vehicle/vehicle.api";
+import { useDispatch, useSelector } from "react-redux";
+import { setSearchResult } from "../../../features/warranty/warranty.slice";
 
 const SearchVIN = () => {
-  const [vin, setVin] = useState("5YJ3E1EA4KF123456");
-  const [result, setResult] = useState(null);
+  const [vin, setVin] = useState("1HGCM82633A004352");
   const [status, setStatus] = useState("idle");
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const { data: vehicles, isLoading } = useGetAllVehiclesQuery();
+  const { searchResult: result } = useSelector((state) => state.warranty);
 
   const handleSearch = () => {
     if (!vin.trim()) return;
     setStatus("loading");
-    setTimeout(() => {
-      const found = vehicles.find(
-        (v) => v.vin.toLowerCase() === vin.toLowerCase().trim()
-      );
-      if (found) {
-        setResult(found);
-        setStatus("success");
-      } else {
-        setResult(null);
-        setStatus("not_found");
-      }
-    }, 500);
+    const found = vehicles.find(
+      (v) => v.vin.toLowerCase() === vin.toLowerCase().trim()
+    );
+    if (found) {
+      dispatch(setSearchResult(found));
+      localStorage.setItem("result", JSON.stringify(found));
+      setStatus("success");
+    } else {
+      dispatch(setSearchResult(null));
+      setStatus("not_found");
+    }
+  };
+  const warrantyStatus = (warranty_end) => {
+    const now = new Date();
+    const endDate = new Date(warranty_end);
+    return endDate >= now ? "Còn hiệu lực" : "Hết hạn";
   };
 
   function handleConfirm() {
-    navigate("/sc/create-claim", { state: { vin: vin } });
+    navigate("/sc_staff/create-claim", { state: { vin: vin } });
   }
 
   return (
@@ -74,7 +66,10 @@ const SearchVIN = () => {
           />
           <button
             onClick={handleSearch}
-            className="bg-green-500 text-white px-4 py-2 space-x-2 rounded-lg hover:bg-green-600 cursor-pointer"
+            className={`bg-green-500 text-white px-4 py-2 space-x-2 rounded-lg hover:bg-green-600 ${
+              isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+            }`}
+            disabled={isLoading}
           >
             <i className="fa-solid fa-magnifying-glass"></i>
             <span>Tìm kiếm</span>
@@ -93,7 +88,7 @@ const SearchVIN = () => {
           <p className="text-center text-gray-500">
             Vui lòng Kiểm tra lại VIN hoặc
             <Link
-              to={"/sc/register-vin"}
+              to={"/sc_staff/register-vin"}
               className="text-green-500 font-semibold"
             >
               {" "}
@@ -111,8 +106,18 @@ const SearchVIN = () => {
               <Title title="Thông tin xe" />
               <div className="grid grid-cols-2 gap-5">
                 <div>
+                  <p className="text-gray-500">VIN</p>
+                  <p className="font-semibold">{result.vin}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Biển số xe</p>
+                  <p className="font-semibold">{result.registration_number}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-5">
+                <div>
                   <p className="text-gray-500">Hãng xe</p>
-                  <p className="font-semibold">{result.brand}</p>
+                  <p className="font-semibold">{result.manufacturer}</p>
                 </div>
                 <div>
                   <p className="text-gray-500">Mẫu xe</p>
@@ -122,7 +127,7 @@ const SearchVIN = () => {
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <p className="text-gray-500">Năm sản xuất</p>
-                  <p className="font-semibold">{result.year}</p>
+                  <p className="font-semibold">{result.modelYear}</p>
                 </div>
                 <div>
                   <p className="text-gray-500">Màu sắc</p>
@@ -133,21 +138,21 @@ const SearchVIN = () => {
                 <i className="fa-regular fa-clock"></i>
                 <span> Số km đã đi: </span>
                 <span className="text-xl text-black font-semibold">
-                  {result.kilometers.toLocaleString()} km
+                  {result.kilometer.toLocaleString()} km
                 </span>
               </p>
               <p className="text-gray-500">
                 <i className="fa-solid fa-shield-halved"></i>
                 <span> Trạng thái bảo hành: </span>
                 <span className="px-2 py-1 bg-green-600 text-white rounded-full text-sm font-semibold">
-                  {result.warrantyStatus}
+                  {warrantyStatus(result.warranty_end)}
                 </span>
               </p>
               <p className="text-gray-500">
                 <i className="fa-solid fa-table"></i>
                 <span> Hết hạn bảo hành: </span>
                 <span className="text-black font-semibold">
-                  {result.warrantyExpiry}
+                  {new Date(result.warranty_end).toLocaleDateString("vi-VN")}
                 </span>
               </p>
             </div>
@@ -157,20 +162,27 @@ const SearchVIN = () => {
               <Title title="Thông tin khách hàng" />
               <div>
                 <p className="text-gray-500">Họ tên</p>
-                <p className="font-semibold">{result.customer.name}</p>
+                <p className="text-xl font-semibold">{result.customer_name}</p>
               </div>
               <p className="text-gray-500">
                 <i className="fa-solid fa-phone"></i>
                 <span> Số điện thoại: </span>
-                <span className="text-xl text-black font-semibold">
-                  {result.customer.phone}
+                <span className=" text-black font-semibold">
+                  {result.customer_phone}
+                </span>
+              </p>
+              <p className="text-gray-500">
+                <i className="fa-solid fa-location-dot"></i>
+                <span> Địa chỉ: </span>
+                <span className=" text-black font-semibold">
+                  {result.customer_address}
                 </span>
               </p>
               <p className="text-gray-500">
                 <i className="fa-solid fa-envelope"></i>
                 <span> Email: </span>
                 <span className="text-black font-semibold">
-                  {result.customer.email}
+                  {result.customer_email}
                 </span>
               </p>
             </div>

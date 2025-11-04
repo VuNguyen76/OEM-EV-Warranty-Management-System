@@ -41,8 +41,12 @@ const VinSchema = new mongoose.Schema(
 
     modelYear: { type: Number },
     // Năm sản xuất thực tế (giải mã từ modelYearCode hoặc nhập thủ công)
-    customer_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  status: { type: String, enum: ["unregistered","registered","in_service"], default: "unregistered" },
+    customer_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    status: { type: String, enum: ["active", "inactive"], default: "inactive" },
   },
   {
     timestamps: true,

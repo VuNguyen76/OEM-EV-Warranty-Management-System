@@ -43,6 +43,21 @@ class PartServiceClient {
     }
 
     /**
+     * Lấy danh sách phụ tùng của xe
+     */
+    async getPartByVehicle(vehicle_id) {
+        try {
+            const response = await fetch(`${this.baseURL}/api/parts/vehicle/${vehicle_id}`);
+            const data = await response.json();
+
+            return data.success ? data.data : [];
+        } catch (error) {
+            console.error('Error getting parts by vehicle:', error.message);
+            return [];
+        }
+    }
+
+    /**
      * Tìm kiếm phụ tùng
      */
     async searchParts(keyword) {

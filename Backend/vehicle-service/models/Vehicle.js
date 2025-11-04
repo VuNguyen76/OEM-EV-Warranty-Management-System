@@ -33,13 +33,24 @@ const VehicleSchema = new mongoose.Schema(
     },
     // Biển số xe (có thể cập nhật sau khi khách hàng đăng ký xe)
 
-    brand: { type: String },
     model: { type: String },
     color: { type: String },
-    manufacture_year: { type: Number },
 
-    warranty_start: { type: Date },
-    warranty_end: { type: Date },
+    warranty_start: {
+      type: Date,
+      default: () => new Date(), // luôn lấy thời điểm thực tế
+    },
+    warranty_end: {
+      type: Date,
+      default: function () {
+        const start = this.warranty_start
+          ? new Date(this.warranty_start)
+          : new Date();
+        const end = new Date(start);
+        end.setFullYear(end.getFullYear() + 1);
+        return end;
+      },
+    },
     // Khoảng thời gian bảo hành
 
     current_mileage: { type: Number, default: 0 },
@@ -47,18 +58,13 @@ const VehicleSchema = new mongoose.Schema(
 
     kilometer: { type: Number, default: 0 },
     // Số km hiện tại (cập nhật khi khách hàng báo cáo)
-    // service_history: [
-    //   {
-    //     service_date: Date,
-    //     description: String,
-    //     technician_id: {
-    //       type: mongoose.Schema.Types.ObjectId,
-    //       ref: "Technician",
-    //     },
-    //     parts_used: [String],
-    //     cost: Number,
-    //   },
-    // ],
+    service_history: [
+      {
+        service_date: Date,
+        description: String,
+        cost: Number,
+      },
+    ],
     // Lịch sử bảo hành / sửa chữa (nếu có)
     parts: {
       type: [String],

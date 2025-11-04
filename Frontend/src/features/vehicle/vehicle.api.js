@@ -49,6 +49,52 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
       }),
       invalidatesTags: ["Vehicle"],
     }),
+
+    // GET ALL VINS
+    getAllVins: builder.query({
+      query: () => ({
+        url: "vins",
+        method: "GET",
+      }),
+      transformResponse: (response) => response.data,
+      providesTags: ["Vehicle"],
+    }),
+
+    // GET ALL CUSTOMERS
+    getAllCustomers: builder.query({
+      query: () => ({
+        url: "customers",
+        method: "GET",
+      }),
+      transformResponse: (response) => response.data,
+      providesTags: ["Vehicle"],
+    }),
+
+    createCustomer: builder.mutation({
+      query: (data) => ({
+        url: "customers",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Vehicle"],
+    }),
+
+    updateCustomer: builder.mutation({
+      query: ({ id, data }) => ({
+        url: `customers/${id}`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: ["Vehicle"],
+    }),
+
+    deleteCustomer: builder.mutation({
+      query: (id) => ({
+        url: `customers/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Vehicle"],
+    }),
   }),
 });
 
@@ -58,4 +104,9 @@ export const {
   useCreateVehicleMutation,
   useUpdateVehicleMutation,
   useDeleteVehicleMutation,
+  useGetAllVinsQuery,
+  useGetAllCustomersQuery,
+  useUpdateCustomerMutation,
+  useCreateCustomerMutation,
+  useDeleteCustomerMutation,
 } = extendedVehicleApi;

@@ -7,7 +7,6 @@ const warrantyCostsSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'WarrantyClaim',
         required: true,
-        unique: true
     },
     part_cost: {
         type: Number,

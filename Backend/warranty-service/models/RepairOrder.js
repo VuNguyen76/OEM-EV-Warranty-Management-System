@@ -6,7 +6,6 @@ const repairOrderSchema = new Schema({
     order_code: {
         type: String,
         required: true,
-        unique: true,
         trim: true
     },
     claim_id: {
@@ -14,10 +13,33 @@ const repairOrderSchema = new Schema({
         ref: 'WarrantyClaim',
         required: true
     },
-    part_id: {
-        type: String,
-        ref: 'Parts'
-    },
+    parts: [
+        {
+            part_id: {
+                type: String,
+                required: true,
+                trim: true
+            },
+            part_serial: {
+                type: String,
+                trim: true
+            },
+            part_name: {
+                type: String,
+                trim: true
+            },
+            quantity: {
+                type: Number,
+                default: 1,
+                min: 1
+            },
+            status: {
+                type: String,
+                enum: ['ordered', 'received', 'installed'],
+                default: 'ordered'
+            }
+        }
+    ],
     repair_description: {
         type: String,
         trim: true

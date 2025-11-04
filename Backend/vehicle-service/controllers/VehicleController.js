@@ -7,6 +7,8 @@ import VehicleResponseDto from "../models/dto/response/VehicleResponse.js";
 import SearchDto from "../models/dto/request/SearchDto.js";
 import WarrantyServiceClient from "../utils/WarrantyServiceClient.js";
 import PartsAttached from "../models/PartsAttached.js";
+import PartServiceClient from "../utils/PartServiceClient.js";
+import mongoose from "mongoose";
 
 class VehicleController {
   static async getAllVehicles(req, res) {
@@ -17,12 +19,20 @@ class VehicleController {
 
       const vehicles = await VehicleModel.find(query)
         .populate("vin_id", "vin manufacturer modelYear")
-        .populate("customer_id", "full_name phone email")
+        .populate("customer_id", "full_name phone email address")
         .sort(pagination.sort)
         .skip(pagination.skip)
         .limit(pagination.limit);
-
-      const responseData = vehicles.map((v) => new VehicleResponseDto(v));
+      const vehiclesParts = await Promise.all(
+        vehicles.map(async (v) => {
+          const partDetails = await PartServiceClient.getPartByVehicle(v._id);
+          return {
+            ...v.toObject(),
+            parts: partDetails,
+          };
+        })
+      );
+      const responseData = vehiclesParts.map((v) => new VehicleResponseDto(v));
 
       res.status(200).json({
         success: true,
@@ -44,7 +54,7 @@ class VehicleController {
   static async createVehicle(req, res) {
     try {
       const user = req.user;
-      const vehicleData = { ...req.body, center_id: user.center_id };
+      const vehicleData = { ...req.body, center_id: user.centerId };
 
       // Validate input
       const createDto = new CreateVehicleDto(vehicleData);
@@ -78,10 +88,15 @@ class VehicleController {
       const newVehicle = new VehicleModel(createDto.toModel());
       await newVehicle.save();
 
-      //  Cập nhật trạng thái VIN
-      vinRecord.status = "registered";
-      vinRecord.customer_id = newVehicle.customer_id;
-      await vinRecord.save();
+      //  Cập nhật trạng thái VIN - sử dụng findByIdAndUpdate để tránh lỗi date casting
+      await VinModel.findByIdAndUpdate(
+        createDto.vin_id,
+        {
+          status: "active",
+          customer_id: newVehicle.customer_id,
+        },
+        { new: true, runValidators: true }
+      );
 
       //  Response
       const responseDto = new VehicleResponseDto(newVehicle);
@@ -196,28 +211,21 @@ class VehicleController {
 
   static async searchVehicles(req, res) {
     try {
-      const searchDto = new SearchDto(req.query);
-
-      if (!searchDto.q) {
-        return res.status(400).json({
-          success: false,
-          message: "Thiếu từ khóa tìm kiếm",
-        });
+      const vin = await VinModel.findOne({ vin: req.query.q }); // tuỳ tên field
+      if (!vin) {
+        return res.status(404).json({ message: "Không tìm thấy VIN" });
       }
 
-      const query = searchDto.getMongoQuery();
-      const vehicles = await VehicleModel.find(query)
-        .populate("customer_id", "full_name phone")
-        .sort({ createdAt: -1 });
+      console.log("VIN found:", vin._id);
 
-      const responseData = vehicles.map(
-        (vehicle) => new VehicleResponseDto(vehicle)
-      );
+      const vehicle = await VehicleModel.findOne({ vin_id: vin._id })
+        .populate("vin_id", "vin")
+        .populate("customer_id", "full_name phone");
 
+      console.log("Vehicle found:", vehicle);
       res.json({
         success: true,
-        data: responseData,
-        count: responseData.length,
+        data: vehicle,
       });
     } catch (error) {
       res.status(500).json({

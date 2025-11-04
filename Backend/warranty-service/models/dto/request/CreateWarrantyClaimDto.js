@@ -1,24 +1,34 @@
 class CreateWarrantyClaimDto {
     constructor(data) {
         this.vin = data.vin?.trim();
-        this.part_serial = data.part_serial?.trim();
+        this.parts = Array.isArray(data.parts) ? data.parts : [];
         this.policy_id = data.policy_id;
         this.issue_description = data.issue_description?.trim();
-        this.diagnostic_report_url = data.diagnostic_report_url?.trim();
-        this.service_center_id = data.service_center_id;
         this.technician_id = data.technician_id;
         this.submitted_by = data.submitted_by;
         this.estimated_cost = data.estimated_cost || 0;
-        this.attachments = data.attachments || [];
     }
 
     validate() {
         const errors = [];
 
         if (!this.vin) errors.push('Thiếu VIN xe');
-        if (!this.part_serial) errors.push('Thiếu số seri phụ tùng');
+        if (!Array.isArray(this.parts) || this.parts.length === 0) {
+            errors.push('Thiếu thông tin phụ tùng cần thay thế');
+        } else {
+            this.parts.forEach((part, index) => {
+                if (!part.part_id) {
+                    errors.push(`Phụ tùng thứ ${index + 1}: Thiếu part_id`);
+                }
+                if (!part.part_serial) {
+                    errors.push(`Phụ tùng thứ ${index + 1}: Thiếu part_serial`);
+                }
+                if (part.quantity && (part.quantity < 1 || !Number.isInteger(part.quantity))) {
+                    errors.push(`Phụ tùng thứ ${index + 1}: Số lượng không hợp lệ`);
+                }
+            });
+        }
         if (!this.issue_description) errors.push('Thiếu mô tả vấn đề');
-        if (!this.service_center_id) errors.push('Thiếu mã trung tâm dịch vụ');
         if (!this.submitted_by) errors.push('Thiếu thông tin người tạo yêu cầu');
 
         // VIN format validation
@@ -33,16 +43,19 @@ class CreateWarrantyClaimDto {
     toModel() {
         return {
             vin: this.vin,
-            part_serial: this.part_serial,
+            parts: this.parts.map(part => ({
+                part_id: part.part_id?.trim(),
+                part_serial: part.part_serial?.trim(),
+                part_name: part.part_name?.trim(),
+                quantity: part.quantity || 1,
+            })),
             policy_id: this.policy_id,
             issue_description: this.issue_description,
-            diagnostic_report_url: this.diagnostic_report_url,
             service_center_id: this.service_center_id,
             technician_id: this.technician_id,
             submitted_by: this.submitted_by,
             submitted_at: new Date(),
             estimated_cost: this.estimated_cost,
-            attachments: this.attachments,
             status: 'submitted'
         };
     }

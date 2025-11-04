@@ -72,8 +72,8 @@ class RepairOrderController {
             const { id } = req.params;
 
             const repairOrder = await RepairOrder.findById(id)
-                .populate('claim_id', 'claim_code vin service_center_id technician_id actual_cost status');
-            // Note: part_id is in Vehicle Service DB, cannot populate cross-database
+                .populate('claim_id', 'claim_code vin service_center_id technician_id actual_cost status parts');
+            // Note: parts information is stored in the repair order itself
 
             if (!repairOrder) {
                 return res.status(404).json({
@@ -85,7 +85,7 @@ class RepairOrderController {
             const responseDto = new RepairOrderResponseDto(repairOrder);
             res.json({
                 success: true,
-                data: responseDto
+                data: responseDto.toJSON()
             });
         } catch (error) {
             res.status(500).json({
@@ -113,6 +113,7 @@ class RepairOrderController {
                 claim_code: order.claim_id?.claim_code,
                 vin: order.claim_id?.vin,
                 status: order.status,
+                parts_count: order.parts ? order.parts.length : 0,
                 start_date: order.start_date,
                 end_date: order.end_date
             }));

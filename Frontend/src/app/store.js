@@ -5,6 +5,9 @@ import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 import { userApi } from "../service/userApi";
 import { vehicleApi } from "../service/vehicleApi";
+import { partApi } from "../service/partApi";
+import { warrantyApi } from "../service/warrantyApi";
+import warrantySlice from "../features/warranty/warranty.slice";
 
 const persistConfig = {
   key: "root",
@@ -18,16 +21,20 @@ export const store = configureStore({
   reducer: {
     [userApi.reducerPath]: userApi.reducer,
     [vehicleApi.reducerPath]: vehicleApi.reducer,
+    [partApi.reducerPath]: partApi.reducer,
+    [warrantyApi.reducerPath]: warrantyApi.reducer,
     user: persistedUserReducer,
     ui: uiSlice,
+    warranty: warrantySlice,
   },
 
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({ serializableCheck: false }).concat(
       userApi.middleware,
-      vehicleApi.middleware
+      vehicleApi.middleware,
+      partApi.middleware,
+      warrantyApi.middleware
     ),
-
 });
 
 export const persistor = persistStore(store);

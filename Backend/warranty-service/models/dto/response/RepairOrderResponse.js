@@ -3,7 +3,7 @@ class RepairOrderResponseDto {
         this.id = data._id;
         this.order_code = data.order_code;
         this.claim_id = data.claim_id;
-        this.part_id = data.part_id;
+        this.parts = data.parts || [];
         this.repair_description = data.repair_description;
         this.start_date = data.start_date;
         this.end_date = data.end_date;
@@ -23,16 +23,6 @@ class RepairOrderResponseDto {
                 status: data.claim_id.status
             };
         }
-
-        // Handle populated part
-        if (typeof data.part_id === 'object' && data.part_id !== null) {
-            this.part = {
-                part_id: data.part_id.part_id || data.part_id._id,
-                part_name: data.part_id.part_name,
-                category: data.part_id.category,
-                manufacturer: data.part_id.manufacturer
-            };
-        }
     }
 
     toJSON() {
@@ -40,7 +30,7 @@ class RepairOrderResponseDto {
             id: this.id,
             order_code: this.order_code,
             claim: this.claim || { claim_id: this.claim_id },
-            part: this.part || { part_id: this.part_id },
+            parts: this.parts,
             repair_description: this.repair_description,
             start_date: this.start_date,
             end_date: this.end_date,

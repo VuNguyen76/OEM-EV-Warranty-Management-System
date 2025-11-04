@@ -9,7 +9,9 @@ class VinController {
   // [GET] /api/vins
   static async getAll(req, res) {
     try {
-      const vins = await VinModel.find().sort({ createdAt: -1 });
+      const vins = await VinModel.find({ status: "inactive" }).sort({
+        createdAt: -1,
+      });
       res.status(200).json({
         success: true,
         message: "Lấy danh sách VIN thành công",

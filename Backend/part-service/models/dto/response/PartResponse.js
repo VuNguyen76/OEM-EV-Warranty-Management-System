@@ -1,41 +1,48 @@
 class PartResponseDto {
-    constructor(data) {
-        this.id = data._id;
-        this.part_id = data.part_id;
-        this.name = data.name;
-        this.category = data.category;
-        this.manufacturer = data.manufacturer;
-        this.model_compatible = data.model_compatible;
-        this.warranty_policy_code = data.warranty_policy_code;
-        this.cost_price = data.cost_price;
-        this.weight_kg = data.weight_kg;
-        this.dimensions = data.dimensions;
-        this.description = data.description;
-        this.image_url = data.image_url;
-        this.status = data.status;
-        this.created_at = data.created_at;
-        this.updated_at = data.updated_at;
-    }
+  constructor(data) {
+    this.id = data._id;
+    this.serial_number = data.serial_number;
+    this.vehicle_id = data.vehicle_id ?? null;
+    this.install_date = data.install_date || null;
+    this.warranty_end = data.warranty_end || null;
+    this.status = data.status;
+    this.createdAt = data.createdAt;
+    this.updatedAt = data.updatedAt;
 
-    toJSON() {
-        return {
-            id: this.id,
-            part_id: this.part_id,
-            name: this.name,
-            category: this.category,
-            manufacturer: this.manufacturer,
-            model_compatible: this.model_compatible,
-            warranty_policy_code: this.warranty_policy_code,
-            cost_price: this.cost_price,
-            weight_kg: this.weight_kg,
-            dimensions: this.dimensions,
-            description: this.description,
-            image_url: this.image_url,
-            status: this.status,
-            created_at: this.created_at,
-            updated_at: this.updated_at
-        };
+    const pc = data.part_catalog_id;
+    if (pc && typeof pc === "object" && pc._id) {
+      this.part_catalog = {
+        id: pc._id,
+        name: pc.name,
+        category: pc.category,
+        manufacturer: pc.manufacturer,
+        model_code: pc.model_code,
+        cost_price: pc.cost_price,
+        weight_kg: pc.weight_kg,
+      };
+    } else {
+      this.part_catalog = pc ? { id: pc.toString ? pc.toString() : pc } : null;
     }
+  }
+
+  toJSON() {
+    return {
+      _id: this.id,
+      serial_number: this.serial_number,
+      vehicle_id: this.vehicle_id,
+      install_date: this.install_date,
+      warranty_end: this.warranty_end,
+      status: this.status,
+      part_name: this.part_catalog.name,
+      part_category: this.part_catalog.category,
+      part_manufacturer: this.part_catalog.manufacturer,
+      part_model_code: this.part_catalog.model_code,
+      part_cost_price: this.part_catalog.cost_price,
+      part_weight_kg: this.part_catalog.weight_kg,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+    };
+  }
 }
 
 export default PartResponseDto;
