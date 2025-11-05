@@ -9,6 +9,7 @@ import {
   useGetAllCustomersQuery,
   useGetAllVehiclesQuery,
   useGetAllVinsQuery,
+  useUpdateVehicleMutation,
 } from "../../../features/vehicle/vehicle.api";
 import { useCreateVehicleMutation } from "../../../features/vehicle/vehicle.api";
 import { toast } from "react-toastify";
@@ -54,6 +55,8 @@ const RegisterVIN = () => {
     useCreateVehicleMutation();
   const [addPartMutation, { isLoading: isLoadingAddPart }] =
     useAddPartToVehicleMutation();
+  const [updateVehicleMutation, { isLoading: isLoadingUpdateVehicle }] =
+    useUpdateVehicleMutation();
 
   const handleAddVehicle = async () => {
     try {
@@ -386,7 +389,7 @@ const RegisterVIN = () => {
                     onChange={(e) => setPartType(e.target.value)}
                     className="w-full outline-none px-4 py-2 border border-gray-300 rounded-xl bg-white text-gray-700 cursor-pointer focus:ring-2 focus:ring-green-500"
                   >
-                    <option value={""} disabled selected>
+                    <option defaultValue={""} disabled selected>
                       Chọn phụ tùng
                     </option>
                     {partCatalogs.map((part) => (

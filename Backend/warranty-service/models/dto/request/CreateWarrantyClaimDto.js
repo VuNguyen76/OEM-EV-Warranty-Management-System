@@ -7,6 +7,8 @@ class CreateWarrantyClaimDto {
         this.technician_id = data.technician_id;
         this.submitted_by = data.submitted_by;
         this.estimated_cost = data.estimated_cost || 0;
+        this.center_id = data.center_id;
+        this.part_cost = data.part_cost || 0;
     }
 
     validate() {
@@ -49,9 +51,10 @@ class CreateWarrantyClaimDto {
                 part_name: part.part_name?.trim(),
                 quantity: part.quantity || 1,
             })),
+            part_cost: this.part_cost,
+            center_id: this.center_id,
             policy_id: this.policy_id,
             issue_description: this.issue_description,
-            service_center_id: this.service_center_id,
             technician_id: this.technician_id,
             submitted_by: this.submitted_by,
             submitted_at: new Date(),

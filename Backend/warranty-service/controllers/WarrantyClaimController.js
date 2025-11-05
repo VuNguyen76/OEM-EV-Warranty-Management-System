@@ -60,6 +60,9 @@ class WarrantyClaimController {
           uploaded_at: new Date(),
         }));
       }
+      console.log("body ", bodyData);
+
+      console.log(modelData);
 
       const claim = new WarrantyClaim(modelData);
       await claim.save();

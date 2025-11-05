@@ -216,16 +216,11 @@ class VehicleController {
         return res.status(404).json({ message: "Không tìm thấy VIN" });
       }
 
-      console.log("VIN found:", vin._id);
+      const vehicle = await VehicleModel.findOne({ vin_id: vin._id });
 
-      const vehicle = await VehicleModel.findOne({ vin_id: vin._id })
-        .populate("vin_id", "vin")
-        .populate("customer_id", "full_name phone");
-
-      console.log("Vehicle found:", vehicle);
       res.json({
         success: true,
-        data: vehicle,
+        vehicle,
       });
     } catch (error) {
       res.status(500).json({

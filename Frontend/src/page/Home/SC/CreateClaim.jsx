@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import warrantyStatus from "../../../utils/warrantyStatus";
 import Loading from "../../../components/Loading";
 import { useCreateClaimMutation } from "../../../features/warranty/warranty.api";
+import { toast } from "react-toastify";
 
 const CreateClaim = () => {
   const [description, setDescription] = useState("");
@@ -13,9 +14,10 @@ const CreateClaim = () => {
   const [imagePreviews, setImagePreviews] = useState([]); // Lưu URL preview
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const navigate = useNavigate();  
 
   const { searchResult: result } = useSelector((state) => state.warranty);
+
   const { user } = useSelector((state) => state.user);
   const [createClaim, { isLoading: isCreatingClaim }] =
     useCreateClaimMutation();
@@ -33,7 +35,7 @@ const CreateClaim = () => {
   // Xử lý chọn/bỏ chọn part
   const handlePartToggle = (part) => {
     setSelectedParts((prev) => {
-      const partSerial = part.serial_number || part.serial || "";
+      const partSerial = part.serial_number;
       const exists = prev.find((p) => p.part_serial === partSerial);
 
       if (exists) {
@@ -44,9 +46,10 @@ const CreateClaim = () => {
         return [
           ...prev,
           {
-            part_id: part.part_id || part.id || `PART-${partSerial}`, // Nếu không có part_id, tạo từ serial
+            part_id: part._id,
             part_serial: partSerial,
-            part_name: part.part_name || part.name || "",
+            part_name: part.part_name,
+            cost: part.part_cost_price,
             quantity: 1,
           },
         ];
@@ -129,6 +132,12 @@ const CreateClaim = () => {
       // Parts - gửi dạng JSON string
       formData.append("parts", JSON.stringify(selectedParts));
 
+      //Part cost
+      formData.append(
+        "part_cost",
+        selectedParts.reduce((acc, part) => acc + part.cost, 0)
+      );
+
       // Thông tin tùy chọn
       if (user.technician_id) {
         formData.append("technician_id", user.technician_id);
@@ -142,7 +151,7 @@ const CreateClaim = () => {
       // Gửi request bằng RTK Query mutation
       const data = await createClaim(formData).unwrap();
       if (data.success) {
-        alert(`Tạo claim thành công! Mã claim: ${data.claim_code}`);
+        toast.success(`Tạo claim thành công! Mã claim: ${data.claim_code}`);
         // Reset form hoặc navigate
         navigate("/sc_staff/search-vin");
       } else {

@@ -6,26 +6,32 @@ export default class CreateVehicleDto {
     this.registration_number = data.registration_number;
     this.model = data.model;
     this.color = data.color;
-    
+    this.kilometer = data.kilometer;
+
     // Convert dates to Date objects if they exist
     // Handle MongoDB Extended JSON format or string dates
     if (data.warranty_start) {
-      if (typeof data.warranty_start === 'object' && data.warranty_start.$date) {
+      if (
+        typeof data.warranty_start === "object" &&
+        data.warranty_start.$date
+      ) {
         this.warranty_start = new Date(data.warranty_start.$date);
       } else {
-        this.warranty_start = data.warranty_start instanceof Date 
-          ? data.warranty_start 
-          : new Date(data.warranty_start);
+        this.warranty_start =
+          data.warranty_start instanceof Date
+            ? data.warranty_start
+            : new Date(data.warranty_start);
       }
     }
-    
+
     if (data.warranty_end) {
-      if (typeof data.warranty_end === 'object' && data.warranty_end.$date) {
+      if (typeof data.warranty_end === "object" && data.warranty_end.$date) {
         this.warranty_end = new Date(data.warranty_end.$date);
       } else {
-        this.warranty_end = data.warranty_end instanceof Date 
-          ? data.warranty_end 
-          : new Date(data.warranty_end);
+        this.warranty_end =
+          data.warranty_end instanceof Date
+            ? data.warranty_end
+            : new Date(data.warranty_end);
       }
     }
   }
@@ -49,6 +55,7 @@ export default class CreateVehicleDto {
       registration_number: this.registration_number,
       model: this.model,
       color: this.color,
+      kilometer: this.kilometer,
       warranty_start: this.warranty_start,
       warranty_end: this.warranty_end,
     };

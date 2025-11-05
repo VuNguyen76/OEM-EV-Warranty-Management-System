@@ -68,7 +68,7 @@ const warrantyClaimSchema = new Schema(
         },
       },
     ],
-    service_center_id: {
+    center_id: {
       type: Schema.Types.ObjectId,
       required: true,
     },
@@ -89,12 +89,8 @@ const warrantyClaimSchema = new Schema(
       type: String,
       trim: true,
     },
-    estimated_cost: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    actual_cost: {
+   
+    part_cost: {
       type: Number,
       default: 0,
       min: 0,
@@ -126,11 +122,11 @@ warrantyClaimSchema.index({ service_center_id: 1 });
 warrantyClaimSchema.index({ status: 1 });
 
 // Auto-generate claim_code trước khi validate
-warrantyClaimSchema.pre("validate", function (next) {
+warrantyClaimSchema.pre("validate", async function (next) {
   if (!this.claim_code) {
     const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    this.claim_code = `WC-${timestamp}-${random}`;
+    const count = await mongoose.model("WarrantyClaim").countDocuments();
+    this.claim_code = `WC-${timestamp}-${count}`;
   }
   next();
 });
