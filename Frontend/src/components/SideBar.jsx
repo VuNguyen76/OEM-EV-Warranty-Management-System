@@ -52,6 +52,16 @@ const sideBarTechnician = [
     icon: "fa-solid fa-user-gear",
     path: "/sc_technician/technician",
   },
+  {
+    label: "Quản lý Claim",
+    icon: "fa-regular fa-clipboard",
+    path: "/sc_technician/manage-claim",
+  },
+  {
+    label: "Quản lý Repair Order",
+    icon: "fa-regular fa-clipboard",
+    path: "/sc_technician/repair-order",
+  },
 ];
 
 const SideBar = () => {

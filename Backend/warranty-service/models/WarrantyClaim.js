@@ -78,10 +78,19 @@ const warrantyClaimSchema = new Schema(
     submitted_by: {
       type: Schema.Types.ObjectId,
     },
-   
+
     status: {
       type: String,
-      enum: ["submitted", "under_review", "approved", "in_progress", "rejected", "completed"],
+      enum: [
+        "submitted",
+        "approved",
+        "confirmed",
+        "pending",
+        "reject_warranty",
+        "in_progress",
+        "rejected",
+        "completed",
+      ],
       default: "submitted",
       required: true,
     },
@@ -89,7 +98,7 @@ const warrantyClaimSchema = new Schema(
       type: String,
       trim: true,
     },
-   
+
     part_cost: {
       type: Number,
       default: 0,

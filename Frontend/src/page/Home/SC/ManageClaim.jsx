@@ -11,6 +11,7 @@ import {
   useAssignTechnicianMutation,
 } from "../../../features/user/user.api";
 import { toast } from "react-toastify";
+import STATUS_INFO from "../../../utils/statusClaim";
 
 const ManageClaim = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,33 +28,7 @@ const ManageClaim = () => {
   const [assignTechnician, { isLoading: isAssigning }] =
     useAssignTechnicianMutation();
 
-  const STATUS_INFO = {
-    submitted: {
-      label: "Đã gửi yêu cầu",
-      color: "bg-blue-100 text-blue-700",
-    },
-    under_review: {
-      label: "Đang xem xét",
-      color: "bg-yellow-100 text-yellow-700",
-    },
-    approved: {
-      label: "Đã duyệt",
-      color: "bg-green-100 text-green-700",
-    },
-    in_progress: {
-      label: "Đang sửa chữa",
-      color: "bg-orange-100 text-orange-700",
-    },
-    rejected: {
-      label: "Bị từ chối",
-      color: "bg-red-100 text-red-700",
-    },
-    completed: {
-      label: "Hoàn thành",
-      color: "bg-gray-200 text-gray-700",
-    },
-  };
-
+ 
   const { data: technicians, isLoading: isTechnicianLoading } =
     useGetAllTechniciansQuery();
 

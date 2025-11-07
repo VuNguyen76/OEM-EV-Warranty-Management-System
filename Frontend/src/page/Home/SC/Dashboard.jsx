@@ -2,35 +2,10 @@ import React from "react";
 import Report from "./Report";
 import Title from "../../../components/Title";
 import { useGetAllClaimsQuery } from "../../../features/warranty/warranty.api";
-
+import STATUS_INFO from "../../../utils/statusClaim";
 const Dashboard = () => {
   const { data: claims = [], isLoading } = useGetAllClaimsQuery();
-  const STATUS_INFO = {
-    submitted: {
-      label: "Đã gửi yêu cầu",
-      color: "bg-blue-200 text-blue-700",
-    },
-    under_review: {
-      label: "Đang xem xét",
-      color: "bg-yellow-200 text-yellow-700",
-    },
-    approved: {
-      label: "Đã duyệt",
-      color: "bg-green-200 text-green-700",
-    },
-    in_progress: {
-      label: "Đang sửa chữa",
-      color: "bg-orange-200 text-orange-700",
-    },
-    rejected: {
-      label: "Bị từ chối",
-      color: "bg-red-200 text-red-700",
-    },
-    completed: {
-      label: "Hoàn thành",
-      color: "bg-gray-200 text-black-700",
-    },
-  };
+ 
 
   return (
     <div className="h-full w-full space-y-3 p-4">
