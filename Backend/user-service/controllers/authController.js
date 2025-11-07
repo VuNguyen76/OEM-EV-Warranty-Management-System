@@ -4,7 +4,13 @@ import jwt from "jsonwebtoken";
 
 const createToken = (user) => {
   return jwt.sign(
-    { id: user._id, role: user.role, email: user.email, centerId: user.center_id },
+    {
+      id: user._id,
+      role: user.role,
+      email: user.email,
+      centerId: user.center_id,
+      status: user.status,
+    },
     process.env.JWT_SECRET
   );
 };
@@ -32,6 +38,7 @@ class AuthController {
   static async register(req, res) {
     try {
       const { email, password, role } = req.body;
+      const userRequest = req.user;
 
       if (!email || !password || !role)
         return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
@@ -46,7 +53,7 @@ class AuthController {
         email,
         password: hashed,
         role,
-        center_id: null,
+        center_id: userRequest?.centerId,
         status: "inactive",
       });
 

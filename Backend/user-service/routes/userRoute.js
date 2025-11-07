@@ -13,7 +13,7 @@ router.route("/").get(UserController.getAll);
 router
   .route("/:id")
   .get(UserController.getById)
-  .put(authorize(["admin", "evm_staff"]), UserController.update)
+  .put(authorize(["admin", "evm_staff", "sc_staff"]), UserController.update)
   .delete(authorize(["admin", "evm_staff"]), UserController.delete);
 
 export default router;

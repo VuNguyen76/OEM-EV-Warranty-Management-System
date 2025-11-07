@@ -4,153 +4,96 @@ import Modal from "../../../components/Modal";
 import Backdrop from "../../../components/Backdrop";
 import { useSelector, useDispatch } from "react-redux";
 import { openModal, closeModal } from "../../../features/ui/uiSlice";
-
-const fakeClaims = [
-  {
-    id: "claim001",
-    vin: "5YJ3E1EA4KF123456",
-    vehicle: {
-      model: "VinFast VF8",
-      year: 2023,
-      color: "Pearl White",
-      kilometers: 15200,
-    },
-    customer: {
-      name: "Nguyễn Văn An",
-      phone: "0987654321",
-      email: "nguyenvanan@email.com",
-    },
-    issues: [
-      {
-        description:
-          "Battery charging issue - vehicle not charging to full capacity",
-        evmNote:
-          "Approved for warranty claim. Battery module will be replaced under policy.",
-      },
-      {
-        description: "Cooling fan making abnormal noise during charging",
-        evmNote: "Fan replacement required under standard warranty.",
-      },
-    ],
-    parts: [
-      { name: "Battery Pack Module", code: "BT-VF8-001", cost: 32500000 },
-      { name: "Cooling Fan Unit", code: "CF-VF8-002", cost: 2800000 },
-    ],
-    technician: "Vũ Thành Nam",
-    status: "Chờ duyệt",
-    createdAt: "2024-01-15",
-    updatedAt: "2024-01-15",
-  },
-  {
-    id: "claim002",
-    vin: "5YJ3E1EA4KF654321",
-    vehicle: {
-      model: "VinFast VF9",
-      year: 2023,
-      color: "Metallic Blue",
-      kilometers: 8500,
-    },
-    customer: {
-      name: "Trần Thị Bình",
-      phone: "0912345678",
-      email: "tranthibinh@email.com",
-    },
-    issues: [
-      {
-        description: "Front brake noise and vibration during braking",
-        evmNote:
-          "Approved for warranty claim. Part covered under standard warranty.",
-      },
-      {
-        description: "Brake fluid leakage detected from front left caliper",
-        evmNote: "Caliper replacement authorized by EVM.",
-      },
-    ],
-    parts: [
-      { name: "Brake Disc Front", code: "BD-VF8-004", cost: 1200000 },
-      { name: "Brake Caliper Left", code: "BC-VF9-006", cost: 1800000 },
-    ],
-    technician: "Vũ Thành Nam",
-    status: "Được duyệt",
-    createdAt: "2024-01-10",
-    updatedAt: "2024-01-12",
-  },
-  {
-    id: "claim003",
-    vin: "5YJ3E1EA4KF777777",
-    vehicle: {
-      model: "VinFast VF6",
-      year: 2022,
-      color: "Jet Black",
-      kilometers: 23100,
-    },
-    customer: {
-      name: "Phạm Quốc Tính",
-      phone: "0977888999",
-      email: "quoctinh@email.com",
-    },
-    issues: [
-      {
-        description: "Touch screen not responding intermittently",
-        evmNote: "Pending approval from manufacturer.",
-      },
-    ],
-    parts: [
-      { name: "Display Unit", code: "DS-VF6-002", cost: 8200000 },
-      { name: "Touch Sensor Module", code: "TS-VF6-003", cost: 3100000 },
-    ],
-    technician: "Nguyễn Mạnh Dũng",
-    status: "Đang sửa",
-    createdAt: "2024-01-08",
-    updatedAt: "2024-01-14",
-  },
-];
+import { useGetAllClaimsQuery } from "../../../features/warranty/warranty.api";
+import Loading from "../../../components/Loading";
+import {
+  useGetAllTechniciansQuery,
+  useAssignTechnicianMutation,
+} from "../../../features/user/user.api";
+import { toast } from "react-toastify";
 
 const ManageClaim = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("Tất cả trạng thái");
   const [assignedTech, setAssignedTech] = useState("");
 
+  const { data: apiClaims = [], isLoading } = useGetAllClaimsQuery();
+  const claims = apiClaims?.data || apiClaims; // tùy response structure
+
   const dispatch = useDispatch();
   const { isOpen, modalType, modalData } = useSelector(
     (state) => state.ui.modal
   );
+  const [assignTechnician, { isLoading: isAssigning }] =
+    useAssignTechnicianMutation();
 
-  const technicians = [
-    { name: "Vũ Thành Nam", team: "General Maintenance", workload: 3 },
-    { name: "Nguyễn Mạnh Dũng", team: "Electrical System", workload: 5 },
-    { name: "Trần Văn Tài", team: "HVAC Specialist", workload: 2 },
-    { name: "Phan Quốc Long", team: "Brake System", workload: 1 },
-  ];
+  const STATUS_INFO = {
+    submitted: {
+      label: "Đã gửi yêu cầu",
+      color: "bg-blue-100 text-blue-700",
+    },
+    under_review: {
+      label: "Đang xem xét",
+      color: "bg-yellow-100 text-yellow-700",
+    },
+    approved: {
+      label: "Đã duyệt",
+      color: "bg-green-100 text-green-700",
+    },
+    in_progress: {
+      label: "Đang sửa chữa",
+      color: "bg-orange-100 text-orange-700",
+    },
+    rejected: {
+      label: "Bị từ chối",
+      color: "bg-red-100 text-red-700",
+    },
+    completed: {
+      label: "Hoàn thành",
+      color: "bg-gray-200 text-gray-700",
+    },
+  };
 
-  const handleAssign = () => {
-    alert(`Đã phân công kỹ thuật viên: ${assignedTech}`);
+  const { data: technicians, isLoading: isTechnicianLoading } =
+    useGetAllTechniciansQuery();
+
+  const handleAssign = async () => {
+    if (!assignedTech) {
+      toast.error("Vui lòng chọn kỹ thuật viên");
+      return;
+    }
+    const res = await assignTechnician({
+      claim_id: modalData._id,
+      technician_id: assignedTech,
+    }).unwrap();
+    if (res.success) {
+      toast.success("Phân công thành công");
+      dispatch(closeModal());
+    }
   };
 
   const handleViewClaim = (claim) => {
     dispatch(openModal({ modalType: "viewClaim", modalData: claim }));
   };
 
-  const statusColors = {
-    "Chờ duyệt": "bg-blue-100 text-blue-700",
-    "Được duyệt": "bg-green-100 text-green-700",
-    "Đang sửa": "bg-yellow-100 text-yellow-700",
-    "Hoàn thành": "bg-gray-200 text-gray-700",
-  };
-
-  const filteredClaims = fakeClaims.filter((claim) => {
+  // Bộ lọc tìm kiếm
+  const filteredClaims = (claims || []).filter((claim) => {
+    const vehicle = claim.vehicle || {};
     const matchSearch =
-      claim.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      claim.vin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      claim.issues.some((i) =>
-        i.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      vehicle.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      claim.vin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      claim.issue_description
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      claim.claim_code?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchStatus =
-      statusFilter === "Tất cả trạng thái" || claim.status === statusFilter;
+      statusFilter === "Tất cả trạng thái" ||
+      claim.status?.toLowerCase() === statusFilter.toLowerCase();
 
     return matchSearch && matchStatus;
   });
+  console.log(technicians);
 
   return (
     <div className="h-full w-full space-y-6 p-4">
@@ -175,86 +118,96 @@ const ManageClaim = () => {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option>Tất cả trạng thái</option>
-            <option>Chờ duyệt</option>
-            <option>Được duyệt</option>
-            <option>Đang sửa</option>
-            <option>Hoàn thành</option>
+            <option value="Tất cả trạng thái">Tất cả trạng thái</option>
+            <option value="submitted">Đã gửi yêu cầu</option>
+            <option value="under_review">Đang xem xét</option>
+            <option value="approved">Đã duyệt</option>
+            <option value="rejected">Bị từ chối</option>
+            <option value="completed">Hoàn thành</option>
           </select>
         </div>
       </div>
 
       {/* --- Danh sách Claim --- */}
-      <div className="border border-gray-300 p-4 rounded-lg space-y-3">
-        <h3 className="font-semibold text-lg text-gray-800">
-          Danh sách Claim ({filteredClaims.length})
-        </h3>
-        <p className="text-gray-500">Tất cả claim được tạo bởi bạn</p>
+      {isLoading ? (
+        <Loading />
+      ) : (
+        <div className="border border-gray-300 p-4 rounded-lg space-y-3">
+          <h3 className="font-semibold text-lg text-gray-800">
+            Danh sách Claim ({filteredClaims.length})
+          </h3>
+          <p className="text-gray-500">Tất cả claim được tạo</p>
 
-        <div className="space-y-3">
-          {filteredClaims.map((claim) => (
-            <div
-              key={claim.id}
-              className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition bg-white"
-            >
-              <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-                <div>
-                  <p className="font-semibold text-gray-900">
-                    {claim.customer.name}{" "}
-                    <span className="text-gray-400 text-sm">#{claim.id}</span>
-                  </p>
-                  <p className="text-gray-600 text-sm">
-                    VIN: {claim.vin} • {claim.vehicle.model}
-                  </p>
-                  <p className="text-gray-700 mt-1">
-                    {claim.issues[0].description}
-                    {claim.issues.length > 1 && (
-                      <span className="text-gray-500 text-sm ml-1">
-                        + {claim.issues.length - 1} vấn đề khác
+          <div className="space-y-3">
+            {filteredClaims.map((claim) => {
+              const v = claim.vehicle || {};
+              return (
+                <div
+                  key={claim._id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition bg-white"
+                >
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {v.customer_name || "Chưa rõ"}{" "}
+                        <span className="text-gray-400 text-sm">
+                          #{claim.claim_code}
+                        </span>
+                      </p>
+                      <p className="text-gray-600 text-sm">
+                        VIN: {claim.vin || "Không có"} • {v.model || "Không rõ"}
+                      </p>
+                      <p className="text-gray-700 mt-1">
+                        {claim.issue_description || "Không có mô tả"}
+                      </p>
+                      <p className="text-gray-500 text-sm">
+                        Phụ tùng:{" "}
+                        {claim.parts?.map((p) => p.part_name).join(", ") ||
+                          "Không có"}{" "}
+                        • Tổng chi phí:{" "}
+                        {(claim.part_cost || 0).toLocaleString("vi-VN")} VND
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                          STATUS_INFO[claim.status]?.color ||
+                          "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {STATUS_INFO[claim.status]?.label || claim.status}
                       </span>
-                    )}
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    Phụ tùng: {claim.parts.map((p) => p.name).join(", ")} • KTV:{" "}
-                    {claim.technician}
-                  </p>
+                      <p className="text-xs text-gray-500">
+                        Tạo: {new Date(claim.createdAt).toLocaleString("vi-VN")}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Cập nhật:{" "}
+                        {new Date(claim.updatedAt).toLocaleString("vi-VN")}
+                      </p>
+                      <button
+                        onClick={() => handleViewClaim(claim)}
+                        className="mt-2 flex items-center gap-1 text-sm bg-gray-100 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-md cursor-pointer"
+                      >
+                        <i className="fa-regular fa-eye"></i>
+                        <span>Xem</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              );
+            })}
 
-                <div className="flex flex-col items-end gap-1">
-                  <span
-                    className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      statusColors[claim.status]
-                    }`}
-                  >
-                    {claim.status}
-                  </span>
-                  <p className="text-xs text-gray-500">
-                    Tạo: {claim.createdAt}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Cập nhật: {claim.updatedAt}
-                  </p>
-                  <button
-                    onClick={() => handleViewClaim(claim)}
-                    className="mt-2 flex items-center gap-1 text-sm bg-gray-100 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-md cursor-pointer"
-                  >
-                    <i className="fa-regular fa-eye"></i>
-                    <span>Xem</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {filteredClaims.length === 0 && (
-            <p className="text-center text-gray-500 italic">
-              Không tìm thấy claim nào phù hợp.
-            </p>
-          )}
+            {filteredClaims.length === 0 && (
+              <p className="text-center text-gray-500 italic">
+                Không tìm thấy claim nào phù hợp.
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* --- Modal hiển thị chi tiết --- */}
+      {/* --- Modal chi tiết --- */}
       {isOpen && modalType === "viewClaim" && (
         <>
           <Backdrop isOpen={isOpen} onClose={() => dispatch(closeModal())} />
@@ -262,8 +215,8 @@ const ManageClaim = () => {
             <div className="w-[850px] max-h-[90vh] overflow-y-auto shadow-lg p-3 space-y-5">
               <div className="flex justify-between items-center pb-2">
                 <Title
-                  title={`Chi tiết Claim #${modalData.id}`}
-                  subTitle={`${modalData.vehicle.model} (${modalData.vehicle.year})`}
+                  title={`Chi tiết Claim #${modalData.claim_code}`}
+                  subTitle={`${modalData.vehicle?.model || ""}`}
                 />
                 <button
                   className="w-8 h-8 flex justify-center items-center text-xl border text-green-500 hover:text-red-500 border-green-500 hover:border-red-500 p-2 rounded-full bg-green-100 hover:bg-red-100 cursor-pointer"
@@ -273,24 +226,28 @@ const ManageClaim = () => {
                 </button>
               </div>
 
+              {/* Vehicle + Customer */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="border border-gray-300 rounded-lg p-3">
                   <h3 className="font-semibold text-gray-800 mb-2">
                     Thông tin xe
                   </h3>
                   <p>
-                    <b>VIN:</b> {modalData.vin}
+                    <b>VIN:</b> {modalData.vin || "Không có"}
                   </p>
                   <p>
-                    <b>Xe:</b> {modalData.vehicle.model}{" "}
-                    {modalData.vehicle.year}
+                    <b>Xe:</b> {modalData.vehicle?.model}{" "}
+                    {modalData.vehicle?.modelYear || ""}
                   </p>
                   <p>
-                    <b>Màu:</b> {modalData.vehicle.color}
+                    <b>Màu:</b> {modalData.vehicle?.color}
+                  </p>
+                  <p>
+                    <b>Biển số:</b> {modalData.vehicle?.registration_number}
                   </p>
                   <p>
                     <b>Số km:</b>{" "}
-                    {modalData.vehicle.kilometers.toLocaleString()} km
+                    {modalData.vehicle?.kilometer?.toLocaleString()} km
                   </p>
                 </div>
 
@@ -299,88 +256,84 @@ const ManageClaim = () => {
                     Khách hàng
                   </h3>
                   <p>
-                    <b>Tên:</b> {modalData.customer.name}
+                    <b>Tên:</b> {modalData.vehicle?.customer_name}
                   </p>
                   <p>
-                    <b>SĐT:</b> {modalData.customer.phone}
+                    <b>SĐT:</b> {modalData.vehicle?.customer_phone}
                   </p>
                   <p>
-                    <b>Email:</b> {modalData.customer.email}
+                    <b>Email:</b> {modalData.vehicle?.customer_email}
+                  </p>
+                  <p>
+                    <b>Địa chỉ:</b> {modalData.vehicle?.customer_address}
                   </p>
                 </div>
               </div>
 
-              {/* Issues */}
+              {/* Issue */}
               <div className="border border-gray-300 rounded-lg p-3 space-y-3">
                 <h3 className="font-semibold text-gray-800 mb-1">
                   Mô tả vấn đề
                 </h3>
-                {modalData.issues.map((issue, idx) => (
-                  <div
-                    key={idx}
-                    className="border border-gray-200 rounded-lg p-2"
-                  >
-                    <p className="text-gray-700 mb-1">
-                      {idx + 1}. {issue.description}
-                    </p>
-                    {issue.evmNote && (
-                      <p className="bg-gray-100 text-gray-600 text-sm p-2 rounded">
-                        <b>Ghi chú từ EVM:</b> {issue.evmNote}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                <p className="text-gray-700">
+                  {modalData.issue_description || "Không có mô tả chi tiết"}
+                </p>
               </div>
 
               {/* Parts */}
               <div className="border border-gray-300 rounded-lg p-3 space-y-2">
                 <h3 className="font-semibold text-gray-800 mb-1">
-                  Phụ tùng yêu cầu
+                  Phụ tùng liên quan
                 </h3>
-                {modalData.parts.map((part, idx) => (
+                {modalData.parts?.map((part, idx) => (
                   <div
-                    key={idx}
+                    key={part._id || idx}
                     className="flex justify-between items-center border border-gray-200 rounded-lg p-2"
                   >
                     <div>
                       <p>
-                        {idx + 1}. {part.name}
+                        {idx + 1}. {part.part_name}
                       </p>
-                      <p className="text-sm text-gray-500">Mã: {part.code}</p>
+                      <p className="text-sm text-gray-500">
+                        Mã serial: {part.part_serial}
+                      </p>
                     </div>
                     <p className="font-semibold">
-                      {part.cost.toLocaleString("vi-VN")} VND
+                      {modalData.part_cost?.toLocaleString("vi-VN")} VND
                     </p>
                   </div>
                 ))}
               </div>
 
-              {/* Assign technician */}
-              <div className="border border-gray-300 rounded-lg p-3">
-                <h3 className="font-semibold text-gray-800 mb-2">
-                  Phân công kỹ thuật viên
-                </h3>
-                <div className="flex gap-2">
-                  <select
-                    className="flex-grow border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-green-500"
-                    value={assignedTech}
-                    onChange={(e) => setAssignedTech(e.target.value)}
-                  >
-                    <option value="">-- Chọn kỹ thuật viên --</option>
-                    {technicians.map((tech) => (
-                      <option key={tech.name} value={tech.name}>
-                        {`${tech.name} - ${tech.team} (Workload: ${tech.workload})`}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-1"
-                    onClick={handleAssign}
-                  >
-                    <i className="fa-solid fa-user-gear"></i> Phân công
-                  </button>
+              {/* Technician assign */}
+              {modalData.status === "approved" && (
+                <div className="border border-gray-300 rounded-lg p-3">
+                  <h3 className="font-semibold text-gray-800 mb-2">
+                    Phân công kỹ thuật viên
+                  </h3>
+                  <div className="flex gap-2">
+                    <select
+                      className="flex-grow border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-green-500"
+                      value={assignedTech}
+                      onChange={(e) => setAssignedTech(e.target.value)}
+                    >
+                      <option value="">-- Chọn kỹ thuật viên --</option>
+                      {technicians.map((tech) => (
+                        <option key={tech.name} value={tech._id}>
+                          {`${tech.name} - ${tech.email} (Workload: ${tech.totalClaims})`}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-1"
+                      onClick={handleAssign}
+                      disabled={isAssigning}
+                    >
+                      <i className="fa-solid fa-user-gear"></i> Phân công
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </Modal>
         </>

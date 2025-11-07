@@ -7,7 +7,6 @@ const router = express.Router();
 
 //Route kiểm tra toàn bộ route đã đăng nhập
 router.use(auth);
-router.use(authorize(["admin", "sc_staff"]));
 
 router
   .route("/")
@@ -19,5 +18,9 @@ router
   .get(TechnicianController.getById)
   .put(TechnicianController.update)
   .delete(TechnicianController.delete);
+
+router.post("/assign", TechnicianController.assignTechnician);
+
+router.get("/by-user/:user_id", TechnicianController.getTechnicianByUserId);
 
 export default router;

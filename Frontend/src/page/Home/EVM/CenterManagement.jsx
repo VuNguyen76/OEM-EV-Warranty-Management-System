@@ -38,7 +38,7 @@ export default function ServiceCenterManagement() {
     deleted: { color: "bg-red-500", text: "Đã vô hiệu hóa" },
   };
 
-  const { data: centers, isLoading } = useGetAllCentersQuery();
+  const { data: centers, isLoading, refetch } = useGetAllCentersQuery();
   const [createCenter, { isLoading: isCreating }] = useRegisterUserMutation();
   const [updateCenter, { isLoading: isUpdating }] = useUpdateCenterMutation();
   const [updateUser, { isLoading: isUserUpdating }] = useUpdateUserMutation();
@@ -50,6 +50,7 @@ export default function ServiceCenterManagement() {
       setAddData({ email: "", password: "" });
       toast.success("Thêm trung tâm thành công");
       setIsAddOpen(false);
+      refetch();
     } else {
       toast.error("Thêm trung tâm thất bại");
     }
@@ -103,6 +104,7 @@ export default function ServiceCenterManagement() {
       }
 
       setIsEditOpen(false);
+      refetch();
     } catch (error) {
       toast.error(error?.data?.message || "Lỗi hệ thống");
     }
@@ -119,6 +121,7 @@ export default function ServiceCenterManagement() {
 
       if (res.success) {
         toast.success("Đã xóa trung tâm thành công!");
+        refetch();
       } else {
         toast.error(res.message || "Xóa trung tâm thất bại!");
       }
@@ -138,7 +141,6 @@ export default function ServiceCenterManagement() {
         );
       });
       console.log(result);
-      
 
       setFiltered(result);
     }
@@ -361,8 +363,6 @@ export default function ServiceCenterManagement() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
                 />
               </div>
-
-              
             </div>
 
             <button

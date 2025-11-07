@@ -198,6 +198,12 @@ const SearchVIN = () => {
           </div>
         </>
       )}
+
+      {status === "idle" && (
+        <div className="flex justify-center items-center h-[500px]">
+          <img src="/search.png" className="w-[300px]" alt="" />
+        </div>
+      )}
     </div>
   );
 };

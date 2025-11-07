@@ -73,6 +73,7 @@ app.use("/api/repair-orders", repairOrderRoutes);
 app.use("/api/warranty-costs", warrantyCostsRoutes);
 app.use("/api/analytics", analyticsRoutes);
 
+
 app.listen(PORT, () => {
   console.log(`Warranty Service running on port ${PORT}`);
 });

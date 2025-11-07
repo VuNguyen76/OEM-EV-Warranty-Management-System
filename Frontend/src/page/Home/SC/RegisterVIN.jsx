@@ -15,6 +15,7 @@ import { useCreateVehicleMutation } from "../../../features/vehicle/vehicle.api"
 import { toast } from "react-toastify";
 import {
   useAddPartToVehicleMutation,
+  useDeletePartMutation,
   useGetAllPartCatalogsQuery,
   useGetPartsByVehicleQuery,
 } from "../../../features/part/part.api";
@@ -40,7 +41,7 @@ const RegisterVIN = () => {
     kilometer: "",
   });
 
-  const { data: vehicles = [], isLoading } = useGetAllVehiclesQuery();
+  const { data: vehicles = [], isLoading, refetch } = useGetAllVehiclesQuery();
   const { data: vins = [] } = useGetAllVinsQuery();
   const { data: customers = [] } = useGetAllCustomersQuery();
   const { data: partCatalogs = [] } = useGetAllPartCatalogsQuery();
@@ -55,8 +56,8 @@ const RegisterVIN = () => {
     useCreateVehicleMutation();
   const [addPartMutation, { isLoading: isLoadingAddPart }] =
     useAddPartToVehicleMutation();
-  const [updateVehicleMutation, { isLoading: isLoadingUpdateVehicle }] =
-    useUpdateVehicleMutation();
+  const [deletePartMutation, { isLoading: isLoadingDeletePart }] =
+    useDeletePartMutation();
 
   const handleAddVehicle = async () => {
     try {
@@ -79,6 +80,7 @@ const RegisterVIN = () => {
       .unwrap()
       .then(() => {
         toast.success("Thêm phụ tùng thành công!");
+        refetch();
       })
       .catch((error) => {
         toast.error(
@@ -112,6 +114,20 @@ const RegisterVIN = () => {
     );
 
     setSuggestions(filtered.slice(0, 5)); // giới hạn 5 kết quả
+  };
+
+  const handleDeletePart = async (partId) => {
+    if (window.confirm("Bạn có chắc muốn xóa phụ tùng này?")) {
+      try {
+        await deletePartMutation(partId).unwrap();
+        toast.success("Xóa phụ tùng thành công!");
+      } catch (error) {
+        toast.error(
+          "Lỗi xóa phụ tùng: " +
+            (error?.data?.message || "Vui lòng kiểm tra lại thông tin.")
+        );
+      }
+    }
   };
 
   return (
@@ -406,17 +422,20 @@ const RegisterVIN = () => {
               >
                 Thêm phụ tùng
               </button>
-              <div className="grid grid-cols-5 gap-4 border-b border-gray-300 p-2">
-                <div className="font-semibold text-gray-600">Loại phụ tùng</div>
+              <div className="grid grid-cols-6 gap-4 border-b border-gray-300 p-2">
+                <div className="font-semibold text-gray-600">Phân loại</div>
                 <div className="font-semibold text-gray-600">Tên phụ tùng</div>
                 <div className="font-semibold text-gray-600">Số seri</div>
                 <div className="font-semibold text-gray-600 ">Ngày lắp</div>
                 <div className="font-semibold text-gray-600 ">Chi phí</div>
+                <div className="font-semibold text-gray-600 text-center">
+                  Thao tác
+                </div>
               </div>
               {partVehicles.map((part, idx) => (
                 <div
                   key={idx}
-                  className="grid grid-cols-5 gap-4 border-b border-gray-300 p-2 "
+                  className="grid grid-cols-6 gap-4 border-b border-gray-300 p-2 "
                 >
                   <div className="text-gray-600 uppercase">
                     {part.part_category}
@@ -428,6 +447,14 @@ const RegisterVIN = () => {
                   </div>
                   <div className="text-gray-600">
                     {formatPrice(part.part_cost_price)}
+                  </div>
+                  <div className="text-gray-600 text-center">
+                    <button
+                      onClick={() => handleDeletePart(part._id)}
+                      className="text-gray-400 hover:text-red-500 cursor-pointer"
+                    >
+                      <i className="fa-solid fa-trash"></i>
+                    </button>
                   </div>
                 </div>
               ))}

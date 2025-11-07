@@ -1,6 +1,4 @@
 const navigateByRole = (role) => {
-  console.log(role);
-  
   switch (role) {
     case "sc_staff":
       return "/sc_staff";
@@ -8,6 +6,8 @@ const navigateByRole = (role) => {
       return "/evm";
     case "admin":
       return "/evm";
+    case "sc_technician":
+      return "/sc_technician/technician";
     default:
       break;
   }

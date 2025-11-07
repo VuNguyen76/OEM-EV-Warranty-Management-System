@@ -17,7 +17,7 @@ const partInstanceSchema = new Schema(
       required: true,
     },
     vehicle_id: {
-      type: String, // vì Vehicle nằm service khác, không thể ref trực tiếp
+      type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
     install_date: { type: Date },

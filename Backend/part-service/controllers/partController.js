@@ -2,6 +2,7 @@ import Part from "../models/PartInstance.js";
 import PartCatalog from "../models/PartCatalog.js";
 import CreatePartDto from "../models/dto/request/CreatePartDto.js";
 import PartResponseDto from "../models/dto/response/PartResponse.js";
+import UpdatePartDto from "../models/dto/request/UpdatePartDto.js";
 
 class PartController {
   // POST /api/parts
@@ -124,6 +125,73 @@ class PartController {
       });
     }
   }
+
+  static async updatePart(req, res) {
+    try {
+      const { serial } = req.params;
+      const updateDto = new UpdatePartDto(req.body);
+      const validation = updateDto.validate();
+
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: "Dữ liệu không hợp lệ",
+          errors: validation.newErrors,
+        });
+      }
+
+      const part = await Part.findOneAndUpdate(
+        { serial_number: serial },
+        updateDto.toModel(),
+        { new: true, runValidators: true }
+      );
+
+      if (!part) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy phụ tùng",
+        });
+      }
+
+      const responseDto = new PartResponseDto(part);
+      res.json({
+        success: true,
+        message: "Cập nhật phụ tùng thành công",
+        data: responseDto,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Lỗi cập nhật phụ tùng",
+        error: error.message,
+      });
+    }
+  }
+  static async deletePart(req, res) {
+    try {
+      const { id } = req.params;
+      const part = await Part.findOneAndDelete({ _id: id });
+
+      if (!part) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy phụ tùng",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Xóa phụ tùng thành công",
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Lỗi xóa phụ tùng",
+        error: error.message,
+      });
+    }
+  }
+
 }
 
 export default PartController;

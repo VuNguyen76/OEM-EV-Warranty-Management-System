@@ -18,6 +18,10 @@ const Auth = () => {
     const res = await login({ email, password }).unwrap();
     if (res.success) {
       const userDecode = jwtDecode(res.data.token);
+      if (userDecode.status === "inactive") {
+        toast.warn("Vui lòng kích hoạt tài khoản!");
+        return navigate("/auth-active");
+      }
       toast.success("Đăng nhập thành công!");
       navigate(navigateByRole(userDecode.role));
     }

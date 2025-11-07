@@ -7,7 +7,7 @@ class serviceCenterController {
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
-      const skip = (page - 1) * limit;
+      const skip = (page - 1) * limit;      
 
       const activeCenters = await serviceCenterModel
         .find()
@@ -34,6 +34,7 @@ class serviceCenterController {
           status: "active",
           createdAt: c.createdAt,
         })),
+        
         ...inactiveCenters.map((u) => ({
           _id: u._id,
           user_id: u._id,

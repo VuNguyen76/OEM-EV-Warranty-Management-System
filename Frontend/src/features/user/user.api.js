@@ -25,7 +25,7 @@ const extendedUserApi = userApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-      invalidatesTags: ["User"],
+      invalidatesTags: ["User", "Technician"],
     }),
 
     deleteUser: builder.mutation({
@@ -33,7 +33,7 @@ const extendedUserApi = userApi.injectEndpoints({
         url: `users/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["User"],
+      invalidatesTags: ["User", "Technician"],
     }),
 
     registerUser: builder.mutation({
@@ -42,7 +42,62 @@ const extendedUserApi = userApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: ["User"],
+      invalidatesTags: ["User", "Technician"],
+    }),
+    createCenter: builder.mutation({
+      query: (data) => ({
+        url: "centers",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Center"],
+    }),
+
+    createTechnician: builder.mutation({
+      query: (data) => ({
+        url: "technicians",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Technician", "User"],
+    }),
+    getAllTechnicians: builder.query({
+      query: () => ({
+        url: "technicians",
+        method: "GET",
+      }),
+      providesTags: ["Technician"],
+      transformResponse: (response) => response.data,
+    }),
+    getTechnicianById: builder.query({
+      query: (id) => ({
+        url: `technicians/${id}`,
+        method: "GET",
+      }),
+      providesTags: ["Technician"],
+    }),
+    updateTechnician: builder.mutation({
+      query: ({ id, data }) => ({
+        url: `technicians/${id}`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: ["Technician"],
+    }),
+    deleteTechnician: builder.mutation({
+      query: (id) => ({
+        url: `technicians/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Technician"],
+    }),
+    assignTechnician: builder.mutation({
+      query: (data) => ({
+        url: `technicians/assign`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Technician"],
     }),
   }),
 });
@@ -53,4 +108,11 @@ export const {
   useUpdateUserMutation,
   useDeleteUserMutation,
   useRegisterUserMutation,
+  useCreateTechnicianMutation,
+  useGetAllTechniciansQuery,
+  useGetTechnicianByIdQuery,
+  useUpdateTechnicianMutation,
+  useDeleteTechnicianMutation,
+  useAssignTechnicianMutation,
+  useCreateCenterMutation,
 } = extendedUserApi;

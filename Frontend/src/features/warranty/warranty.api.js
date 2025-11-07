@@ -84,6 +84,17 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
       providesTags: (result, error, id) => [{ type: "RepairOrder", id }],
     }),
 
+    getClaimByTechnician: builder.query({
+      query: (technician_id) => ({
+        url: `claims/technician/${technician_id}`,
+        method: "GET",
+      }),
+      transformResponse: (response) => response.data || response,
+      providesTags: (result, error, technician_id) => [
+        { type: "WarrantyClaim", id: technician_id },
+      ],
+    }),
+
     // CREATE REPAIR ORDER
     createRepairOrder: builder.mutation({
       query: (data) => ({
@@ -107,6 +118,18 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         "WarrantyClaim",
       ],
     }),
+    
+    getTechnicianClaims: builder.query({
+      query: (technician_id) => ({
+        url: `claims/technician/${technician_id}`,
+        method: "GET",
+      }),
+      transformResponse: (response) => response.data || response,
+      providesTags: (result, error, technician_id) => [
+        { type: "WarrantyClaim", id: technician_id },
+      ],
+    }),
+
   }),
 });
 
@@ -119,5 +142,7 @@ export const {
   useGetRepairOrderByIdQuery,
   useCreateRepairOrderMutation,
   useUpdateRepairOrderMutation,
+  useGetClaimByTechnicianQuery,
+  useGetTechnicianClaimsQuery,
 } = extendedWarrantyApi;
 

@@ -4,7 +4,6 @@ import Auth from "../page/auth/Auth";
 import DefaultLayout from "../layout/DefaultLayout";
 import Dashboard from "../page/Home/SC/Dashboard";
 import RegisterVIN from "../page/Home/SC/RegisterVIN";
-import ForgotPassword from "../page/auth/ForgotPassword";
 import SearchVIN from "../page/Home/SC/SearchVIN";
 import CreateClaim from "../page/Home/SC/CreateClaim";
 import ManageClaim from "../page/Home/SC/ManageClaim";
@@ -13,18 +12,27 @@ import ManageCampaign from "../page/Home/SC/ManageCampaign";
 import ProtectRoute from "../components/ProtectRoute";
 import Unauthorized from "../components/Unauthorized";
 import CenterManagement from "../page/Home/EVM/CenterManagement";
+import ManageTechnician from "../page/Home/SC/ManageTechnician";
+import AuthActive from "../page/auth/AuthActive";
+import Technician from "../page/Home/SC/Technician";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Auth />,
   },
+
+  {
+    path: "/auth-active",
+    element: <AuthActive />,
+  },
   {
     path: "/unauthorized",
     element: <Unauthorized />,
   },
+
   {
-    element: <ProtectRoute allowedRoles={["sc_staff","admin"]} />,
+    element: <ProtectRoute allowedRoles={["sc_staff", "admin"]} />,
     children: [
       {
         path: "/sc_staff",
@@ -58,12 +66,16 @@ const router = createBrowserRouter([
             path: "manage-campaign",
             element: <ManageCampaign />,
           },
+          {
+            path: "manage-technician",
+            element: <ManageTechnician />,
+          },
         ],
       },
     ],
   },
   {
-    element: <ProtectRoute allowedRoles={["admin","evm_staff"]} />,
+    element: <ProtectRoute allowedRoles={["admin", "evm_staff"]} />,
     children: [
       {
         path: "/evm",
@@ -96,6 +108,22 @@ const router = createBrowserRouter([
           {
             path: "manage-campaign",
             element: <ManageCampaign />,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    element: <ProtectRoute allowedRoles={["sc_technician"]} />,
+    children: [
+      {
+        path: "/sc_technician",
+        element: <DefaultLayout />,
+        children: [
+          {
+            index: true,
+            path: "technician",
+            element: <Technician />,
           },
         ],
       },

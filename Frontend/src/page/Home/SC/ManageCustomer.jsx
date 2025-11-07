@@ -24,6 +24,9 @@ const ManageCustomer = () => {
   const [updateCustomer] = useUpdateCustomerMutation();
   const [deleteCustomer] = useDeleteCustomerMutation();
 
+
+ 
+
   const [form, setForm] = useState({
     full_name: "",
     phone: "",
@@ -126,7 +129,9 @@ const ManageCustomer = () => {
                 <th className="py-2 px-3">Liên hệ</th>
                 <th className="py-2 px-3">Địa chỉ</th>
                 <th className="py-2 px-3 text-center">Số xe</th>
-                <th className="py-2 px-3 rounded-tr-lg text-center">Thao tác</th>
+                <th className="py-2 px-3 rounded-tr-lg text-center">
+                  Thao tác
+                </th>
               </tr>
             </thead>
 
@@ -167,13 +172,13 @@ const ManageCustomer = () => {
                       }}
                       className="text-xl hover:text-blue-600 cursor-pointer mx-2"
                     >
-                      <i className="fa-solid fa-pen-to-square"></i>
+                      <i className="text-gray-400 fa-solid fa-pen-to-square"></i>
                     </button>
                     <button
                       onClick={() => handleDelete(cust._id)}
                       className="text-xl hover:text-red-600 cursor-pointer mx-2"
                     >
-                      <i className="fa-solid fa-trash"></i>
+                      <i className="text-gray-400 fa-solid fa-trash"></i>
                     </button>
                   </td>
                 </tr>
@@ -191,9 +196,7 @@ const ManageCustomer = () => {
 
       {/* Backdrop */}
       <Backdrop
-        isOpen={
-          modalType === "addCustomer" || modalType === "editCustomer"
-        }
+        isOpen={modalType === "addCustomer" || modalType === "editCustomer"}
         onClose={() => dispatch(closeModal())}
       />
 
@@ -201,7 +204,10 @@ const ManageCustomer = () => {
       {isOpen && modalType === "addCustomer" && (
         <Modal isOpen={true}>
           <div className="w-[500px] bg-white rounded-lg p-5 shadow-md space-y-4">
-            <Title title="Thêm khách hàng" subTitle="Nhập thông tin khách hàng" />
+            <Title
+              title="Thêm khách hàng"
+              subTitle="Nhập thông tin khách hàng"
+            />
             <form onSubmit={handleSubmit} className="space-y-3">
               <InputField
                 label="Họ tên"
@@ -312,7 +318,14 @@ const ManageCustomer = () => {
 export default ManageCustomer;
 
 /* ------------------ COMPONENT PHỤ NHỎ ------------------ */
-const InputField = ({ label, name, value, onChange, type = "text", required }) => (
+const InputField = ({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+  required,
+}) => (
   <div>
     <label className="block text-gray-700 text-sm font-medium mb-1">
       {label} {required && <span className="text-red-500">*</span>}

@@ -5,7 +5,7 @@ import { ToastContainer } from "react-toastify";
 const App = () => {
   return (
     <>
-      <ToastContainer />
+      <ToastContainer position="bottom-right" />
       <RouterProvider router={route} />
     </>
   );

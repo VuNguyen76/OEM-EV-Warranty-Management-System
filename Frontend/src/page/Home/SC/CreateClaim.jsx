@@ -14,7 +14,7 @@ const CreateClaim = () => {
   const [imagePreviews, setImagePreviews] = useState([]); // Lưu URL preview
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const navigate = useNavigate();  
+  const navigate = useNavigate();
 
   const { searchResult: result } = useSelector((state) => state.warranty);
 
@@ -436,20 +436,20 @@ const CreateClaim = () => {
           <button
             type="submit"
             disabled={isSubmitting || isCreatingClaim}
-            className={`bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 ${
+            className={`bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700  ${
               isSubmitting || isCreatingClaim
-                ? "opacity-50 cursor-not-allowed"
+                ? "opacity-50 cursor-not-allowed bg-green-200"
                 : "cursor-pointer"
             } flex items-center gap-2`}
           >
+            {" "}
+            <i className="fa-solid fa-check"></i>
             {isSubmitting || isCreatingClaim ? (
               <>
-                <Loading />
-                <span>Đang xử lý...</span>
+               <span >Đang xử lý...</span>
               </>
             ) : (
               <>
-                <i className="fa-solid fa-check"></i>
                 <span>Tạo Claim</span>
               </>
             )}

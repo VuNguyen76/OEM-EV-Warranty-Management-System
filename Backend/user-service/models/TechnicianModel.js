@@ -18,7 +18,10 @@ const technicianSchema = new mongoose.Schema(
       required: true,
       default: "active",
     },
-    workload: Number,
+    workload: {
+      type: Number,
+      default: 0,
+    },
     skills: [String],
     name: String,
     phone: String,

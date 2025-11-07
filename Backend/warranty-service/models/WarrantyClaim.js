@@ -81,7 +81,7 @@ const warrantyClaimSchema = new Schema(
    
     status: {
       type: String,
-      enum: ["submitted", "under_review", "approved", "rejected", "completed"],
+      enum: ["submitted", "under_review", "approved", "in_progress", "rejected", "completed"],
       default: "submitted",
       required: true,
     },

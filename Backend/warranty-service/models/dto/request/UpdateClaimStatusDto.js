@@ -10,7 +10,7 @@ class UpdateClaimStatusDto {
     validate() {
         const errors = [];
 
-        if (this.status && !['submitted', 'under_review', 'approved', 'rejected', 'completed'].includes(this.status)) {
+        if (this.status && !['submitted', 'under_review', 'approved', 'in_progress', 'rejected', 'completed'].includes(this.status)) {
             errors.push('Trạng thái không hợp lệ');
         }
 

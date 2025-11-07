@@ -60,9 +60,6 @@ class WarrantyClaimController {
           uploaded_at: new Date(),
         }));
       }
-      console.log("body ", bodyData);
-
-      console.log(modelData);
 
       const claim = new WarrantyClaim(modelData);
       await claim.save();
@@ -93,20 +90,11 @@ class WarrantyClaimController {
       if (vin) query.vin = vin;
 
       const claims = await WarrantyClaim.find(query).sort({ submitted_at: -1 });
-      const responseData = claims.map((claim) => ({
-        claim_code: claim.claim_code,
-        vin: claim.vin,
-        parts: claim.parts,
-        status: claim.status,
-        submitted_at: claim.submitted_at,
-        service_center_id: claim.service_center_id,
-        images_count: claim.images ? claim.images.length : 0,
-      }));
 
       res.json({
         success: true,
-        data: responseData,
-        count: responseData.length,
+        data: claims,
+        count: claims.length,
       });
     } catch (error) {
       res.status(500).json({
@@ -169,6 +157,8 @@ class WarrantyClaimController {
         updateDto.toModel(),
         { new: true, runValidators: true }
       );
+      console.log("claim", claim);
+      console.log("code", code);
 
       if (!claim) {
         return res.status(404).json({
@@ -192,6 +182,70 @@ class WarrantyClaimController {
         message: "Lỗi cập nhật trạng thái",
         error: error.message,
       });
+    }
+  }
+
+  static async assignTechnician(req, res) {
+    try {
+      const { claim_id } = req.params;
+      const { technician_id } = req.body;
+
+      const claim = await WarrantyClaim.findByIdAndUpdate(
+        claim_id,
+        { technician_id },
+        { new: true, runValidators: true }
+      );
+      if (!claim) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Không tìm thấy yêu cầu" });
+      }
+      res
+        .status(200)
+        .json({ success: true, data: claim, message: "Phân công thành công" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async getClaimByTechnician(req, res) {
+    const token = req.token;
+    try {
+      const { technician_id } = req.params;
+
+      // Tìm technician_id thực tế từ user_id
+      let actualTechnicianId = technician_id;
+
+      try {
+        const response = await fetch(
+          `${process.env.USER_SERVICE_URL}/api/technicians/by-user/${technician_id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const technicianData = await response.json();
+
+        if (technicianData.success) {
+          actualTechnicianId = technicianData.data._id;
+        }
+      } catch (error) {
+        console.log("Không tìm thấy technician, sử dụng ID gốc");
+      }
+
+      const claims = await WarrantyClaim.find({
+        technician_id: actualTechnicianId,
+      }).sort({ submitted_at: -1 });
+
+      res.json({
+        success: true,
+        data: claims,
+        count: claims.length,
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 }

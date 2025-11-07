@@ -18,4 +18,10 @@ router.get("/:code", WarrantyClaimController.getClaimByCode);
 // PATCH /:code/status - Cập nhật trạng thái
 router.patch("/:code/status", WarrantyClaimController.updateClaimStatus);
 
+// POST /:claim_id/assign - Phân công kỹ thuật viên
+router.post("/:claim_id/assign", WarrantyClaimController.assignTechnician);
+
+// GET /technician/:technician_id - Lấy danh sách yêu cầu của kỹ thuật viên
+router.get("/technician/:technician_id", WarrantyClaimController.getClaimByTechnician);
+
 export default router;
