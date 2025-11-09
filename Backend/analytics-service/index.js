@@ -1,20 +1,26 @@
 import express from "express";
-import dotenv from "dotenv"; 
+import dotenv from "dotenv";
+import analyticsRoutes from "./src/routes/analyticsRoutes.js";
+import connectDB from "./src/database/connect.js";
 
 dotenv.config();
-
 const app = express();
 
-// Middleware cơ bản
 app.use(express.json());
 
-// Route test
-app.get("/", (req, res) => {
-  res.json({ message: "Service is running!" });
+// Route chính
+app.use("/api/analytics", analyticsRoutes);
+
+// Health check
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", service: "analytics-service", time: new Date() });
 });
 
-// Chạy server
+// Kết nối DB và khởi động server
 const PORT = process.env.PORT_ANALYTICS || 3006;
-app.listen(PORT, () => {
-  console.log(`Service is running on port ${PORT}`);
+
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`✅ Analytics Service running on port ${PORT}`);
+  });
 });
