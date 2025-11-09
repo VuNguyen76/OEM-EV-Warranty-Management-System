@@ -44,6 +44,10 @@ const warrantyClaimSchema = new Schema(
         is_eligible: {
           type: Boolean,
         },
+        cost: {
+          type: Number,
+          default: 0,
+        },
         reason: {
           type: String,
           trim: true,
@@ -102,6 +106,10 @@ const warrantyClaimSchema = new Schema(
       ],
       default: "submitted",
       required: true,
+    },
+    customer_confirmation: {
+      confirmed: { type: Boolean, default: null }, 
+      responded_at: { type: Date },
     },
     resolution_comment: {
       type: String,

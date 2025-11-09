@@ -212,6 +212,7 @@ class VehicleController {
   static async searchVehicles(req, res) {
     try {
       const vin = await VinModel.findOne({ vin: req.query.q }); // tuỳ tên field
+      console.log(vin);
       if (!vin) {
         return res.status(404).json({ message: "Không tìm thấy VIN" });
       }
@@ -219,6 +220,8 @@ class VehicleController {
       const vehicle = await VehicleModel.findOne({ vin_id: vin._id })
         .populate("customer_id", "full_name phone email address")
         .populate("vin_id", "vin manufacturer modelYear");
+      console.log(vehicle);
+
       const vehicleDto = new VehicleResponseDto(vehicle);
 
       res.json({

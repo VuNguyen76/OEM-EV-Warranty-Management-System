@@ -6,6 +6,7 @@ import {
 } from "../../../features/warranty/warranty.api";
 import { toast } from "react-toastify";
 import Loading from "../../../components/Loading.jsx";
+import STATUS_INFO from "../../../utils/statusClaim";
 
 const Technician = () => {
   const { user } = useSelector((state) => state.user);
@@ -28,22 +29,12 @@ const Technician = () => {
   const [updateClaimStatus, { isLoading: isUpdating }] =
     useUpdateClaimStatusMutation();
 
-  // Map trạng thái từ backend
-  const statusMap = {
-    submitted: { color: "bg-gray-500", text: "Đã gửi yêu cầu" },
-    under_review: { color: "bg-yellow-500", text: "Đang xem xét" },
-    approved: { color: "bg-blue-500", text: "Đã phê duyệt" },
-    in_progress: { color: "bg-orange-500", text: "Đang sửa chữa" },
-    rejected: { color: "bg-red-500", text: "Bị từ chối" },
-    completed: { color: "bg-green-600", text: "Hoàn thành" },
-  };
-
-  // Bắt đầu sửa chữa (từ trạng thái approved → in_progress) hoặc hoàn thành (từ trạng thái in_progress → completed)
+  // Bắt đầu sửa chữa (từ trạng thái confirmed → in_repair) hoặc hoàn thành (từ trạng thái in_repair → completed)
   const handleStartRepair = async (claim) => {
     try {
       await updateClaimStatus({
         code: claim.claim_code,
-        data: { status: "in_progress" }, // Hoặc "in_progress" nếu bạn có thêm trạng thái này trong backend
+        data: { status: "in_repair" }, // Hoặc "in_progress" nếu bạn có thêm trạng thái này trong backend
       }).unwrap();
       toast.info("Đã bắt đầu sửa chữa");
       refetch();
@@ -127,7 +118,7 @@ const Technician = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Trạng thái
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3  text-xs font-medium text-gray-500 uppercase text-center">
                 Thao tác
               </th>
             </tr>
@@ -152,16 +143,16 @@ const Technician = () => {
                 </td>
                 <td className="px-6 py-4">
                   <span
-                    className={`px-2 py-1 text-xs rounded-full text-white ${
-                      statusMap[claim.status]?.color || "bg-gray-400"
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      STATUS_INFO[claim.status]?.color || "bg-gray-400"
                     }`}
                   >
-                    {statusMap[claim.status]?.text || claim.status}
+                    {STATUS_INFO[claim.status]?.label || claim.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm">
+                <td className="px-6 py-4 text-sm text-center">
                   <div className="flex gap-2">
-                    {claim.status === "approved" && (
+                    {claim.status === "confirmed" && (
                       <button
                         onClick={() => handleStartRepair(claim)}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
@@ -169,7 +160,7 @@ const Technician = () => {
                         Bắt đầu sửa
                       </button>
                     )}
-                    {claim.status === "in_progress" && (
+                    {claim.status === "in_repair" && (
                       <button
                         onClick={() => handleCompleteRepair(claim)}
                         className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs"
@@ -179,7 +170,7 @@ const Technician = () => {
                     )}
                     <button
                       onClick={() => setSelectedClaim(claim)}
-                      className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs"
+                      className=" text-blue-600 hover:text-blue-800 font-semibold px-3 py-1 rounded cursor-pointer text-center"
                     >
                       Chi tiết
                     </button>
@@ -327,11 +318,11 @@ const Technician = () => {
                     Trạng thái
                   </label>
                   <span
-                    className={`px-2 py-1 text-xs rounded-full text-white ${
-                      statusMap[selectedClaim.status]?.color || "bg-gray-400"
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      STATUS_INFO[selectedClaim.status]?.color || "bg-gray-400"
                     }`}
                   >
-                    {statusMap[selectedClaim.status]?.text ||
+                    {STATUS_INFO[selectedClaim.status]?.label ||
                       selectedClaim.status}
                   </span>
                 </div>

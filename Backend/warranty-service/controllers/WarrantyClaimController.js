@@ -4,7 +4,7 @@ import UpdateClaimStatusDto from "../models/dto/request/UpdateClaimStatusDto.js"
 import WarrantyClaimResponseDto from "../models/dto/response/WarrantyClaimResponse.js";
 import VehicleServiceClient from "../utils/VehicleServiceClient.js";
 import WarrantyPolicyController from "./WarrantyPolicyController.js";
-import RepairOrder from "../models/RepairOrder.js";
+import sendEmail from "../utils/emailService.js";
 class WarrantyClaimController {
   // POST /api/claims - Tạo yêu cầu bảo hành mới
   static async createClaim(req, res) {
@@ -21,7 +21,6 @@ class WarrantyClaimController {
             : req.body.parts
           : [],
       };
-      console.log("bodyData", bodyData);
 
       const createDto = new CreateWarrantyClaimDto(bodyData);
       const validation = createDto.validate();
@@ -38,6 +37,7 @@ class WarrantyClaimController {
       const vinValidation = await VehicleServiceClient.validateVIN(
         createDto.vin
       );
+      
       if (!vinValidation.isValid) {
         return res.status(400).json({
           success: false,
@@ -217,7 +217,7 @@ class WarrantyClaimController {
 
       const claim = await WarrantyClaim.findByIdAndUpdate(
         claim_id,
-        { technician_id },
+        { technician_id, status: "in_repair" },
         { new: true, runValidators: true }
       );
       if (!claim) {
@@ -262,6 +262,7 @@ class WarrantyClaimController {
 
       const claims = await WarrantyClaim.find({
         technician_id: actualTechnicianId,
+        status: "in_repair",
       }).sort({ submitted_at: -1 });
 
       res.json({
@@ -317,40 +318,15 @@ class WarrantyClaimController {
           },
         });
       }
-
-      //  Nếu không có chi phí KH → duyệt và tạo RepairOrder tự động
       claim.status = "confirmed";
-
-      const eligibleParts = claim.parts.filter((p) => p.is_eligible);
-      let repairOrder = null;
-
-      if (eligibleParts.length > 0) {
-        repairOrder = await RepairOrder.create({
-          claim_id: claim._id,
-          parts: eligibleParts,
-          repair_description: "Tự động tạo sau khi EVM duyệt yêu cầu bảo hành",
-          status: "waiting_parts",
-          start_date: new Date(),
-        });
-
-        claim.repair_order_id = repairOrder._id;
-      }
-
       await claim.save();
 
       return res.json({
         success: true,
-        message: "Yêu cầu đã duyệt và tạo Repair Order thành công.",
+        message: "Yêu cầu đã duyệt thành công.",
         data: {
           claim_code: claim.claim_code,
           status: claim.status,
-          repair_order: repairOrder
-            ? {
-                order_code: repairOrder.order_code,
-                status: repairOrder.status,
-                parts_count: repairOrder.parts.length,
-              }
-            : null,
         },
       });
     } catch (error) {
@@ -359,6 +335,118 @@ class WarrantyClaimController {
         message: "Lỗi xử lý duyệt yêu cầu bảo hành",
         error: error.message,
       });
+    }
+  }
+
+  static async confirmWarrantyCost(req, res) {
+    try {
+      const { code } = req.params;
+      console.log("code", code);
+      
+      const claim = await WarrantyClaim.findOne({ claim_code: code });
+      if (!claim)
+        return res
+          .status(404)
+          .json({ success: false, message: "Claim không tồn tại" });
+
+      if (!claim.vehicle?.customer_email)
+        return res
+          .status(400)
+          .json({ success: false, message: "Không có email khách hàng" });
+
+      // Tạo link xác nhận
+      const baseUrl = process.env.FRONTEND_URL;
+      const confirmUrl = `${baseUrl}/claim-confirm/${claim.claim_code}?action=confirm`;
+      const rejectUrl = `${baseUrl}/claim-confirm/${claim.claim_code}?action=reject`;
+
+      // Gửi email
+      const partsHtml = claim.parts
+        .filter((p) => !p.is_eligible) // chỉ những part khách phải trả
+        .map(
+          (p) => `
+      <tr>
+        <td style="padding:4px 8px; border:1px solid #ccc;">${p.part_name}</td>
+        <td style="padding:4px 8px; border:1px solid #ccc;">${p.quantity}</td>
+        <td style="padding:4px 8px; border:1px solid #ccc;">${(
+          p.cost || 0
+        ).toLocaleString("vi-VN")} VND</td>
+      </tr>
+    `
+        )
+        .join("");
+
+      const totalCustomerCost = claim.summary?.total_customer_amount || 0;
+
+      await sendEmail({
+        to: claim.vehicle.customer_email,
+        subject: `Xác nhận chi phí bảo hành cho Claim ${claim.claim_code}`,
+        html: `
+    <p>Xin chào ${claim.vehicle.customer_name},</p>
+    <p>Yêu cầu bảo hành <b>#${
+      claim.claim_code
+    }</b> của bạn có phát sinh chi phí khách hàng như sau:</p>
+    
+    <table style="border-collapse:collapse; width:100%; margin-bottom:12px;">
+      <thead>
+        <tr>
+          <th style="padding:4px 8px; border:1px solid #ccc;">Tên phụ tùng</th>
+          <th style="padding:4px 8px; border:1px solid #ccc;">Số lượng</th>
+          <th style="padding:4px 8px; border:1px solid #ccc;">Chi phí</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${partsHtml}
+        <tr>
+          <td colspan="2" style="padding:4px 8px; border:1px solid #ccc; font-weight:bold;">Tổng</td>
+          <td style="padding:4px 8px; border:1px solid #ccc; font-weight:bold;">${totalCustomerCost.toLocaleString(
+            "vi-VN"
+          )} VND</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Vui lòng xác nhận nếu bạn đồng ý sửa chữa:</p>
+    <a href="${confirmUrl}" style="padding:8px 12px; background:green; color:white; text-decoration:none; border-radius:4px;">Xác nhận</a>
+    <a href="${rejectUrl}" style="padding:8px 12px; background:red; color:white; text-decoration:none; border-radius:4px; margin-left:10px;">Từ chối</a>
+
+    <p>Nếu bạn không phản hồi, yêu cầu sẽ tạm dừng.</p>
+  `,
+      });
+
+      res.json({ success: true, message: "Email xác nhận đã được gửi" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  static async handleCustomerResponse(req, res) {
+    try {
+      const { code } = req.params;
+      const { action } = req.query; // confirm hoặc reject
+
+      if (!["confirm", "reject"].includes(action))
+        return res.status(400).send("Action không hợp lệ");
+
+      const claim = await WarrantyClaim.findOne({ claim_code: code });
+      if (!claim) return res.status(404).send("Claim không tồn tại");
+
+      claim.customer_confirmation = {
+        confirmed: action === "confirm",
+        responded_at: new Date(),
+        reason: action === "reject" ? "Khách hàng từ chối sửa chữa" : null,
+      };
+
+      // Nếu khách xác nhận, update status
+      if (action === "confirm") claim.status = "confirmed";
+      else if (action === "reject") claim.status = "rejected";
+
+      await claim.save();
+
+      res.send(
+        `<p>Cảm ơn bạn đã phản hồi. Yêu cầu của bạn đã được ghi nhận: ${action}</p>`
+      );
+    } catch (error) {
+      res.status(500).send("Lỗi xử lý phản hồi");
     }
   }
 }

@@ -15,7 +15,7 @@ class VehicleServiceClient {
       const response = await fetch(
         `${this.baseURL}/api/vehicles/search?q=${vin}`
       );
-      const data = await response.json();
+      const data = await response.json();      
 
       if (data.success) {
         return { isValid: true, vehicle: data.vehicle };

@@ -169,7 +169,7 @@ class WarrantyPolicyController {
         const claimTime = new Date(claimDate);
         const warrantyEnd = new Date(vehicle.warranty_end);
         if (claimTime > warrantyEnd) {
-          result.reason = "Yêu cầu bảo hành vượt quá thời gian cho phép";
+          result.reason = "Quá thời gian bảo hành";
           evaluatedParts.push(result);
           continue;
         }

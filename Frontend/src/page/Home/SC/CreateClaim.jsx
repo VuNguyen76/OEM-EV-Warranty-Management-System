@@ -34,7 +34,6 @@ const CreateClaim = () => {
 
   // Xử lý chọn/bỏ chọn part
   const handlePartToggle = (part) => {
-    
     setSelectedParts((prev) => {
       const partSerial = part.serial_number;
       const exists = prev.find((p) => p.part_serial === partSerial);
@@ -448,7 +447,7 @@ const CreateClaim = () => {
             <i className="fa-solid fa-check"></i>
             {isSubmitting || isCreatingClaim ? (
               <>
-               <span >Đang xử lý...</span>
+                <span>Đang xử lý...</span>
               </>
             ) : (
               <>

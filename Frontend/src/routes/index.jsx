@@ -17,13 +17,17 @@ import AuthActive from "../page/auth/AuthActive";
 import Technician from "../page/Home/SC/Technician";
 import ClaimsManagement from "../page/Home/EVM/ClaimsManagement";
 import RepairOrderManagement from "../page/Home/EVM/RepairOrderManagement";
+import CustomerConfirmPage from "../page/CustomerConfirmPage";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Auth />,
   },
-
+  {
+    path: "/claim-confirm/:code",
+    element: <CustomerConfirmPage />,
+  },
   {
     path: "/auth-active",
     element: <AuthActive />,

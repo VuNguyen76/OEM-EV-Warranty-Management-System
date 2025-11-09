@@ -3,7 +3,15 @@ import WarrantyClaimController from "../controllers/WarrantyClaimController.js";
 import { uploadImages } from "../middlewares/upload.js";
 import auth from "../../shared/middlewares/auth.js";
 
-const router = express.Router();
+const router = express.Router(); 
+// POST /:code/confirm - Xác nhận chi phí bảo hành
+router.post("/:code/confirm", WarrantyClaimController.confirmWarrantyCost);
+
+// GET /:code/customer-response?action=confirm|reject - Phản hồi của khách hàng
+router.get(
+  "/:code/customer-response",
+  WarrantyClaimController.handleCustomerResponse
+);
 router.use(auth);
 
 // POST / - Tạo yêu cầu bảo hành mới (với upload hình ảnh)
@@ -22,7 +30,10 @@ router.patch("/:code/status", WarrantyClaimController.updateClaimStatus);
 router.post("/:claim_id/assign", WarrantyClaimController.assignTechnician);
 
 // GET /technician/:technician_id - Lấy danh sách yêu cầu của kỹ thuật viên
-router.get("/technician/:technician_id", WarrantyClaimController.getClaimByTechnician);
+router.get(
+  "/technician/:technician_id",
+  WarrantyClaimController.getClaimByTechnician
+);
 
 // PATCH /:code/approve - Duyệt yêu cầu bảo hành
 router.patch("/:code/approve", WarrantyClaimController.approveClaim);

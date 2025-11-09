@@ -41,6 +41,7 @@ const ClaimsManagement = () => {
     try {
       await approveClaim(claimCode).unwrap();
       toast.success("Cập nhật trạng thái thành công");
+      dispatch(closeModal());
       refetch();
     } catch (error) {
       console.error(error);
@@ -279,11 +280,18 @@ const ClaimDetailsModal = ({ claim, onClose, onHandleClaim }) => {
 
   const getStatusLabel = (status) => {
     const map = {
-      submitted: { text: "Đã gửi", color: "blue" },
-      confirmed: { text: "Đã xác nhận", color: "green" },
-      in_repair: { text: "Đang sửa chữa", color: "purple" },
-      rejected: { text: "Đã từ chối", color: "red" },
-      completed: { text: "Hoàn thành", color: "gray" },
+      submitted: { text: "Đã gửi", color: "bg-blue-200 text-blue-700" },
+      confirmed: { text: "Đã xác nhận", color: "bg-green-200 text-green-700" },
+      waiting_customer: {
+        text: "Chờ xác nhận",
+        color: "bg-yellow-300 text-yellow-700",
+      },
+      in_repair: {
+        text: "Đang sửa chữa",
+        color: "bg-orange-200 text-orange-700",
+      },
+      rejected: { text: "Đã từ chối", color: "bg-red-200 text-red-700" },
+      completed: { text: "Hoàn thành", color: "bg-gray-200 text-black-700" },
     };
     return map[status] || { text: status, color: "gray" };
   };
@@ -310,34 +318,24 @@ const ClaimDetailsModal = ({ claim, onClose, onHandleClaim }) => {
       case "waiting_customer":
         return [
           {
-            label: "Xác nhận",
-            color: "bg-green-600 hover:bg-green-700",
+            label: "Đang chờ khách hàng xác nhận",
+            color: "bg-gray-600 cursor-not-allowed",
             status: "confirmed",
-          },
-          {
-            label: "Từ chối",
-            color: "bg-red-600 hover:bg-red-700",
-            status: "rejected",
           },
         ];
       case "confirmed":
         return [
           {
-            label: "Bắt đầu sửa chữa",
-            color: "bg-blue-600 hover:bg-blue-700",
+            label: "Đã xác nhận sửa chữa",
+            color: "bg-gray-600 cursor-not-allowed",
             status: "in_repair",
-          },
-          {
-            label: "Từ chối",
-            color: "bg-red-600 hover:bg-red-700",
-            status: "rejected",
           },
         ];
       case "in_repair":
         return [
           {
-            label: "Hoàn thành bảo hành",
-            color: "bg-green-600 hover:bg-green-700",
+            label: "Đang sửa chữa",
+            color: "bg-gray-600 cursor-not-allowed",
             status: "completed",
           },
         ];
@@ -384,7 +382,7 @@ const ClaimDetailsModal = ({ claim, onClose, onHandleClaim }) => {
                 Thông tin yêu cầu bảo hành
               </h3>
               <span
-                className={`px-3 py-1 rounded-full text-sm font-medium bg-${statusInfo.color}-100 text-${statusInfo.color}-800`}
+                className={`px-3 py-1 rounded-full text-sm font-medium ${statusInfo.color}`}
               >
                 {statusInfo.text}
               </span>

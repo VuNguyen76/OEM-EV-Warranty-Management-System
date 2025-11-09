@@ -8,11 +8,14 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         const { status, service_center_id, vin } = params;
         const queryParams = new URLSearchParams();
         if (status) queryParams.append("status", status);
-        if (service_center_id) queryParams.append("service_center_id", service_center_id);
+        if (service_center_id)
+          queryParams.append("service_center_id", service_center_id);
         if (vin) queryParams.append("vin", vin);
-        
+
         return {
-          url: `claims${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+          url: `claims${
+            queryParams.toString() ? `?${queryParams.toString()}` : ""
+          }`,
           method: "GET",
         };
       },
@@ -27,7 +30,9 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         method: "GET",
       }),
       transformResponse: (response) => response.claim || response.data,
-      providesTags: (result, error, code) => [{ type: "WarrantyClaim", id: code }],
+      providesTags: (result, error, code) => [
+        { type: "WarrantyClaim", id: code },
+      ],
     }),
 
     // CREATE WARRANTY CLAIM
@@ -64,9 +69,11 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         const { status } = params;
         const queryParams = new URLSearchParams();
         if (status) queryParams.append("status", status);
-        
+
         return {
-          url: `repair-orders${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+          url: `repair-orders${
+            queryParams.toString() ? `?${queryParams.toString()}` : ""
+          }`,
           method: "GET",
         };
       },
@@ -118,7 +125,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         "WarrantyClaim",
       ],
     }),
-    
+
     getTechnicianClaims: builder.query({
       query: (technician_id) => ({
         url: `claims/technician/${technician_id}`,
@@ -139,7 +146,16 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         "WarrantyClaim",
       ],
     }),
-
+    confirmWarrantyCost: builder.mutation({
+      query: (code) => ({
+        url: `claims/${code}/confirm`,
+        method: "POST",
+      }),
+      invalidatesTags: (result, error, code) => [
+        { type: "WarrantyClaim", id: code },
+        "WarrantyClaim",
+      ],
+    }),
   }),
 });
 
@@ -155,5 +171,5 @@ export const {
   useGetClaimByTechnicianQuery,
   useGetTechnicianClaimsQuery,
   useApproveClaimMutation,
+  useConfirmWarrantyCostMutation,
 } = extendedWarrantyApi;
-

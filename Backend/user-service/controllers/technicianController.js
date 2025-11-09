@@ -127,7 +127,6 @@ class technicianController {
         });
       }
 
-
       const technician = await technicianModel.create({
         name,
         phone,
@@ -192,7 +191,7 @@ class technicianController {
     try {
       const { technician_id, claim_id } = req.body;
 
-      const token = req.token;      
+      const token = req.token;
       const response = await axios.post(
         `${process.env.WARRANTY_SERVICE_URL}/claims/${claim_id}/assign`,
         { technician_id },
@@ -202,7 +201,7 @@ class technicianController {
           },
         }
       );
-   
+
       if (!response.data.success) {
         return res
           .status(400)
@@ -212,13 +211,12 @@ class technicianController {
       await technicianModel.findByIdAndUpdate(technician_id, {
         $inc: { workload: 1 },
       });
-      res
-        .status(200)
-        .json({
-          success: true,
-          data: response.data,
-          message: "Phân công thành công",
-        });
+
+      res.status(200).json({
+        success: true,
+        data: response.data,
+        message: "Phân công thành công",
+      });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
@@ -231,18 +229,18 @@ class technicianController {
       if (!technician) {
         return res.status(404).json({
           success: false,
-          message: "Không tìm thấy technician với user_id này"
+          message: "Không tìm thấy technician với user_id này",
         });
       }
 
       res.status(200).json({
         success: true,
-        data: technician
+        data: technician,
       });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        message: error.message 
+      res.status(500).json({
+        success: false,
+        message: error.message,
       });
     }
   }
