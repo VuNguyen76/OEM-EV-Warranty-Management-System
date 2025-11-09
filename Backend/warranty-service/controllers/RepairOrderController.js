@@ -28,7 +28,7 @@ class RepairOrderController {
                 });
             }
 
-            if (claim.status !== 'approved') {
+            if (claim.status !== 'confirmed') {
                 return res.status(400).json({
                     success: false,
                     message: 'Claim chưa được approve, không thể tạo repair order'

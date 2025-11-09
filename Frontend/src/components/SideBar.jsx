@@ -41,9 +41,19 @@ const sideBarSC = [
 
 const sideBarEVM = [
   {
-    label: "Quản lý trung tâm dịch vụ",
+    label: "Quản lý trung tâm",
     icon: "fa-solid fa-building-flag",
     path: "/evm/manage-center",
+  },
+  {
+    label: "Quản lý Claim",
+    icon: "fa-regular fa-clipboard",
+    path: "/evm/manage-claim",
+  },
+  {
+    label: "Quản lý Repair Order",
+    icon: "fa-regular fa-clipboard",
+    path: "/evm/manage-repair-order",
   },
 ];
 const sideBarTechnician = [
@@ -52,16 +62,6 @@ const sideBarTechnician = [
     icon: "fa-solid fa-user-gear",
     path: "/sc_technician/technician",
   },
-  {
-    label: "Quản lý Claim",
-    icon: "fa-regular fa-clipboard",
-    path: "/sc_technician/manage-claim",
-  },
-  {
-    label: "Quản lý Repair Order",
-    icon: "fa-regular fa-clipboard",
-    path: "/sc_technician/repair-order",
-  },
 ];
 
 const SideBar = () => {
@@ -69,23 +69,31 @@ const SideBar = () => {
 
   return (
     <div className="h-full flex flex-col gap-4 border-r border-gray-300 py-2 pr-4">
-      {(user.role === "sc_staff" ? sideBarSC : user.role === "evm_staff" ? sideBarEVM : user.role === "sc_technician" ? sideBarTechnician : []).map(
-        (item, index) => (
-          <NavLink
-            to={item.path}
-            key={item.path}
-            end={item.path === "/sc_staff" || item.path === "/sc_technician/technician"}
-            className={({ isActive }) =>
-              isActive
-                ? "flex gap-2 items-center px-4 py-2 bg-green-500/20 text-green-500 rounded-lg"
-                : "flex gap-2 items-center px-4 py-2 hover:bg-gray-200 rounded-lg"
-            }
-          >
-            <i className={item.icon}></i>
-            <p className="text-nowrap">{item.label}</p>
-          </NavLink>
-        )
-      )}
+      {(user.role === "sc_staff"
+        ? sideBarSC
+        : user.role === "evm_staff"
+        ? sideBarEVM
+        : user.role === "sc_technician"
+        ? sideBarTechnician
+        : []
+      ).map((item, index) => (
+        <NavLink
+          to={item.path}
+          key={item.path}
+          end={
+            item.path === "/sc_staff" ||
+            item.path === "/sc_technician/technician"
+          }
+          className={({ isActive }) =>
+            isActive
+              ? "flex gap-2 items-center px-4 py-2 bg-green-500/20 text-green-500 rounded-lg"
+              : "flex gap-2 items-center px-4 py-2 hover:bg-gray-200 rounded-lg"
+          }
+        >
+          <i className={item.icon}></i>
+          <p className="text-nowrap">{item.label}</p>
+        </NavLink>
+      ))}
     </div>
   );
 };

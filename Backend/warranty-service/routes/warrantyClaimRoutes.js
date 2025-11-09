@@ -24,4 +24,7 @@ router.post("/:claim_id/assign", WarrantyClaimController.assignTechnician);
 // GET /technician/:technician_id - Lấy danh sách yêu cầu của kỹ thuật viên
 router.get("/technician/:technician_id", WarrantyClaimController.getClaimByTechnician);
 
+// PATCH /:code/approve - Duyệt yêu cầu bảo hành
+router.patch("/:code/approve", WarrantyClaimController.approveClaim);
+
 export default router;

@@ -35,7 +35,7 @@ const repairOrderSchema = new Schema({
             },
             status: {
                 type: String,
-                enum: ['ordered', 'received', 'installed'],
+                enum: ['ordered', 'received', 'installed', 'rejected'],
                 default: 'ordered'
             }
         }

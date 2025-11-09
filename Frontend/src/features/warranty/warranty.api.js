@@ -129,6 +129,16 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         { type: "WarrantyClaim", id: technician_id },
       ],
     }),
+    approveClaim: builder.mutation({
+      query: (code) => ({
+        url: `claims/${code}/approve`,
+        method: "PATCH",
+      }),
+      invalidatesTags: (result, error, code) => [
+        { type: "WarrantyClaim", id: code },
+        "WarrantyClaim",
+      ],
+    }),
 
   }),
 });
@@ -144,5 +154,6 @@ export const {
   useUpdateRepairOrderMutation,
   useGetClaimByTechnicianQuery,
   useGetTechnicianClaimsQuery,
+  useApproveClaimMutation,
 } = extendedWarrantyApi;
 

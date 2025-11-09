@@ -41,6 +41,17 @@ const warrantyClaimSchema = new Schema(
           default: 1,
           min: 1,
         },
+        is_eligible: {
+          type: Boolean,
+        },
+        reason: {
+          type: String,
+          trim: true,
+        },
+        warranty_type: {
+          type: String,
+          enum: ["warranty", "customer_pay"],
+        },
       },
     ],
     policy_id: {
@@ -83,12 +94,10 @@ const warrantyClaimSchema = new Schema(
       type: String,
       enum: [
         "submitted",
-        "approved",
+        "waiting_customer",
         "confirmed",
-        "pending",
-        "reject_warranty",
-        "in_progress",
         "rejected",
+        "in_repair",
         "completed",
       ],
       default: "submitted",
@@ -99,10 +108,9 @@ const warrantyClaimSchema = new Schema(
       trim: true,
     },
 
-    part_cost: {
-      type: Number,
-      default: 0,
-      min: 0,
+    summary: {
+      total_warranty_amount: { type: Number, default: 0 },
+      total_customer_amount: { type: Number, default: 0 },
     },
     repair_order_id: {
       type: Schema.Types.ObjectId,

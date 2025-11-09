@@ -49,6 +49,7 @@ class CreateWarrantyClaimDto {
                 part_id: part.part_id?.trim(),
                 part_serial: part.part_serial?.trim(),
                 part_name: part.part_name?.trim(),
+                part_category: part.part_category?.trim(),
                 quantity: part.quantity || 1,
             })),
             part_cost: this.part_cost,
