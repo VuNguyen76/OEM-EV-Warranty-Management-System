@@ -27,6 +27,7 @@ class UpdateInventoryDto {
     const model = {};
     if (this.quantity != null) model.quantity = this.quantity;
     if (this.threshold != null) model.threshold = this.threshold;
+    model.last_updated = new Date(); // Cập nhật thời gian cuối cùng cập nhật tồn kho
     return model;
   }
 }

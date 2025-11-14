@@ -8,12 +8,11 @@ const partCatalogSchema = new Schema(
     category: {
       type: String,
       required: true,
-      enum: ["battery", "motor", "bms", "charger", "inverter", "sensor"],
     },
     manufacturer: { type: String, required: true, trim: true, maxlength: 100 },
     model_code: { type: String, required: true, trim: true }, // Ví dụ: BAT60V-30A
 
-    cost_price: { type: Number, default: 0, min: 0 },
+    cost_price: { type: Number, default: 0, required: true, min: 0 },
     weight_kg: { type: Number, default: 0, min: 0 },
     dimensions: {
       length: Number,
@@ -24,7 +23,7 @@ const partCatalogSchema = new Schema(
     image_url: { type: String, trim: true },
     status: {
       type: String,
-      enum: ["active", "discontinued", "out_of_stock"],
+      enum: ["active", "inactive"],
       default: "active",
     },
   },

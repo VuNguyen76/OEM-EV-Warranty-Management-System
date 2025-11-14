@@ -1,6 +1,6 @@
 class CreateInventoryDto {
     constructor(data) {
-        this.part_id = data.part_id?.trim();
+        this.part_catalog_id = data.part_catalog_id?.trim();
         this.quantity = data.quantity || 0;
         this.threshold = data.threshold || 3;
     }
@@ -8,7 +8,7 @@ class CreateInventoryDto {
     validate() {
         const errors = [];
 
-        if (!this.part_id) errors.push('Thiếu mã phụ tùng');
+        if (!this.part_catalog_id) errors.push('Thiếu mã phụ tùng');
         if (this.quantity < 0) errors.push('Số lượng không được âm');
         if (this.threshold < 0) errors.push('Ngưỡng cảnh báo không được âm');
 
@@ -18,9 +18,10 @@ class CreateInventoryDto {
 
     toModel() {
         return {
-            part_id: this.part_id,
+            part_catalog_id: this.part_catalog_id,
             quantity: this.quantity,
-            threshold: this.threshold
+            threshold: this.threshold,
+            last_updated: new Date() // Ngày tạo mới, cập nhật ngày cuối cùng cập nhật tồn kho
         };
     }
 }

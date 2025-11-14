@@ -1,23 +1,27 @@
 class InventoryResponseDto {
     constructor(data) {
         this.id = data._id;
-        this.part_id = data.part_id;
+        this.part_catalog_id = data.part_catalog_id;
+        this.part_name = data.part_catalog_id.name;
+        this.category = data.part_catalog_id.category;
         this.quantity = data.quantity;
         this.threshold = data.threshold;
-        this.last_restocked_at = data.last_restocked_at;
-        this.created_at = data.createdAt;
-        this.updated_at = data.updatedAt;
+        this.last_updated = data.last_updated;
+        this.createdAt = data.createdAt;
+        this.updatedAt = data.updatedAt;
     }
 
     toJSON() {
         return {
             id: this.id,
-            part_id: this.part_id,
+            part_catalog_id: this.part_catalog_id,
+            part_name: this.part_name,
+            category: this.category,
             quantity: this.quantity,
             threshold: this.threshold,
-            last_restocked_at: this.last_restocked_at,
-            created_at: this.created_at,
-            updated_at: this.updated_at
+            last_updated: this.last_updated,
+            createdAt: this.createdAt,
+            updatedAt: this.updatedAt,
         };
     }
 }
