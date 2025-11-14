@@ -9,6 +9,9 @@ class InventoryResponseDto {
         this.last_updated = data.last_updated;
         this.createdAt = data.createdAt;
         this.updatedAt = data.updatedAt;
+        this.last_updated = data.last_updated;
+        this.createdAt = data.createdAt;
+        this.updatedAt = data.updatedAt;
     }
 
     toJSON() {
@@ -19,6 +22,9 @@ class InventoryResponseDto {
             category: this.category,
             quantity: this.quantity,
             threshold: this.threshold,
+            last_updated: this.last_updated,
+            createdAt: this.createdAt,
+            updatedAt: this.updatedAt,
             last_updated: this.last_updated,
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,
