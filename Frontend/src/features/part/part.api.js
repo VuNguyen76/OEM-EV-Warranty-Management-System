@@ -13,6 +13,15 @@ const extendedPartApi = partApi.injectEndpoints({
       providesTags: ["PartCatalog"],
     }),
 
+    createPartCatalog: builder.mutation({
+      query: (data) => ({
+        url: "part-catalog",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["PartCatalog"],
+    }),
+
     // 🔹 Lấy danh sách phụ tùng thật (PartInstance)
     getAllParts: builder.query({
       query: () => ({
@@ -61,6 +70,34 @@ const extendedPartApi = partApi.injectEndpoints({
       }),
       invalidatesTags: ["Part"],
     }),
+    // 🔹 Lấy danh sách tồn kho
+    getInventory: builder.query({
+      query: () => ({
+        url: "inventory",
+        method: "GET",
+      }),
+      transformResponse: (response) => response.data,
+      providesTags: ["Inventory"],
+    }),
+
+    // 🔹 Cập nhật tồn kho
+    updateInventory: builder.mutation({
+      query: ({ part_catalog_id, data }) => ({
+        url: `inventory/${part_catalog_id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["Inventory"],
+    }),
+    // 🔹 Tạo tồn kho
+    createInventory: builder.mutation({
+      query: (data) => ({
+        url: "inventory",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Inventory"],
+    }),
   }),
 });
 
@@ -71,4 +108,8 @@ export const {
   useAddPartToVehicleMutation,
   useUpdatePartMutation,
   useDeletePartMutation,
+  useGetInventoryQuery,
+  useUpdateInventoryMutation,
+  useCreateInventoryMutation,
+  useCreatePartCatalogMutation,
 } = extendedPartApi;
