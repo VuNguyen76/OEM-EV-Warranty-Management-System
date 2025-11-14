@@ -64,7 +64,7 @@ const ClaimsManagement = () => {
     );
 
   return (
-    <div className="h-full w-full space-y-6 p-4">
+    <div className="h-full w-full space-y-6 p-3">
       {/* Header */}
       <div className="flex justify-between items-center">
         <Title

@@ -28,7 +28,7 @@ const CreateInventoryModal = ({ onClose, onSubmit, partCatalogs, refetch }) => {
               name="part_catalog_id"
               value={form.part_catalog_id}
               onChange={handleChange}
-              className="border w-full px-2 py-1 rounded"
+              className="border border-gray-300 w-full px-2 py-1 rounded"
               required
             >
               <option value="">-- Chọn loại phụ tùng --</option>
@@ -47,7 +47,7 @@ const CreateInventoryModal = ({ onClose, onSubmit, partCatalogs, refetch }) => {
               name="quantity"
               value={form.quantity}
               onChange={handleChange}
-              className="border w-full px-2 py-1 rounded"
+              className="border border-gray-300 w-full px-2 py-1 rounded"
               required
             />
           </div>
@@ -59,7 +59,7 @@ const CreateInventoryModal = ({ onClose, onSubmit, partCatalogs, refetch }) => {
               name="threshold"
               value={form.threshold}
               onChange={handleChange}
-              className="border w-full px-2 py-1 rounded"
+              className="border border-gray-300 w-full px-2 py-1 rounded"
               required
             />
           </div>
@@ -68,13 +68,13 @@ const CreateInventoryModal = ({ onClose, onSubmit, partCatalogs, refetch }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1 border rounded"
+              className="px-3 py-1 border border-gray-300 rounded"
             >
               Hủy
             </button>
             <button
               type="submit"
-              className="px-3 py-1 bg-blue-600 text-white rounded"
+              className="px-3 py-1 bg-green-600 text-white rounded"
             >
               Tạo
             </button>

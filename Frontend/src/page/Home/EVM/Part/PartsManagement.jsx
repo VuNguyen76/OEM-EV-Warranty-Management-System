@@ -10,6 +10,7 @@ import CreateInventoryModal from "./CreateInventoryModal";
 import EditInventoryModal from "./EditInventoryModal";
 import CreatePartCatalogModal from "./CreatePartCatalogModal";
 import Loading from "../../../../components/Loading";
+import Title from "../../../../components/Title";
 
 const PartsManagement = () => {
   const { data: inventories, isLoading, refetch } = useGetInventoryQuery();
@@ -26,9 +27,12 @@ const PartsManagement = () => {
   const [selectedInventory, setSelectedInventory] = useState(null);
 
   return (
-    <div className="flex-1 p-6">
+    <div className="flex-1 p-3">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Quản lý phụ tùng</h2>
+        <Title
+          title="Quản lý phụ tùng"
+          subTitle="Quản lý tồn kho và danh mục phụ tùng"
+        />
         <div className="space-x-3">
           <button
             className="bg-green-600 font-semibold text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer"

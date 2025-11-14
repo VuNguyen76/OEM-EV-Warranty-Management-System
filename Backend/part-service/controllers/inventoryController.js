@@ -9,7 +9,7 @@ class InventoryController {
     try {
       const inventory = await Inventory.find()
         .populate("part_catalog_id", "name category")
-        .sort({ last_updated: 1 });
+        .sort({ createdAt: 1 });
       const responseData = inventory.map(
         (item) => new InventoryResponseDto(item)
       );
@@ -29,10 +29,8 @@ class InventoryController {
   }
 
   // PATCH /api/inventory/:part_catalog_id - Cập nhật số lượng tồn
-  // PATCH /api/inventory/:part_catalog_id - Cập nhật số lượng tồn
   static async updateInventory(req, res) {
     try {
-      const { part_catalog_id } = req.params;
       const { part_catalog_id } = req.params;
       const updateDto = new UpdateInventoryDto(req.body);
       const validation = updateDto.validate();
@@ -46,7 +44,6 @@ class InventoryController {
       }
 
       const inventory = await Inventory.findOneAndUpdate(
-        { part_catalog_id },
         { part_catalog_id },
         updateDto.toModel(),
         { new: true, runValidators: true }

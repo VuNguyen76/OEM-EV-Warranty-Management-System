@@ -63,7 +63,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             onChange={handleChange}
             placeholder="Tên phụ tùng"
             required
-            className="border px-2 py-1 rounded col-span-2"
+            className="border border-gray-300 px-2 py-1 rounded col-span-2"
           />
           <input
             name="category"
@@ -71,7 +71,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             onChange={handleChange}
             placeholder="Loại phụ tùng"
             required
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           />
 
           <input
@@ -80,7 +80,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             onChange={handleChange}
             placeholder="Hãng sản xuất"
             required
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           />
           <input
             name="model_code"
@@ -88,7 +88,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             onChange={handleChange}
             placeholder="Model code (VD: BAT60V-30A)"
             required
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           />
 
           <input
@@ -97,7 +97,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             value={form.cost_price}
             onChange={handleChange}
             placeholder="Giá vốn"
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           />
           <input
             type="number"
@@ -105,7 +105,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             value={form.weight_kg}
             onChange={handleChange}
             placeholder="Cân nặng (kg)"
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           />
 
           <input
@@ -114,7 +114,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             value={form.length}
             onChange={handleChange}
             placeholder="Dài (mm)"
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           />
           <input
             type="number"
@@ -122,7 +122,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             value={form.width}
             onChange={handleChange}
             placeholder="Rộng (mm)"
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           />
           <input
             type="number"
@@ -130,27 +130,27 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             value={form.height}
             onChange={handleChange}
             placeholder="Cao (mm)"
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           />
           <input
             name="image_url"
             value={form.image_url}
             onChange={handleChange}
             placeholder="Image URL"
-            className="border px-2 py-1 rounded col-span-2"
+            className="border border-gray-300 px-2 py-1 rounded col-span-2"
           />
           <textarea
             name="description"
             value={form.description}
             onChange={handleChange}
             placeholder="Mô tả"
-            className="border px-2 py-1 rounded col-span-2"
+            className="border border-gray-300 px-2 py-1 rounded col-span-2"
           />
           <select
             name="status"
             value={form.status}
             onChange={handleChange}
-            className="border px-2 py-1 rounded"
+            className="border border-gray-300 px-2 py-1 rounded"
           >
             <option value="active">Hoạt động</option>
             <option value="inactive">Không hoạt động</option>
@@ -160,7 +160,7 @@ const CreatePartCatalogModal = ({ onClose, onSubmit }) => {
             <button
               type="button"
               onClick={onClose}
-              className="border px-3 py-1 rounded"
+              className="border border-gray-300 px-3 py-1 rounded"
             >
               Hủy
             </button>

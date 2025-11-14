@@ -12,8 +12,8 @@ const EditInventoryModal = ({ onClose, onSubmit, inventory, refetch }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     await onSubmit({
-      part_catalog_id: inventory.part_catalog_id,
-      ...form,
+      part_catalog_id: inventory.part_catalog_id._id,
+      data: form,
     }).unwrap();
     refetch();
     onClose();
@@ -31,7 +31,7 @@ const EditInventoryModal = ({ onClose, onSubmit, inventory, refetch }) => {
               name="quantity"
               value={form.quantity}
               onChange={handleChange}
-              className="border w-full px-2 py-1 rounded"
+              className="border border-gray-300 w-full px-2 py-1 rounded"
               required
             />
           </div>
@@ -42,7 +42,7 @@ const EditInventoryModal = ({ onClose, onSubmit, inventory, refetch }) => {
               name="threshold"
               value={form.threshold}
               onChange={handleChange}
-              className="border w-full px-2 py-1 rounded"
+              className="border border-gray-300 w-full px-2 py-1 rounded"
               required
             />
           </div>
@@ -50,13 +50,13 @@ const EditInventoryModal = ({ onClose, onSubmit, inventory, refetch }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1 border rounded"
+              className="px-3 py-1 border border-gray-300 rounded"
             >
               Hủy
             </button>
             <button
               type="submit"
-              className="px-3 py-1 bg-blue-600 text-white rounded"
+              className="px-3 py-1 bg-green-600 text-white rounded"
             >
               Lưu
             </button>
