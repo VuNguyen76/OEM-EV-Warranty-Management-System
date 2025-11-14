@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "concurrently \"npm run start-user\" \"npm run start-vehicle\" \"npm run start-warranty\" \"npm run start-part\" \"npm run start-fe\"",
-    "start-user": "cd backend/user-service && npm start",
-    "start-vehicle": "cd backend/vehicle-service && npm start",
-    "start-warranty": "cd backend/warranty-service && npm start",
-    "start-part": "cd backend/part-service && npm start",
-    "start-fe": "cd frontend && npm run dev"
+    "start": "concurrently \"npm run start-gateway\" \"npm run start-user\" \"npm run start-vehicle\" \"npm run start-warranty\" \"npm run start-part\" \"npm run start-fe\"",
+    "start-gateway": "cd Backend/api-gateway && npm start",
+    "start-user": "cd Backend/user-service && npm start",
+    "start-vehicle": "cd Backend/vehicle-service && npm start",
+    "start-warranty": "cd Backend/warranty-service && npm start",
+    "start-part": "cd Backend/part-service && npm start",
+    "start-fe": "cd Frontend && npm run dev"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

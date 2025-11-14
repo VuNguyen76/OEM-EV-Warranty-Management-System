@@ -11,14 +11,12 @@ services:
       - WARRANTY_SERVICE_URL=http://warranty-service:${PORT_WARRANTY}
       - PART_SERVICE_URL=http://part-service:${PORT_PART}
       - CAMPAIGN_SERVICE_URL=http://campaign-service:${PORT_CAMPAIGN}
-      - ANALYTICS_SERVICE_URL=http://analytics-service:${PORT_ANALYTICS}
     depends_on:
       - user-service
       - vehicle-service
       - warranty-service
       - part-service
       - campaign-service
-      - analytics-service
     networks:
       - warranty_network
     volumes:
@@ -139,29 +137,6 @@ services:
     networks:
       - warranty_network
 
-  # ===================== ANALYTICS SERVICE =====================
-  analytics-service:
-    build: ./Backend/analytics-service
-    ports:
-      - "${PORT_ANALYTICS}:${PORT_ANALYTICS}"
-    environment:
-      - PORT=${PORT_ANALYTICS}
-      - MONGO_URI=${ANALYTICS_DB}
-      - SERVICE_NAME=analytics
-    depends_on:
-      - mongo-analytics
-    networks:
-      - warranty_network
-    volumes:
-      - ./Backend/shared:/app/shared
-
-  mongo-analytics:
-    image: mongo:7.0
-    volumes:
-      - mongo_analytics_data:/data/db
-    networks:
-      - warranty_network
-
 # ===================== NETWORK + VOLUMES =====================
 networks:
   warranty_network:
@@ -173,4 +148,3 @@ volumes:
   mongo_warranty_data:
   mongo_part_data:
   mongo_campaign_data:
-  mongo_analytics_data:

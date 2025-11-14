@@ -15,7 +15,6 @@ const services = {
   warranty: process.env.WARRANTY_SERVICE_URL || "http://warranty-service:3003",
   part: process.env.PART_SERVICE_URL || "http://part-service:3004",
   campaign: process.env.CAMPAIGN_SERVICE_URL || "http://campaign-service:3005",
-  analytics: process.env.ANALYTICS_SERVICE_URL || "http://analytics-service:3006",
 };
 
 // Tạo route
@@ -25,7 +24,8 @@ app.use("/api/vehicles", createProxyMiddleware({ target: services.vehicle, chang
 app.use("/api/warranty", createProxyMiddleware({ target: services.warranty, changeOrigin: true }));
 app.use("/api/parts", createProxyMiddleware({ target: services.part, changeOrigin: true }));
 app.use("/api/campaigns", createProxyMiddleware({ target: services.campaign, changeOrigin: true }));
-app.use("/api/analytics", createProxyMiddleware({ target: services.analytics, changeOrigin: true }));
+// Analytics routes are handled by warranty-service
+app.use("/api/analytics", createProxyMiddleware({ target: services.warranty, changeOrigin: true }));
 
 const PORT = process.env.PORT_GATEWAY || 3000;
 app.listen(PORT, () => console.log(`API Gateway running on port ${PORT}`));
