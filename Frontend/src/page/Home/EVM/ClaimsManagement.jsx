@@ -44,8 +44,7 @@ const ClaimsManagement = () => {
       dispatch(closeModal());
       refetch();
     } catch (error) {
-      console.error(error);
-      toast.error("Cập nhật trạng thái thất bại");
+      toast.error(error?.data?.message || "Cập nhật trạng thái thất bại");
     }
   };
 

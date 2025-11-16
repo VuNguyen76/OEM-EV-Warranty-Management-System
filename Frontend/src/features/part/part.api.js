@@ -98,6 +98,13 @@ const extendedPartApi = partApi.injectEndpoints({
       }),
       invalidatesTags: ["Inventory"],
     }),
+    deleteInventory: builder.mutation({
+      query: (part_catalog_id) => ({
+        url: `inventory/${part_catalog_id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Inventory"],
+    }),
   }),
 });
 
@@ -112,4 +119,5 @@ export const {
   useUpdateInventoryMutation,
   useCreateInventoryMutation,
   useCreatePartCatalogMutation,
+  useDeleteInventoryMutation,
 } = extendedPartApi;

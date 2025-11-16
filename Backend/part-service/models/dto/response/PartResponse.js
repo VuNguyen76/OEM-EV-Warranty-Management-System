@@ -5,6 +5,7 @@ class PartResponseDto {
     this.vehicle_id = data.vehicle_id ?? null;
     this.install_date = data.install_date || null;
     this.warranty_end = data.warranty_end || null;
+    this.part_catalog_id = data.part_catalog_id._id;
     this.status = data.status;
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
@@ -32,6 +33,7 @@ class PartResponseDto {
       vehicle_id: this.vehicle_id,
       install_date: this.install_date,
       warranty_end: this.warranty_end,
+      part_catalog_id: this.part_catalog_id,      
       status: this.status,
       part_name: this.part_catalog.name,
       part_category: this.part_catalog.category,

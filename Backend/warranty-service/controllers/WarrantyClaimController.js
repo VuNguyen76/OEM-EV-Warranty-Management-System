@@ -5,6 +5,7 @@ import WarrantyClaimResponseDto from "../models/dto/response/WarrantyClaimRespon
 import VehicleServiceClient from "../utils/VehicleServiceClient.js";
 import WarrantyPolicyController from "./WarrantyPolicyController.js";
 import sendEmail from "../utils/emailService.js";
+import axios from "axios";
 class WarrantyClaimController {
   // POST /api/claims - Tạo yêu cầu bảo hành mới
   static async createClaim(req, res) {
@@ -37,7 +38,7 @@ class WarrantyClaimController {
       const vinValidation = await VehicleServiceClient.validateVIN(
         createDto.vin
       );
-      
+
       if (!vinValidation.isValid) {
         return res.status(400).json({
           success: false,
@@ -297,6 +298,18 @@ class WarrantyClaimController {
         });
       }
 
+      const response = await axios.post(
+        `${process.env.PART_SERVICE_URL}/api/inventory/allocate`,
+        {
+          items: claim.parts.map((p) => ({
+            part_name: p.part_name,
+            part_catalog_id: p.part_catalog_id,
+            quantity: p.quantity,
+          })),
+        }
+      );
+      console.log("response: ", response.data);
+
       //  Cập nhật người duyệt và thời gian duyệt
       claim.reviewed_by = reviewer || null;
       claim.reviewed_at = new Date();
@@ -330,7 +343,16 @@ class WarrantyClaimController {
         },
       });
     } catch (error) {
-      res.status(500).json({
+      if (error.response) {
+        return res.status(error.response.status).json({
+          success: false,
+          message: error.response.data.message,
+          error: error.response.data, // body lỗi từ allocate
+        });
+      }
+
+      // Lỗi hệ thống khác (network, timeout...)
+      return res.status(500).json({
         success: false,
         message: "Lỗi xử lý duyệt yêu cầu bảo hành",
         error: error.message,
@@ -342,7 +364,7 @@ class WarrantyClaimController {
     try {
       const { code } = req.params;
       console.log("code", code);
-      
+
       const claim = await WarrantyClaim.findOne({ claim_code: code });
       if (!claim)
         return res

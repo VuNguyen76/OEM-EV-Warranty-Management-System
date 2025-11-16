@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-toastify";
 
 const CreateInventoryModal = ({ onClose, onSubmit, partCatalogs, refetch }) => {
   const [form, setForm] = useState({
@@ -11,10 +12,15 @@ const CreateInventoryModal = ({ onClose, onSubmit, partCatalogs, refetch }) => {
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    await onSubmit(form).unwrap();
-    refetch();
-    onClose();
+    try {
+      e.preventDefault();
+      await onSubmit(form).unwrap();
+      refetch();
+      onClose();
+      toast.success("Tạo tồn kho thành công");
+    } catch (error) {
+      toast.error(error?.data?.message || "Lỗi tạo tồn kho");
+    }
   };
 
   return (

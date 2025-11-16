@@ -26,12 +26,15 @@ class VehicleController {
       const vehiclesParts = await Promise.all(
         vehicles.map(async (v) => {
           const partDetails = await PartServiceClient.getPartByVehicle(v._id);
+          console.log("partDetails: ", partDetails);
+          
           return {
             ...v.toObject(),
             parts: partDetails,
           };
         })
       );
+      
       const responseData = vehiclesParts.map((v) => new VehicleResponseDto(v));
 
       res.status(200).json({

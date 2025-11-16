@@ -5,6 +5,7 @@ import {
   useUpdateInventoryMutation,
   useCreateInventoryMutation,
   useCreatePartCatalogMutation,
+  useDeleteInventoryMutation,
 } from "../../../../features/part/part.api";
 import CreateInventoryModal from "./CreateInventoryModal";
 import EditInventoryModal from "./EditInventoryModal";
@@ -18,6 +19,7 @@ const PartsManagement = () => {
   const [updateInventory] = useUpdateInventoryMutation();
   const [createInventory] = useCreateInventoryMutation();
   const [createPartCatalog] = useCreatePartCatalogMutation();
+  const [deleteInventory] = useDeleteInventoryMutation();
 
   // State modal
   const [showCreateInventory, setShowCreateInventory] = useState(false);
@@ -63,40 +65,81 @@ const PartsManagement = () => {
               <th className="border border-gray-300 px-3 py-2">
                 Ngưỡng cảnh báo
               </th>
+              <th className="border border-gray-300 px-3 py-2">Cảnh báo</th>
               <th className="border border-gray-300 px-3 py-2">Thao tác</th>
             </tr>
           </thead>
           <tbody>
-            {inventories?.map((item, idx) => (
-              <tr key={item._id} className="hover:bg-gray-50">
-                <td className="border border-gray-300 px-3 py-2 text-center">
-                  {idx + 1}
-                </td>
-                <td className="border border-gray-300 px-3 py-2">
-                  {item.part_name}
-                </td>
-                <td className="border border-gray-300 px-3 py-2">
-                  {item.category}
-                </td>
-                <td className="border border-gray-300 px-3 py-2 text-center">
-                  {item.quantity}
-                </td>
-                <td className="border border-gray-300 px-3 py-2 text-center">
-                  {item.threshold}
-                </td>
-                <td className="border border-gray-300 px-3 py-2 text-center">
-                  <button
-                    className="text-blue-600 hover:underline"
-                    onClick={() => {
-                      setSelectedInventory(item);
-                      setShowEditInventory(true);
-                    }}
-                  >
-                    Chỉnh sửa
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {inventories?.map((item, idx) => {
+              const isLowStock = item.quantity <= item.threshold;
+
+              return (
+                <tr
+                  key={item._id}
+                  className={`hover:bg-gray-50 ${
+                    isLowStock ? "bg-red-50" : ""
+                  }`}
+                >
+                  <td className="border border-gray-300 px-3 py-2 text-center">
+                    {idx + 1}
+                  </td>
+
+                  <td className="border border-gray-300 px-3 py-2">
+                    {item.part_name}
+                  </td>
+
+                  <td className="border border-gray-300 px-3 py-2">
+                    {item.category}
+                  </td>
+
+                  <td className="border border-gray-300 px-3 py-2 text-center">
+                    {item.quantity}
+                  </td>
+
+                  <td className="border border-gray-300 px-3 py-2 text-center">
+                    {item.threshold}
+                  </td>
+
+                  {/* 🔥 Cột cảnh báo tồn kho thấp */}
+                  <td className="border border-gray-300 px-3 py-2 text-center">
+                    {isLowStock ? (
+                      <span className="text-red-600 font-semibold">
+                        Sắp hết hàng
+                      </span>
+                    ) : (
+                      <span className="text-green-600">OK</span>
+                    )}
+                  </td>
+
+                  <td className="border border-gray-300 px-3 py-2 text-center">
+                    <button
+                      className="text-blue-600 hover:underline cursor-pointer"
+                      onClick={() => {
+                        setSelectedInventory(item);
+                        setShowEditInventory(true);
+                      }}
+                    >
+                      <i className="fa-regular fa-pen-to-square"/>
+                    </button>
+                    <button
+                      className="text-red-600 hover:underline ml-3 cursor-pointer"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Bạn có chắc chắn muốn xóa tồn kho này?"
+                          )
+                        ) {
+                          deleteInventory(item.part_catalog_id._id).unwrap();
+                          refetch();
+                        }
+                      }}
+                    >
+                      <i className="fa-regular fa-trash-can"  />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

@@ -15,4 +15,10 @@ router.patch('/:part_catalog_id', InventoryController.updateInventory);
 // POST / - Tạo tồn kho mới
 router.post('/', InventoryController.craeteInventory);
 
+// POST /allocate - Cấp phát tồn kho cho đơn hàng bảo hành
+router.post('/allocate', InventoryController.allocate);
+
+// DELETE /:part_catalog_id - Xóa tồn kho
+router.delete('/:part_catalog_id', InventoryController.deleteInventory);
+
 export default router;

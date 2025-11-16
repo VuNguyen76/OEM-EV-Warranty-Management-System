@@ -8,7 +8,7 @@ class InventoryController {
   static async getInventory(req, res) {
     try {
       const inventory = await Inventory.find()
-        .populate("part_catalog_id", "name category")
+        .populate("part_catalog_id", "_id name category")
         .sort({ createdAt: 1 });
       const responseData = inventory.map(
         (item) => new InventoryResponseDto(item)
@@ -82,6 +82,15 @@ class InventoryController {
           errors: validation.newErrors,
         });
       }
+      const existing = await Inventory.findOne({
+        part_catalog_id: createDto.part_catalog_id,
+      });
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          message: "Phụ tùng đã tồn tại trong kho",
+        });
+      }
 
       const inventory = new Inventory(createDto.toModel());
       await inventory.save();
@@ -96,6 +105,31 @@ class InventoryController {
       res.status(400).json({
         success: false,
         message: "Lỗi tạo tồn kho",
+        error: error.message,
+      });
+    }
+  }
+
+  static async deleteInventory(req, res) {
+    try {
+      const { part_catalog_id } = req.params;
+      const inventory = await Inventory.findOneAndDelete({ part_catalog_id });
+
+      if (!inventory) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy phụ tùng trong kho",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Xóa tồn kho thành công",
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Lỗi xóa tồn kho",
         error: error.message,
       });
     }
@@ -121,6 +155,62 @@ class InventoryController {
       res.status(500).json({
         success: false,
         message: "Lỗi lấy danh sách tồn kho thấp",
+        error: error.message,
+      });
+    }
+  }
+
+  // POST /api/inventory/allocate - Cấp phát tồn kho cho đơn hàng bảo hành
+  static async allocate(req, res) {
+    try {
+      const { items } = req.body;
+      console.log(items);
+      
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Danh sách phụ tùng không hợp lệ",
+        });
+      }
+
+      // 1) Kiểm tra tồn kho từng item
+      for (const item of items) {
+        const part = await Inventory.findOne({
+          part_catalog_id: item.part_catalog_id,
+        });
+        
+        if (!part) {
+          return res.status(404).json({
+            success: false,
+            message: `Không tìm thấy phụ tùng ${item.part_name}`,
+          });
+        }
+
+        if (part.quantity < item.quantity) {
+          return res.status(400).json({
+            success: false,
+            message: `Phụ tùng ${item.part_name} không đủ tồn kho`,
+          });
+        }
+      }
+      
+
+      // 2) Giảm tồn kho tất cả item
+      for (const item of items) {
+        await Inventory.updateOne(
+          { part_catalog_id: item.part_catalog_id },
+          { $inc: { quantity: -item.quantity } }
+        );
+      }
+      return res.json({
+        success: true,
+        message: "Trừ tồn kho thành công",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi allocate tồn kho",
         error: error.message,
       });
     }
