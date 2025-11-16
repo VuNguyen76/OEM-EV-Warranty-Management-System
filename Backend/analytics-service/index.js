@@ -16,8 +16,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "analytics-service", time: new Date() });
 });
 
-// Kết nối DB và khởi động server
-const PORT = process.env.PORT_ANALYTICS || 3006;
+
 
 connectDB().then(() => {
   app.listen(PORT, () => {
