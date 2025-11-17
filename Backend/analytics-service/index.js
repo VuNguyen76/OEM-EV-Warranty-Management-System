@@ -1,26 +1,21 @@
 import express from "express";
 import dotenv from "dotenv";
-import analyticsRoutes from "./src/routes/analyticsRoutes.js";
-import connectDB from "./src/database/connect.js";
+import mongoose from "mongoose";
+import analyticsRoutes from "./routes/analytics.routes.js";
 
 dotenv.config();
 const app = express();
 
 app.use(express.json());
 
-// Route chính
-app.use("/api/analytics", analyticsRoutes);
+// Kết nối MongoDB
+mongoose.connect(process.env.MONGO_URL)
+  .then(() => console.log("Analytics Service connected to MongoDB"))
+  .catch(err => console.log(err));
 
-// Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "analytics-service", time: new Date() });
-});
+app.use("/analytics", analyticsRoutes);
 
-// Kết nối DB và khởi động server
-const PORT = process.env.PORT_ANALYTICS || 3006;
-
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`✅ Analytics Service running on port ${PORT}`);
-  });
+const PORT = process.env.PORT || 3004;
+app.listen(PORT, () => {
+  console.log(`Analytics Service running on port ${PORT}`);
 });
