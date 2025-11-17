@@ -1,30 +1,32 @@
-import failureRateService from "../services/failureRate.service.js";
-import rootCauseService from "../services/rootCause.service.js";
-import forecastService from "../services/forecast.service.js";
+const analyticsService = require('../services/analyticsService');
 
-export const getFailureRate = async (req, res) => {
-    try {
-        const result = await failureRateService.calculate(req.query);
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// UC24
+exports.getFailureRate = async (req, res) => {
+  try {
+    const { model } = req.query; // Lấy ?model=VF8 từ URL
+    const data = await analyticsService.getFailureStats(model);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
-export const analyzeRootCause = async (req, res) => {
-    try {
-        const result = await rootCauseService.analyze(req.query);
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// UC25
+exports.getRootCause = async (req, res) => {
+  try {
+    const data = await analyticsService.getRootCauseAnalysis();
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
-export const forecastCost = async (req, res) => {
-    try {
-        const result = await forecastService.forecast(req.query);
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+// UC26
+exports.getForecast = async (req, res) => {
+  try {
+    const data = await analyticsService.getCostForecast();
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
