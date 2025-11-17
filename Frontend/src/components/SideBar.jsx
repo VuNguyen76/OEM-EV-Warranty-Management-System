@@ -55,6 +55,11 @@ const sideBarEVM = [
     icon: "fa-solid fa-wrench",
     path: "/evm/manage-parts",
   },
+  {
+    label: "Quản lý chiến dịch",
+    icon: "fa-solid fa-triangle-exclamation",
+    path: "/evm/manage-campaign",
+  },
 ];
 const sideBarTechnician = [
   {

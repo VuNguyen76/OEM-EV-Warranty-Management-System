@@ -18,6 +18,7 @@ import Technician from "../page/Home/SC/Technician";
 import ClaimsManagement from "../page/Home/EVM/ClaimsManagement";
 import CustomerConfirmPage from "../page/CustomerConfirmPage";
 import PartsManagement from "../page/Home/EVM/Part/PartsManagement";
+import CampaignManagement from "../page/Home/EVM/CampaignManagement";
 
 const router = createBrowserRouter([
   {
@@ -102,6 +103,10 @@ const router = createBrowserRouter([
           {
             path: "manage-parts",
             element: <PartsManagement />,
+          },
+          {
+            path: "manage-campaign",
+            element: <CampaignManagement />,
           },
         ],
       },

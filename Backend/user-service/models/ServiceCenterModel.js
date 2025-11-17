@@ -45,8 +45,10 @@ serviceCenterSchema.pre("validate", async function (next) {
   if (this.center_code) return next(); // nếu đã có sẵn thì bỏ qua
 
   try {
+    const timestamp = Date.now().toString(36).toUpperCase();
     const count = await mongoose.model("ServiceCenter").countDocuments();
-    this.center_code = `SC${count}`;
+    this.center_code = `WC-${timestamp}-${count}`;
+
     next();
   } catch (err) {
     next(err);

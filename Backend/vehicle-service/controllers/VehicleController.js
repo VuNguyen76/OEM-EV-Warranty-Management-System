@@ -26,15 +26,14 @@ class VehicleController {
       const vehiclesParts = await Promise.all(
         vehicles.map(async (v) => {
           const partDetails = await PartServiceClient.getPartByVehicle(v._id);
-          console.log("partDetails: ", partDetails);
-          
+
           return {
             ...v.toObject(),
             parts: partDetails,
           };
         })
       );
-      
+
       const responseData = vehiclesParts.map((v) => new VehicleResponseDto(v));
 
       res.status(200).json({
@@ -334,6 +333,31 @@ class VehicleController {
         message: "Lỗi lấy thông tin bảo hành",
         error: error.message,
       });
+    }
+  }
+
+  static async findAffectedVehicles(req, res) {
+    try {
+      const { affected_parts = [] } = req.body;
+
+      // Convert string → ObjectId
+      const partIds = affected_parts.map(
+        (id) => new mongoose.Types.ObjectId(id)
+      );
+
+      // Lấy tất cả xe trước
+      const allVehicles = await VehicleModel.find();
+
+      // Lọc các xe có ít nhất một part trùng affected_parts
+      const vehicles = allVehicles.filter((vehicle) =>
+        vehicle.parts.some((part) =>
+          partIds.some((id) => part.part_catalog_id.equals(id))
+        )
+      );
+
+      return res.json({ success: true, vehicles });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
     }
   }
 }
