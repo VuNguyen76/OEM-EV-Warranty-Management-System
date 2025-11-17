@@ -1,14 +1,30 @@
-const analyticsService = {
-  async generateReports() {
-    // Mô phỏng dữ liệu phân tích — có thể thay bằng truy vấn DB thực
-    return {
-      totalUsers: 1520,
-      activeSessions: 324,
-      avgResponseTime: "120ms",
-      uptime: process.uptime().toFixed(2) + "s",
-      timestamp: new Date(),
-    };
-  },
+import failureRateService from "../services/failureRate.service.js";
+import rootCauseService from "../services/rootCause.service.js";
+import forecastService from "../services/forecast.service.js";
+
+export const getFailureRate = async (req, res) => {
+    try {
+        const result = await failureRateService.calculate(req.query);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-export default analyticsService;
+export const analyzeRootCause = async (req, res) => {
+    try {
+        const result = await rootCauseService.analyze(req.query);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const forecastCost = async (req, res) => {
+    try {
+        const result = await forecastService.forecast(req.query);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
