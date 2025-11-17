@@ -106,7 +106,7 @@ class PartController {
       // Tìm toàn bộ phụ tùng theo vehicle_id
       const parts = await Part.find({ vehicle_id }).populate(
         "part_catalog_id",
-        " name category manufacturer cost_price weight_kg"
+        "_id name category manufacturer cost_price weight_kg"
       );
 
       // Map DTO

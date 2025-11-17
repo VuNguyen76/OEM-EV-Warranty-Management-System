@@ -51,9 +51,9 @@ const sideBarEVM = [
     path: "/evm/manage-claim",
   },
   {
-    label: "Quản lý Repair Order",
-    icon: "fa-regular fa-clipboard",
-    path: "/evm/manage-repair-order",
+    label: "Quản lý phụ tùng",
+    icon: "fa-solid fa-wrench",
+    path: "/evm/manage-parts",
   },
 ];
 const sideBarTechnician = [

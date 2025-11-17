@@ -37,6 +37,7 @@ const CreateClaim = () => {
     setSelectedParts((prev) => {
       const partSerial = part.serial_number;
       const exists = prev.find((p) => p.part_serial === partSerial);
+      
 
       if (exists) {
         // Bỏ chọn
@@ -48,7 +49,7 @@ const CreateClaim = () => {
           {
             part_id: part._id,
             part_serial: partSerial,
-            part_category: part.part_category,
+            part_catalog_id: part.part_catalog_id,
             part_name: part.part_name,
             cost: part.part_cost_price,
             quantity: 1,

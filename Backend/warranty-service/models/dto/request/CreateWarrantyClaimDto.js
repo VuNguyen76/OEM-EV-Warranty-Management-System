@@ -9,6 +9,8 @@ class CreateWarrantyClaimDto {
         this.estimated_cost = data.estimated_cost || 0;
         this.center_id = data.center_id;
         this.part_cost = data.part_cost || 0;
+        this.part_catalog_id = data.part_catalog_id;
+        
     }
 
     validate() {
@@ -24,6 +26,9 @@ class CreateWarrantyClaimDto {
                 }
                 if (!part.part_serial) {
                     errors.push(`Phụ tùng thứ ${index + 1}: Thiếu part_serial`);
+                }
+                if (!part.part_catalog_id) {
+                    errors.push(`Phụ tùng thứ ${index + 1}: Thiếu part_catalog_id`);
                 }
                 if (part.quantity && (part.quantity < 1 || !Number.isInteger(part.quantity))) {
                     errors.push(`Phụ tùng thứ ${index + 1}: Số lượng không hợp lệ`);
@@ -49,7 +54,7 @@ class CreateWarrantyClaimDto {
                 part_id: part.part_id?.trim(),
                 part_serial: part.part_serial?.trim(),
                 part_name: part.part_name?.trim(),
-                part_category: part.part_category?.trim(),
+                part_catalog_id: part.part_catalog_id,
                 cost: part.cost || 0,
                 quantity: part.quantity || 1,
             })),

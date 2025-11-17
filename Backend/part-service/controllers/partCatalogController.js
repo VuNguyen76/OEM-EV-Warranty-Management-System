@@ -11,7 +11,15 @@ class PartCatalogController {
       if (!validation.isValid)
         return res
           .status(400)
-          .json({ success: false, message: "Dữ liệu không hợp lệ" });
+          .json({ success: false, message: "Dữ liệu không hợp lệ", errors: validation.newErrors });
+
+      const existing = await PartCatalog.findOne({ model_code: createDto.model_code });
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          message: "Mã model đã tồn tại",
+        });
+      }
 
       const catalog = new PartCatalog(createDto.toModel());
       await catalog.save();
