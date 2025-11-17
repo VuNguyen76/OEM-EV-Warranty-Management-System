@@ -15,7 +15,7 @@ mongoose.connect(process.env.MONGO_URL)
 
 app.use("/analytics", analyticsRoutes);
 
-const PORT = process.env.PORT || 3004;
+const PORT = process.env.PORT || 3006;
 app.listen(PORT, () => {
   console.log(`Analytics Service running on port ${PORT}`);
 });
