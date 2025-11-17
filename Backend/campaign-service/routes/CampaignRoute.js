@@ -7,7 +7,9 @@ const router = express.Router();
 
 router.use(auth);
 
-
+// Campaigns
+router.post("/", CampaignController.createCampaign);
+router.get("/", CampaignController.getAllCampaigns);
 
 
 export default router;
