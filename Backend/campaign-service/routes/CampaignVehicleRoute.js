@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.use(auth);
 
-
+router.get("/", CampaignVehicleController.getAllCampaignVehicles);
+router.patch("/:id", CampaignVehicleController.updateCampaignStatus);
 
 export default router;

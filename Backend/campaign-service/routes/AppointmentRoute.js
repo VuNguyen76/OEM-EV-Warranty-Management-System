@@ -6,5 +6,6 @@ const router = express.Router();
 
 router.use(auth);
 
-
+router.get("/", AppointmentController.getAllAppointments);
+router.post("/", AppointmentController.createAppointment);
 export default router;
