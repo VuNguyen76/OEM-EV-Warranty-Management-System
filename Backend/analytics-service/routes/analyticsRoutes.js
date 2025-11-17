@@ -1,14 +1,11 @@
-import express from "express";
-import {
-  getFailureRate,
-  analyzeRootCause,
-  forecastCost
-} from "../controllers/analytics.controller.js";
-
+const express = require('express');
 const router = express.Router();
+const controller = require('../controllers/analyticsController');
 
-router.get("/failure-rate", getFailureRate);
-router.get("/root-cause", analyzeRootCause);
-router.get("/forecast", forecastCost);
+// Định nghĩa routes con
+// URL thực tế sẽ là: /api/analytics/failures, /api/analytics/root-cause...
+router.get('/failures', controller.getFailureRate);
+router.get('/root-cause', controller.getRootCause);
+router.get('/forecast', controller.getForecast);
 
-export default router;
+module.exports = router;
