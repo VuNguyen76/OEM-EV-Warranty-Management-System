@@ -60,6 +60,11 @@ const sideBarEVM = [
     icon: "fa-solid fa-triangle-exclamation",
     path: "/evm/manage-campaign",
   },
+  {
+    label: "Phân tích dữ liệu",
+    icon: "fa-solid fa-chart-line",
+    path: "/evm/analytics",
+  },
 ];
 const sideBarTechnician = [
   {

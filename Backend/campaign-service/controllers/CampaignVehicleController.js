@@ -5,7 +5,7 @@ class CampaignVehicleController {
     try {
       const vehicles = await CampaignVehicle.find()
         .populate("campaign_id", "title description")
-        .sort({ created_at: -1 });
+        .sort({ createdAt: -1 });
       res.json({
         success: true,
         data: vehicles,

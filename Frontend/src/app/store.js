@@ -9,6 +9,7 @@ import { partApi } from "../service/partApi";
 import { warrantyApi } from "../service/warrantyApi";
 import warrantySlice from "../features/warranty/warranty.slice";
 import { campaignApi } from "../service/campaignApi";
+import { analyticsApi } from "../service/analyticsApi";
 
 const persistConfig = {
   key: "root",
@@ -25,6 +26,7 @@ export const store = configureStore({
     [partApi.reducerPath]: partApi.reducer,
     [warrantyApi.reducerPath]: warrantyApi.reducer,
     [campaignApi.reducerPath]: campaignApi.reducer,
+    [analyticsApi.reducerPath]: analyticsApi.reducer,
     user: persistedUserReducer,
     ui: uiSlice,
     warranty: warrantySlice,
@@ -36,7 +38,8 @@ export const store = configureStore({
       vehicleApi.middleware,
       partApi.middleware,
       warrantyApi.middleware,
-      campaignApi.middleware
+      campaignApi.middleware,
+      analyticsApi.middleware
     ),
 });
 

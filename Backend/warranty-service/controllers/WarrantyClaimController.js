@@ -108,28 +108,65 @@ class WarrantyClaimController {
   // GET /api/claims - Danh sách claim
   static async getAllClaims(req, res) {
     try {
-      const { status, service_center_id, vin } = req.query;
-      const query = {};
-
+      const { status, service_center_id, vin, from, to, period } = req.query;
+  
+      let query = {};
+  
+      // -------------------------------
+      // 1. Giữ nguyên filter cũ
+      // -------------------------------
       if (status) query.status = status;
       if (service_center_id) query.service_center_id = service_center_id;
       if (vin) query.vin = vin;
-
+  
+      // -------------------------------
+      // 2. Xử lý lọc theo ngày
+      // -------------------------------
+      let dateFilter = {};
+  
+      // Truyền period = "2025-11"
+      if (period) {
+        const start = new Date(`${period}-01T00:00:00.000Z`);
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + 1);
+  
+        dateFilter.$gte = start;
+        dateFilter.$lte = end;
+      }
+  
+      // Nếu truyền trực tiếp from / to
+      if (from) {
+        dateFilter.$gte = new Date(from);
+      }
+      if (to) {
+        dateFilter.$lte = new Date(to);
+      }
+  
+      // Nếu có bất kỳ lọc thời gian → apply vào submitted_at
+      if (Object.keys(dateFilter).length > 0) {
+        query.submitted_at = dateFilter;
+      }
+  
+      // -------------------------------
+      // 3. Query DB
+      // -------------------------------
       const claims = await WarrantyClaim.find(query).sort({ submitted_at: -1 });
-
-      res.json({
+  
+      return res.json({
         success: true,
         data: claims,
         count: claims.length,
       });
+  
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Lỗi lấy danh sách yêu cầu",
         error: error.message,
       });
     }
   }
+  
 
   // GET /api/claims/:code - Lấy chi tiết claim
   static async getClaimByCode(req, res) {

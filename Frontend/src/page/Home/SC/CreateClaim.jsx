@@ -51,6 +51,7 @@ const CreateClaim = () => {
             part_serial: partSerial,
             part_catalog_id: part.part_catalog_id,
             part_name: part.part_name,
+            part_category: part.part_category,
             cost: part.part_cost_price,
             quantity: 1,
           },

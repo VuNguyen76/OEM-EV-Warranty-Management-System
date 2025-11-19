@@ -19,6 +19,7 @@ import ClaimsManagement from "../page/Home/EVM/ClaimsManagement";
 import CustomerConfirmPage from "../page/CustomerConfirmPage";
 import PartsManagement from "../page/Home/EVM/Part/PartsManagement";
 import CampaignManagement from "../page/Home/EVM/CampaignManagement";
+import Analytics from "../page/Home/EVM/Analytics";
 
 const router = createBrowserRouter([
   {
@@ -107,6 +108,10 @@ const router = createBrowserRouter([
           {
             path: "manage-campaign",
             element: <CampaignManagement />,
+          },
+          {
+            path: "analytics",
+            element: <Analytics />,
           },
         ],
       },
