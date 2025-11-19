@@ -1,5 +1,5 @@
 import express from "express";
-import VinController from "../controllers/vinController.js";
+import VinController from "../controllers/VinController.js";
 
 const router = express.Router();
 

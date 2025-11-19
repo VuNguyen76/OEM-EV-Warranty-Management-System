@@ -22,7 +22,7 @@ services:
     networks:
       - warranty_network
     volumes:
-      - ./Backend/shared:/app/shared  
+      - ./Backend/shared:/shared  
 
   # ===================== USER SERVICE =====================
   user-service:
@@ -38,7 +38,7 @@ services:
     networks:
       - warranty_network
     volumes:
-      - ./Backend/shared:/app/shared
+      - ./Backend/shared:/shared
 
   mongo-user:
     image: mongo:7.0
@@ -61,7 +61,7 @@ services:
     networks:
       - warranty_network
     volumes:
-      - ./Backend/shared:/app/shared
+      - ./Backend/shared:/shared
 
   mongo-vehicle:
     image: mongo:7.0
@@ -84,7 +84,7 @@ services:
     networks:
       - warranty_network
     volumes:
-      - ./Backend/shared:/app/shared
+      - ./Backend/shared:/shared
 
   mongo-warranty:
     image: mongo:7.0
@@ -107,7 +107,7 @@ services:
     networks:
       - warranty_network
     volumes:
-      - ./Backend/shared:/app/shared
+      - ./Backend/shared:/shared
 
   mongo-part:
     image: mongo:7.0
@@ -130,7 +130,7 @@ services:
     networks:
       - warranty_network
     volumes:
-      - ./Backend/shared:/app/shared
+      - ./Backend/shared:/shared
 
   mongo-campaign:
     image: mongo:7.0
@@ -153,7 +153,7 @@ services:
     networks:
       - warranty_network
     volumes:
-      - ./Backend/shared:/app/shared
+      - ./Backend/shared:/shared
 
   mongo-analytics:
     image: mongo:7.0

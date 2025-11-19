@@ -1,6 +1,6 @@
 import axios from "axios";
 import CampaignVehicle from "../models/CampaignVehicle.js";
-import CampaignModel from "../models/campaign.js";
+import CampaignModel from "../models/Campaign.js";
 
 class CampaignController {
   static async createCampaign(req, res) {

@@ -1,11 +1,16 @@
-import { vehicleApi } from "../../service/vehicleApi";
+import { api } from "../../service/api";
 
-const extendedVehicleApi = vehicleApi.injectEndpoints({
+const withVehiclePrefix = (path = "") => {
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  return normalized ? `vehicle/${normalized}` : "vehicle";
+};
+
+const extendedVehicleApi = api.injectEndpoints({
   endpoints: (builder) => ({
     // GET ALL VEHICLES
     getAllVehicles: builder.query({
       query: () => ({
-        url: "vehicles",
+        url: withVehiclePrefix("vehicles"),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -15,7 +20,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
     // GET VEHICLE BY ID
     getVehicleById: builder.query({
       query: (id) => ({
-        url: `vehicles/${id}`,
+        url: withVehiclePrefix(`vehicles/${id}`),
         method: "GET",
       }),
       providesTags: (result, error, id) => [{ type: "Vehicle", id }],
@@ -24,7 +29,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
     // CREATE VEHICLE (staff đăng ký xe từ VIN)
     createVehicle: builder.mutation({
       query: (data) => ({
-        url: "vehicles",
+        url: withVehiclePrefix("vehicles"),
         method: "POST",
         body: data,
       }),
@@ -34,7 +39,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
     // UPDATE VEHICLE
     updateVehicle: builder.mutation({
       query: ({ id, data }) => ({
-        url: `vehicles/${id}`,
+        url: withVehiclePrefix(`vehicles/${id}`),
         method: "PUT",
         body: data,
       }),
@@ -44,7 +49,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
     // DELETE VEHICLE
     deleteVehicle: builder.mutation({
       query: (id) => ({
-        url: `vehicles/${id}`,
+        url: withVehiclePrefix(`vehicles/${id}`),
         method: "DELETE",
       }),
       invalidatesTags: ["Vehicle"],
@@ -53,7 +58,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
     // GET ALL VINS
     getAllVins: builder.query({
       query: () => ({
-        url: "vins",
+        url: withVehiclePrefix("vins"),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -63,7 +68,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
     // GET ALL CUSTOMERS
     getAllCustomers: builder.query({
       query: () => ({
-        url: "customers",
+        url: withVehiclePrefix("customers"),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -72,7 +77,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
 
     createCustomer: builder.mutation({
       query: (data) => ({
-        url: "customers",
+        url: withVehiclePrefix("customers"),
         method: "POST",
         body: data,
       }),
@@ -81,7 +86,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
 
     updateCustomer: builder.mutation({
       query: ({ id, data }) => ({
-        url: `customers/${id}`,
+        url: withVehiclePrefix(`customers/${id}`),
         method: "PUT",
         body: data,
       }),
@@ -90,7 +95,7 @@ const extendedVehicleApi = vehicleApi.injectEndpoints({
 
     deleteCustomer: builder.mutation({
       query: (id) => ({
-        url: `customers/${id}`,
+        url: withVehiclePrefix(`customers/${id}`),
         method: "DELETE",
       }),
       invalidatesTags: ["Vehicle"],

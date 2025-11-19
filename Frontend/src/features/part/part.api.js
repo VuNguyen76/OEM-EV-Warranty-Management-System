@@ -1,12 +1,17 @@
 // src/features/part/part.api.js
-import { partApi } from "../../service/partApi";
+import { api } from "../../service/api";
 
-const extendedPartApi = partApi.injectEndpoints({
+const withPartPrefix = (path = "") => {
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  return normalized ? `part/${normalized}` : "part";
+};
+
+const extendedPartApi = api.injectEndpoints({
   endpoints: (builder) => ({
     // 🔹 Lấy danh sách mẫu phụ tùng (PartCatalog)
     getAllPartCatalogs: builder.query({
       query: () => ({
-        url: "part-catalog",
+        url: withPartPrefix("part-catalog"),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -15,7 +20,7 @@ const extendedPartApi = partApi.injectEndpoints({
 
     createPartCatalog: builder.mutation({
       query: (data) => ({
-        url: "part-catalog",
+        url: withPartPrefix("part-catalog"),
         method: "POST",
         body: data,
       }),
@@ -25,7 +30,7 @@ const extendedPartApi = partApi.injectEndpoints({
     // 🔹 Lấy danh sách phụ tùng thật (PartInstance)
     getAllParts: builder.query({
       query: () => ({
-        url: "parts",
+        url: withPartPrefix("parts"),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -35,7 +40,7 @@ const extendedPartApi = partApi.injectEndpoints({
     // 🔹 Lấy phụ tùng theo xe
     getPartsByVehicle: builder.query({
       query: (vehicle_id) => ({
-        url: `parts/vehicle/${vehicle_id}`,
+        url: withPartPrefix(`parts/vehicle/${vehicle_id}`),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -45,7 +50,7 @@ const extendedPartApi = partApi.injectEndpoints({
     // 🔹 Thêm phụ tùng (gắn vào xe)
     addPartToVehicle: builder.mutation({
       query: (data) => ({
-        url: "parts",
+        url: withPartPrefix("parts"),
         method: "POST",
         body: data,
       }),
@@ -55,7 +60,7 @@ const extendedPartApi = partApi.injectEndpoints({
     // 🔹 Cập nhật trạng thái phụ tùng
     updatePart: builder.mutation({
       query: ({ id, data }) => ({
-        url: `parts/${id}`,
+        url: withPartPrefix(`parts/${id}`),
         method: "PATCH",
         body: data,
       }),
@@ -65,7 +70,7 @@ const extendedPartApi = partApi.injectEndpoints({
     // 🔹 Xóa phụ tùng
     deletePart: builder.mutation({
       query: (id) => ({
-        url: `parts/${id}`,
+        url: withPartPrefix(`parts/${id}`),
         method: "DELETE",
       }),
       invalidatesTags: ["Part"],
@@ -73,7 +78,7 @@ const extendedPartApi = partApi.injectEndpoints({
     // 🔹 Lấy danh sách tồn kho
     getInventory: builder.query({
       query: () => ({
-        url: "inventory",
+        url: withPartPrefix("inventory"),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -83,7 +88,7 @@ const extendedPartApi = partApi.injectEndpoints({
     // 🔹 Cập nhật tồn kho
     updateInventory: builder.mutation({
       query: ({ part_catalog_id, data }) => ({
-        url: `inventory/${part_catalog_id}`,
+        url: withPartPrefix(`inventory/${part_catalog_id}`),
         method: "PATCH",
         body: data,
       }),
@@ -92,7 +97,7 @@ const extendedPartApi = partApi.injectEndpoints({
     // 🔹 Tạo tồn kho
     createInventory: builder.mutation({
       query: (data) => ({
-        url: "inventory",
+        url: withPartPrefix("inventory"),
         method: "POST",
         body: data,
       }),
@@ -100,7 +105,7 @@ const extendedPartApi = partApi.injectEndpoints({
     }),
     deleteInventory: builder.mutation({
       query: (part_catalog_id) => ({
-        url: `inventory/${part_catalog_id}`,
+        url: withPartPrefix(`inventory/${part_catalog_id}`),
         method: "DELETE",
       }),
       invalidatesTags: ["Inventory"],

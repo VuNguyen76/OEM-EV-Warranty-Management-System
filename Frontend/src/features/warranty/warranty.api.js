@@ -1,6 +1,11 @@
-import { warrantyApi } from "../../service/warrantyApi";
+import { api } from "../../service/api";
 
-const extendedWarrantyApi = warrantyApi.injectEndpoints({
+const withWarrantyPrefix = (path = "") => {
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  return normalized ? `warranty/${normalized}` : "warranty";
+};
+
+const extendedWarrantyApi = api.injectEndpoints({
   endpoints: (builder) => ({
     // GET ALL CLAIMS
     getAllClaims: builder.query({
@@ -12,10 +17,11 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
           queryParams.append("service_center_id", service_center_id);
         if (vin) queryParams.append("vin", vin);
 
+        const queryString = queryParams.toString();
         return {
-          url: `claims${
-            queryParams.toString() ? `?${queryParams.toString()}` : ""
-          }`,
+          url: withWarrantyPrefix(
+            `claims${queryString ? `?${queryString}` : ""}`
+          ),
           method: "GET",
         };
       },
@@ -26,7 +32,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     // GET CLAIM BY CODE
     getClaimByCode: builder.query({
       query: (code) => ({
-        url: `claims/${code}`,
+        url: withWarrantyPrefix(`claims/${code}`),
         method: "GET",
       }),
       transformResponse: (response) => response.claim || response.data,
@@ -41,7 +47,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         // FormData sẽ được gửi trực tiếp
         // baseQueryWithFormData sẽ xử lý việc không set Content-Type
         return {
-          url: "claims",
+          url: withWarrantyPrefix("claims"),
           method: "POST",
           body: formData,
         };
@@ -53,7 +59,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     // UPDATE CLAIM STATUS
     updateClaimStatus: builder.mutation({
       query: ({ code, data }) => ({
-        url: `claims/${code}/status`,
+        url: withWarrantyPrefix(`claims/${code}/status`),
         method: "PATCH",
         body: data,
       }),
@@ -70,10 +76,11 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         const queryParams = new URLSearchParams();
         if (status) queryParams.append("status", status);
 
+        const queryString = queryParams.toString();
         return {
-          url: `repair-orders${
-            queryParams.toString() ? `?${queryParams.toString()}` : ""
-          }`,
+          url: withWarrantyPrefix(
+            `repair-orders${queryString ? `?${queryString}` : ""}`
+          ),
           method: "GET",
         };
       },
@@ -84,7 +91,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     // GET REPAIR ORDER BY ID
     getRepairOrderById: builder.query({
       query: (id) => ({
-        url: `repair-orders/${id}`,
+        url: withWarrantyPrefix(`repair-orders/${id}`),
         method: "GET",
       }),
       transformResponse: (response) => response.data || response,
@@ -93,7 +100,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
 
     getClaimByTechnician: builder.query({
       query: (technician_id) => ({
-        url: `claims/technician/${technician_id}`,
+        url: withWarrantyPrefix(`claims/technician/${technician_id}`),
         method: "GET",
       }),
       transformResponse: (response) => response.data || response,
@@ -105,7 +112,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     // CREATE REPAIR ORDER
     createRepairOrder: builder.mutation({
       query: (data) => ({
-        url: "repair-orders",
+        url: withWarrantyPrefix("repair-orders"),
         method: "POST",
         body: data,
       }),
@@ -115,7 +122,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     // UPDATE REPAIR ORDER
     updateRepairOrder: builder.mutation({
       query: ({ id, data }) => ({
-        url: `repair-orders/${id}`,
+        url: withWarrantyPrefix(`repair-orders/${id}`),
         method: "PATCH",
         body: data,
       }),
@@ -128,7 +135,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
 
     getTechnicianClaims: builder.query({
       query: (technician_id) => ({
-        url: `claims/technician/${technician_id}`,
+        url: withWarrantyPrefix(`claims/technician/${technician_id}`),
         method: "GET",
       }),
       transformResponse: (response) => response.data || response,
@@ -138,7 +145,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     }),
     approveClaim: builder.mutation({
       query: (code) => ({
-        url: `claims/${code}/approve`,
+        url: withWarrantyPrefix(`claims/${code}/approve`),
         method: "PATCH",
       }),
       invalidatesTags: (result, error, code) => [
@@ -148,7 +155,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     }),
     confirmWarrantyCost: builder.mutation({
       query: (code) => ({
-        url: `claims/${code}/confirm`,
+        url: withWarrantyPrefix(`claims/${code}/confirm`),
         method: "POST",
       }),
       invalidatesTags: (result, error, code) => [
@@ -158,7 +165,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     }),
     createWarrantyPolicy: builder.mutation({
       query: (data) => ({
-        url: "policies",
+        url: withWarrantyPrefix("policies"),
         method: "POST",
         body: data,
       }),
@@ -166,7 +173,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     }),
     getAllWarrantyPolicies: builder.query({
       query: () => ({
-        url: "policies",
+        url: withWarrantyPrefix("policies"),
         method: "GET",
       }),
       transformResponse: (response) => response.data || response,
@@ -174,7 +181,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     }),
     updateWarrantyPolicy: builder.mutation({
       query: ({ id, data }) => ({
-        url: `policies/${id}`,
+        url: withWarrantyPrefix(`policies/${id}`),
         method: "PATCH",
         body: data,
       }),
@@ -182,7 +189,7 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
     }),
     deleteWarrantyPolicy: builder.mutation({
       query: (id) => ({
-        url: `policies/${id}`,
+        url: withWarrantyPrefix(`policies/${id}`),
         method: "DELETE",
       }),
       invalidatesTags: ["WarrantyPolicy"],

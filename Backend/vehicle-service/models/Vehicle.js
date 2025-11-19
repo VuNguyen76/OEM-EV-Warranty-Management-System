@@ -1,8 +1,5 @@
 // Vehicle.js
 import mongoose from "mongoose";
-import "../../user-service/models/UserModel.js";
-import "../../user-service/models/ServiceCenterModel.js";
-import "../../user-service/models/TechnicianModel.js";
 import "../models/Vin.js";
 const VehicleSchema = new mongoose.Schema(
   {

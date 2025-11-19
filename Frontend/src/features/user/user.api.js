@@ -1,10 +1,15 @@
-import { userApi } from "../../service/userApi";
+import { api } from "../../service/api";
 
-const extendedUserApi = userApi.injectEndpoints({
+const withUserPrefix = (path = "") => {
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  return normalized ? `user/${normalized}` : "user";
+};
+
+const extendedUserApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getAllUsers: builder.query({
       query: () => ({
-        url: "users",
+        url: withUserPrefix("users"),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -13,7 +18,7 @@ const extendedUserApi = userApi.injectEndpoints({
 
     getUserById: builder.query({
       query: (id) => ({
-        url: `users/${id}`,
+        url: withUserPrefix(`users/${id}`),
         method: "GET",
       }),
       providesTags: ["User"],
@@ -21,7 +26,7 @@ const extendedUserApi = userApi.injectEndpoints({
 
     updateUser: builder.mutation({
       query: ({ id, data }) => ({
-        url: `users/${id}`,
+        url: withUserPrefix(`users/${id}`),
         method: "PUT",
         body: data,
       }),
@@ -30,7 +35,7 @@ const extendedUserApi = userApi.injectEndpoints({
 
     deleteUser: builder.mutation({
       query: (id) => ({
-        url: `users/${id}`,
+        url: withUserPrefix(`users/${id}`),
         method: "DELETE",
       }),
       invalidatesTags: ["User", "Technician"],
@@ -38,7 +43,7 @@ const extendedUserApi = userApi.injectEndpoints({
 
     registerUser: builder.mutation({
       query: (data) => ({
-        url: "auth/register",
+        url: withUserPrefix("auth/register"),
         method: "POST",
         body: data,
       }),
@@ -46,7 +51,7 @@ const extendedUserApi = userApi.injectEndpoints({
     }),
     createCenter: builder.mutation({
       query: (data) => ({
-        url: "centers",
+        url: withUserPrefix("centers"),
         method: "POST",
         body: data,
       }),
@@ -55,7 +60,7 @@ const extendedUserApi = userApi.injectEndpoints({
 
     createTechnician: builder.mutation({
       query: (data) => ({
-        url: "technicians",
+        url: withUserPrefix("technicians"),
         method: "POST",
         body: data,
       }),
@@ -63,7 +68,7 @@ const extendedUserApi = userApi.injectEndpoints({
     }),
     getAllTechnicians: builder.query({
       query: () => ({
-        url: "technicians",
+        url: withUserPrefix("technicians"),
         method: "GET",
       }),
       providesTags: ["Technician"],
@@ -71,14 +76,14 @@ const extendedUserApi = userApi.injectEndpoints({
     }),
     getTechnicianById: builder.query({
       query: (id) => ({
-        url: `technicians/${id}`,
+        url: withUserPrefix(`technicians/${id}`),
         method: "GET",
       }),
       providesTags: ["Technician"],
     }),
     updateTechnician: builder.mutation({
       query: ({ id, data }) => ({
-        url: `technicians/${id}`,
+        url: withUserPrefix(`technicians/${id}`),
         method: "PUT",
         body: data,
       }),
@@ -86,14 +91,14 @@ const extendedUserApi = userApi.injectEndpoints({
     }),
     deleteTechnician: builder.mutation({
       query: (id) => ({
-        url: `technicians/${id}`,
+        url: withUserPrefix(`technicians/${id}`),
         method: "DELETE",
       }),
       invalidatesTags: ["Technician"],
     }),
     assignTechnician: builder.mutation({
       query: (data) => ({
-        url: `technicians/assign`,
+        url: withUserPrefix(`technicians/assign`),
         method: "POST",
         body: data,
       }),

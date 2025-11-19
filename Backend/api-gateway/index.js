@@ -25,14 +25,26 @@ const services = {
   analytics: process.env.ANALYTICS_SERVICE_URL || "http://analytics-service:3006",
 };
 
-// Tạo route
+const createServiceProxy = (mountPath, target, targetBase = "/api") =>
+  createProxyMiddleware({
+    target,
+    changeOrigin: true,
+    pathRewrite: (path, req) => {
+      const suffix = path?.startsWith("/") ? path : `/${path || ""}`;
+      const base = targetBase.endsWith("/") ? targetBase.slice(0, -1) : targetBase;
+      return `${base}${suffix}`;
+    },
+  });
 
-app.use("/api/users", createProxyMiddleware({ target: services.user, changeOrigin: true }));
-app.use("/api/vehicles", createProxyMiddleware({ target: services.vehicle, changeOrigin: true }));
-app.use("/api/warranty", createProxyMiddleware({ target: services.warranty, changeOrigin: true }));
-app.use("/api/parts", createProxyMiddleware({ target: services.part, changeOrigin: true }));
-app.use("/api/campaigns", createProxyMiddleware({ target: services.campaign, changeOrigin: true }));
-app.use("/api/analytics", createProxyMiddleware({ target: services.analytics, changeOrigin: true }));
+app.use("/api/user", createServiceProxy("/api/user", services.user));
+app.use("/api/vehicle", createServiceProxy("/api/vehicle", services.vehicle));
+app.use("/api/warranty", createServiceProxy("/api/warranty", services.warranty));
+app.use("/api/part", createServiceProxy("/api/part", services.part));
+app.use("/api/campaign", createServiceProxy("/api/campaign", services.campaign));
+app.use(
+  "/api/analytics",
+  createServiceProxy("/api/analytics", services.analytics, "/api/analytics")
+);
 
 const PORT = process.env.PORT_GATEWAY || 3000;
 app.listen(PORT, () => console.log(`API Gateway running on port ${PORT}`));

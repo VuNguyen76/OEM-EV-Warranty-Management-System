@@ -3,13 +3,8 @@ import userReducer from "../features/user/user.slice";
 import uiSlice from "../features/ui/uiSlice";
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
-import { userApi } from "../service/userApi";
-import { vehicleApi } from "../service/vehicleApi";
-import { partApi } from "../service/partApi";
-import { warrantyApi } from "../service/warrantyApi";
 import warrantySlice from "../features/warranty/warranty.slice";
-import { campaignApi } from "../service/campaignApi";
-import { analyticsApi } from "../service/analyticsApi";
+import { api } from "../service/api";
 
 const persistConfig = {
   key: "root",
@@ -21,12 +16,7 @@ const persistedUserReducer = persistReducer(persistConfig, userReducer);
 
 export const store = configureStore({
   reducer: {
-    [userApi.reducerPath]: userApi.reducer,
-    [vehicleApi.reducerPath]: vehicleApi.reducer,
-    [partApi.reducerPath]: partApi.reducer,
-    [warrantyApi.reducerPath]: warrantyApi.reducer,
-    [campaignApi.reducerPath]: campaignApi.reducer,
-    [analyticsApi.reducerPath]: analyticsApi.reducer,
+    [api.reducerPath]: api.reducer,
     user: persistedUserReducer,
     ui: uiSlice,
     warranty: warrantySlice,
@@ -34,12 +24,7 @@ export const store = configureStore({
 
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({ serializableCheck: false }).concat(
-      userApi.middleware,
-      vehicleApi.middleware,
-      partApi.middleware,
-      warrantyApi.middleware,
-      campaignApi.middleware,
-      analyticsApi.middleware
+      api.middleware
     ),
 });
 

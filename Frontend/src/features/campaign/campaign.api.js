@@ -1,10 +1,15 @@
-import { campaignApi } from "../../service/campaignApi";
+import { api } from "../../service/api";
 
-const extendedCampaignApi = campaignApi.injectEndpoints({
+const withCampaignPrefix = (path = "") => {
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  return normalized ? `campaign/${normalized}` : "campaign";
+};
+
+const extendedCampaignApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getAllCampaigns: builder.query({
       query: () => ({
-        url: "campaigns",
+        url: withCampaignPrefix("campaigns"),
         method: "GET",
       }),
       providesTags: ["Campaign"],
@@ -12,7 +17,7 @@ const extendedCampaignApi = campaignApi.injectEndpoints({
     }),
     getAllCampaignVehicles: builder.query({
       query: () => ({
-        url: "campaign-vehicles",
+        url: withCampaignPrefix("campaign-vehicles"),
         method: "GET",
       }),
       providesTags: ["Campaign"],
@@ -20,7 +25,7 @@ const extendedCampaignApi = campaignApi.injectEndpoints({
     }),
     getAllAppointments: builder.query({
       query: () => ({
-        url: "appointments",
+        url: withCampaignPrefix("appointments"),
         method: "GET",
       }),
       providesTags: ["Campaign"],
@@ -28,7 +33,7 @@ const extendedCampaignApi = campaignApi.injectEndpoints({
     }),
     createAppointment: builder.mutation({
       query: (data) => ({
-        url: "appointments",
+        url: withCampaignPrefix("appointments"),
         method: "POST",
         body: data,
       }),
@@ -36,7 +41,7 @@ const extendedCampaignApi = campaignApi.injectEndpoints({
     }),
     createCampaign: builder.mutation({
       query: (data) => ({
-        url: "campaigns",
+        url: withCampaignPrefix("campaigns"),
         method: "POST",
         body: data,
       }),
@@ -44,7 +49,7 @@ const extendedCampaignApi = campaignApi.injectEndpoints({
     }),
     updateCampaignVehicleStatus: builder.mutation({
       query: ({ id, status }) => ({
-        url: `campaign-vehicles/${id}`,
+        url: withCampaignPrefix(`campaign-vehicles/${id}`),
         method: "PATCH",
         body: { status },
       }),

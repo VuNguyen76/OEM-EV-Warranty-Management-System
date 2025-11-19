@@ -1,9 +1,15 @@
-import { userApi } from "../../service/userApi";
-const centerApi = userApi.injectEndpoints({
+import { api } from "../../service/api";
+
+const withUserPrefix = (path = "") => {
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  return normalized ? `user/${normalized}` : "user";
+};
+
+const centerApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getAllCenters: builder.query({
       query: () => ({
-        url: "centers",
+        url: withUserPrefix("centers"),
         method: "GET",
       }),
       transformResponse: (response) => response.data,
@@ -11,14 +17,14 @@ const centerApi = userApi.injectEndpoints({
     }),
     getCenterById: builder.query({
       query: (id) => ({
-        url: `centers/${id}`,
+        url: withUserPrefix(`centers/${id}`),
         method: "GET",
       }),
       providesTags: ["Center"],
     }),
     createCenter: builder.mutation({
       query: (data) => ({
-        url: "centers",
+        url: withUserPrefix("centers"),
         method: "POST",
         body: data,
       }),
@@ -26,7 +32,7 @@ const centerApi = userApi.injectEndpoints({
     }),
     updateCenter: builder.mutation({
       query: ({ id, data }) => ({
-        url: `centers/${id}`,
+        url: withUserPrefix(`centers/${id}`),
         method: "PUT",
         body: data,
       }),
@@ -34,7 +40,7 @@ const centerApi = userApi.injectEndpoints({
     }),
     deleteCenter: builder.mutation({
       query: (id) => ({
-        url: `centers/${id}`,
+        url: withUserPrefix(`centers/${id}`),
         method: "DELETE",
       }),
       invalidatesTags: ["Center"],
