@@ -20,6 +20,7 @@ import CustomerConfirmPage from "../page/CustomerConfirmPage";
 import PartsManagement from "../page/Home/EVM/Part/PartsManagement";
 import CampaignManagement from "../page/Home/EVM/CampaignManagement";
 import Analytics from "../page/Home/EVM/Analytics";
+import WarrantyPolicyManagement from "../page/Home/EVM/WarrantyPolicyManagement.jsx";
 
 const router = createBrowserRouter([
   {
@@ -112,6 +113,10 @@ const router = createBrowserRouter([
           {
             path: "analytics",
             element: <Analytics />,
+          },
+          {
+            path: "manage-warranty-policy",
+            element: <WarrantyPolicyManagement />,
           },
         ],
       },

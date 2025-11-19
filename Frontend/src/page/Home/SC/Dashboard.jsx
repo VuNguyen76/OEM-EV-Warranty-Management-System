@@ -97,7 +97,6 @@ const Dashboard = () => {
           </div>
         ))}
       </div>
-      <Report />
     </div>
   );
 };

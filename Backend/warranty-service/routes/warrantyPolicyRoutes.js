@@ -15,4 +15,6 @@ router.get('/:id', WarrantyPolicyController.getPolicyById);
 // PATCH /:id - Cập nhật chính sách
 router.patch('/:id', WarrantyPolicyController.updatePolicy);
 
+// DELETE /:id - Xóa chính sách
+router.delete('/:id', WarrantyPolicyController.deletePolicy);
 export default router;

@@ -36,8 +36,8 @@ const warrantyPolicySchema = new Schema({
     }],
     status: {
         type: String,
-        enum: ['draft', 'active', 'expired'],
-        default: 'draft',
+        enum: ["active", "inactive"],
+        default: 'active',
         required: true
     }
 }, {

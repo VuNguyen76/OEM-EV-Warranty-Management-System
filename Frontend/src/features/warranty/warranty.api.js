@@ -156,7 +156,39 @@ const extendedWarrantyApi = warrantyApi.injectEndpoints({
         "WarrantyClaim",
       ],
     }),
+    createWarrantyPolicy: builder.mutation({
+      query: (data) => ({
+        url: "policies",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["WarrantyPolicy"],
+    }),
+    getAllWarrantyPolicies: builder.query({
+      query: () => ({
+        url: "policies",
+        method: "GET",
+      }),
+      transformResponse: (response) => response.data || response,
+      providesTags: ["WarrantyPolicy"],
+    }),
+    updateWarrantyPolicy: builder.mutation({
+      query: ({ id, data }) => ({
+        url: `policies/${id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["WarrantyPolicy"],
+    }),
+    deleteWarrantyPolicy: builder.mutation({
+      query: (id) => ({
+        url: `policies/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["WarrantyPolicy"],
+    }),
   }),
+
 });
 
 export const {
@@ -172,4 +204,8 @@ export const {
   useGetTechnicianClaimsQuery,
   useApproveClaimMutation,
   useConfirmWarrantyCostMutation,
+  useCreateWarrantyPolicyMutation,
+  useGetAllWarrantyPoliciesQuery,
+  useUpdateWarrantyPolicyMutation,
+  useDeleteWarrantyPolicyMutation,
 } = extendedWarrantyApi;

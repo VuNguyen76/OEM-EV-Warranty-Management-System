@@ -7,7 +7,7 @@ class CreateWarrantyPolicyDto {
         this.duration_months = data.duration_months;
         this.max_mileage = data.max_mileage;
         this.conditions = data.conditions || [];
-        this.status = data.status || 'draft';
+        this.status = data.status || 'active';
     }
 
     validate() {
@@ -21,7 +21,7 @@ class CreateWarrantyPolicyDto {
             errors.push('Loại phụ tùng không hợp lệ');
         }
 
-        if (this.status && !['draft', 'active', 'expired'].includes(this.status)) {
+        if (this.status && !['active', 'inactive'].includes(this.status)) {
             errors.push('Trạng thái không hợp lệ');
         }
 

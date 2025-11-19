@@ -133,6 +133,17 @@ class WarrantyPolicyController {
       });
     }
   }
+  // DELETE /api/policies/:id - Xóa chính sách
+  static async deletePolicy(req, res) {
+    try {
+      const { id } = req.params;
+      await WarrantyPolicy.findByIdAndDelete(id);
+      res.json({ success: true, message: "Xóa chính sách thành công" });
+    } catch (error) {
+      res.status(400).json({ success: false, message: "Lỗi xóa chính sách", error: error.message });
+    }
+  }
+  
 
   static evaluateWarrantyForParts = async (parts, vehicle, claimDate) => {
 

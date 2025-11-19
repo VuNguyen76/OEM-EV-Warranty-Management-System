@@ -65,6 +65,11 @@ const sideBarEVM = [
     icon: "fa-solid fa-chart-line",
     path: "/evm/analytics",
   },
+  {
+    label: "Quản lý chính sách bảo hành",
+    icon: "fa-solid fa-file-contract",
+    path: "/evm/manage-warranty-policy",
+  },
 ];
 const sideBarTechnician = [
   {

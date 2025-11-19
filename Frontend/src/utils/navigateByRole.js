@@ -3,7 +3,7 @@ const navigateByRole = (role) => {
     case "sc_staff":
       return "/sc_staff";
     case "evm_staff":
-      return "/evm";
+      return "/evm/manage-center";
     case "admin":
       return "/evm";
     case "sc_technician":
