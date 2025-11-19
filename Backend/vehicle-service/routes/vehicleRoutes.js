@@ -4,6 +4,7 @@ import auth from "../../shared/middlewares/auth.js";
 import authorize from "../../shared/middlewares/authorize.js";
 const router = express.Router();
 
+router.post("/affected", VehicleController.findAffectedVehicles);
 router.get("/search", VehicleController.searchVehicles);
 router.use(auth);
 

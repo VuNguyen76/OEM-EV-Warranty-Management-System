@@ -27,6 +27,10 @@ const warrantyClaimSchema = new Schema(
           required: true,
           trim: true,
         },
+        part_catalog_id: {
+          type: Schema.Types.ObjectId,
+          ref: "PartCatalog",
+        },
         part_serial: {
           type: String,
           required: true,

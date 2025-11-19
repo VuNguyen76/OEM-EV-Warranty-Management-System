@@ -14,16 +14,10 @@ class CreatePartCatalogDto {
 
     validate() {
         const errors = [];
-
         if (!this.name) errors.push('Thiếu tên mẫu phụ tùng');
         if (!this.category) errors.push('Thiếu loại phụ tùng');
         if (!this.manufacturer) errors.push('Thiếu nhà sản xuất');
         if (!this.model_code) errors.push('Thiếu mã model (model_code)');
-
-        if (this.category && !['battery', 'motor', 'bms', 'charger', 'inverter', 'sensor'].includes(this.category)) {
-            errors.push('Loại phụ tùng không hợp lệ');
-        }
-
         if (this.status && !['active', 'discontinued', 'out_of_stock'].includes(this.status)) {
             errors.push('Trạng thái không hợp lệ');
         }

@@ -44,8 +44,7 @@ const ClaimsManagement = () => {
       dispatch(closeModal());
       refetch();
     } catch (error) {
-      console.error(error);
-      toast.error("Cập nhật trạng thái thất bại");
+      toast.error(error?.data?.message || "Cập nhật trạng thái thất bại");
     }
   };
 
@@ -64,7 +63,7 @@ const ClaimsManagement = () => {
     );
 
   return (
-    <div className="h-full w-full space-y-6 p-4">
+    <div className="h-full w-full space-y-6 p-3">
       {/* Header */}
       <div className="flex justify-between items-center">
         <Title

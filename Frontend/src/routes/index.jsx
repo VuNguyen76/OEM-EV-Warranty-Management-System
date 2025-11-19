@@ -16,8 +16,9 @@ import ManageTechnician from "../page/Home/SC/ManageTechnician";
 import AuthActive from "../page/auth/AuthActive";
 import Technician from "../page/Home/SC/Technician";
 import ClaimsManagement from "../page/Home/EVM/ClaimsManagement";
-import RepairOrderManagement from "../page/Home/EVM/RepairOrderManagement";
 import CustomerConfirmPage from "../page/CustomerConfirmPage";
+import PartsManagement from "../page/Home/EVM/Part/PartsManagement";
+import CampaignManagement from "../page/Home/EVM/CampaignManagement";
 
 const router = createBrowserRouter([
   {
@@ -100,8 +101,12 @@ const router = createBrowserRouter([
             element: <ClaimsManagement />,
           },
           {
-            path: "manage-repair-order",
-            element: <RepairOrderManagement />,
+            path: "manage-parts",
+            element: <PartsManagement />,
+          },
+          {
+            path: "manage-campaign",
+            element: <CampaignManagement />,
           },
         ],
       },

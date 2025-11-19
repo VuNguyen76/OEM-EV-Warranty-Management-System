@@ -10,6 +10,7 @@ import {
   useRegisterUserMutation,
   useUpdateUserMutation,
 } from "../../../features/user/user.api.js";
+import Title from "../../../components/Title.jsx";
 export default function ServiceCenterManagement() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [addData, setAddData] = useState({
@@ -153,16 +154,15 @@ export default function ServiceCenterManagement() {
     );
   }
   return (
-    <div className="flex-1">
+    <div className="flex-1 p-3">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            Quản lý Trung tâm Dịch vụ
-          </h1>
-          <p className="text-gray-500 text-sm">
-            Quản lý các trung tâm bảo hành xe điện
-          </p>
+          <Title
+            title="Quản lý Trung tâm Dịch vụ"
+            subTitle="Quản lý các trung tâm bảo hành xe điện"
+          />
+         
         </div>
         <button
           onClick={() => setIsAddOpen(true)}
