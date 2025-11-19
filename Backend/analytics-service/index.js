@@ -4,9 +4,10 @@ import analyticsRoutes from "./routes/analytics.route.js";
 import connectDB from "./config/database.js";
 import cors from "cors";
 
-dotenv.config();
 const app = express();
 
+// Middleware
+app.use(cors());
 app.use(express.json());
 app.use(
   cors({
