@@ -1,6 +1,21 @@
 name: oem_ev_warranty 
 
 services:
+  # ===================== SHARED INIT =====================
+  # Service để cài dependencies cho shared trước khi các services khác chạy
+  shared-init:
+    build: ./Backend/shared
+    volumes:
+      - ./Backend/shared:/shared
+    command: sh -c "cd /shared && npm install --production && touch /shared/.dependencies-installed && tail -f /dev/null"
+    healthcheck:
+      test: ["CMD", "test", "-f", "/shared/.dependencies-installed"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - warranty_network
+
   api-gateway:
     build: ./Backend/api-gateway
     ports:
@@ -13,12 +28,20 @@ services:
       - CAMPAIGN_SERVICE_URL=http://campaign-service:${PORT_CAMPAIGN}
       - ANALYTICS_SERVICE_URL=http://analytics-service:${PORT_ANALYTICS}
     depends_on:
-      - user-service
-      - vehicle-service
-      - warranty-service
-      - part-service
-      - campaign-service
-      - analytics-service
+      shared-init:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      vehicle-service:
+        condition: service_started
+      warranty-service:
+        condition: service_started
+      part-service:
+        condition: service_started
+      campaign-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
     networks:
       - warranty_network
     volumes:
@@ -34,7 +57,10 @@ services:
       - MONGO_URI=${USER_DB}
       - SERVICE_NAME=user
     depends_on:
-      - mongo-user
+      shared-init:
+        condition: service_healthy
+      mongo-user:
+        condition: service_started
     networks:
       - warranty_network
     volumes:
@@ -57,7 +83,10 @@ services:
       - MONGO_URI=${VEHICLE_DB}
       - SERVICE_NAME=vehicle
     depends_on:
-      - mongo-vehicle
+      shared-init:
+        condition: service_healthy
+      mongo-vehicle:
+        condition: service_started
     networks:
       - warranty_network
     volumes:
@@ -80,7 +109,10 @@ services:
       - MONGO_URI=${WARRANTY_DB}
       - SERVICE_NAME=warranty
     depends_on:
-      - mongo-warranty
+      shared-init:
+        condition: service_healthy
+      mongo-warranty:
+        condition: service_started
     networks:
       - warranty_network
     volumes:
@@ -103,7 +135,10 @@ services:
       - MONGO_URI=${PART_DB}
       - SERVICE_NAME=part
     depends_on:
-      - mongo-part
+      shared-init:
+        condition: service_healthy
+      mongo-part:
+        condition: service_started
     networks:
       - warranty_network
     volumes:
@@ -126,7 +161,10 @@ services:
       - MONGO_URI=${CAMPAIGN_DB}
       - SERVICE_NAME=campaign
     depends_on:
-      - mongo-campaign
+      shared-init:
+        condition: service_healthy
+      mongo-campaign:
+        condition: service_started
     networks:
       - warranty_network
     volumes:
@@ -149,7 +187,10 @@ services:
       - MONGO_URI=${ANALYTICS_DB}
       - SERVICE_NAME=analytics
     depends_on:
-      - mongo-analytics
+      shared-init:
+        condition: service_healthy
+      mongo-analytics:
+        condition: service_started
     networks:
       - warranty_network
     volumes:
